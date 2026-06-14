@@ -234,6 +234,77 @@ final class EditorSmokeTests: XCTestCase {
                         "typingAttributes must carry a foreground color")
     }
 
+    func testFindBarShowsAndEditorStillRenders() {
+        // Showing the find bar must not collapse/hide the editor.
+        let controller = makeWindowController(text: "find me here\nand find me again\n")
+        guard let window = controller.window else { return XCTFail("no window") }
+        window.setFrame(NSRect(x: 0, y: 0, width: 1000, height: 700), display: true)
+        controller.showWindow(nil)
+        window.layoutIfNeeded()
+        controller.editorForTesting?.showFindBar(nil)
+        window.layoutIfNeeded()
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+
+        if let tv = controller.focusedTextView {
+            XCTAssertGreaterThan(tv.frame.width, 100, "editor shrank to nothing when find bar shown")
+            XCTAssertGreaterThan(tv.frame.height, 50)
+        } else { XCTFail("no text view") }
+    }
+
+    func testFindBarReservesNoSpaceWhenHidden() {
+        // Regression: a hidden find bar left a dead gap above the first line.
+        // When hidden, the bar must collapse to zero height.
+        let controller = makeWindowController(text: "line one\nline two")
+        guard let window = controller.window, let editor = controller.editorForTesting else {
+            return XCTFail("no editor")
+        }
+        window.setFrame(NSRect(x: 0, y: 0, width: 900, height: 600), display: true)
+        controller.showWindow(nil)
+        window.layoutIfNeeded()
+
+        let barHeightHidden = editor.findBarHeightForTesting
+        XCTAssertEqual(barHeightHidden, 0, accuracy: 0.5,
+                       "hidden find bar must reserve zero height")
+
+        editor.showFindBar(nil)
+        window.layoutIfNeeded()
+        XCTAssertGreaterThan(editor.findBarHeightForTesting, 20,
+                             "shown find bar should have real height")
+
+        // Close it again -> back to zero.
+        editor.closeFindBarForTesting()
+        window.layoutIfNeeded()
+        XCTAssertEqual(editor.findBarHeightForTesting, 0, accuracy: 0.5,
+                       "closed find bar must collapse back to zero")
+    }
+
+    func testRegexFindSelectsMatch() {
+        let controller = makeWindowController(text: "alpha 123 beta 456 gamma")
+        guard let editor = controller.editorForTesting, let tv = controller.focusedTextView else {
+            return XCTFail("no editor")
+        }
+        controller.showWindow(nil)
+        tv.setSelectedRange(NSRange(location: 0, length: 0))
+        // Regex for digit runs.
+        editor.runFindForTesting(SearchQuery(term: "[0-9]+", isRegex: true, caseSensitive: false), forward: true)
+        let sel = tv.selectedRange()
+        XCTAssertEqual((tv.string as NSString).substring(with: sel), "123",
+                       "regex find should select the first digit run")
+    }
+
+    func testRegexReplaceAllWithCapture() {
+        let controller = makeWindowController(text: "key=1; key=2; key=3")
+        guard let editor = controller.editorForTesting, let tv = controller.focusedTextView else {
+            return XCTFail("no editor")
+        }
+        controller.showWindow(nil)
+        editor.runReplaceAllForTesting(
+            SearchQuery(term: "key=([0-9])", isRegex: true, caseSensitive: false),
+            with: "val:$1")
+        XCTAssertEqual(tv.string, "val:1; val:2; val:3",
+                       "regex replace-all should expand $1 capture groups")
+    }
+
     func testToggleLineNumbersAndWrapDoNotCrash() {
         let controller = makeWindowController(text: "alpha\nbeta\ngamma")
         controller.toggleLineNumbers(nil)

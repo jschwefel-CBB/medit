@@ -16,6 +16,10 @@ public final class EditorViewController: NSViewController {
     /// The window controller that handles "New Tab" from our context menu.
     weak var newTabActionTarget: AnyObject?
 
+    // Find & Replace.
+    private var findReplaceBar: FindReplaceBar?
+    private var barHeightConstraint: NSLayoutConstraint?
+
     private let prefs: Preferences
 
     public init(document: TextDocument, preferences: Preferences = .shared) {
@@ -53,8 +57,9 @@ public final class EditorViewController: NSViewController {
         textView.isAutomaticTextReplacementEnabled = false
         textView.isAutomaticSpellingCorrectionEnabled = false
         textView.smartInsertDeleteEnabled = false
-        textView.usesFindBar = true                 // native Cmd-F find bar
-        textView.isIncrementalSearchingEnabled = true
+        // We provide our own Find & Replace bar (with regex), so disable Apple's
+        // native find bar (its UI can't do regex).
+        textView.usesFindBar = false
         textView.textContainerInset = NSSize(width: 4, height: 4)
         textView.drawsBackground = true
         textView.backgroundColor = .textBackgroundColor
@@ -63,7 +68,38 @@ public final class EditorViewController: NSViewController {
         textView.delegate = self
         self.textView = textView
 
-        self.view = scrollView
+        // Container holding the (hidden) find/replace bar above the editor.
+        let container = NSView(frame: frame)
+        container.autoresizingMask = [.width, .height]
+
+        let bar = FindReplaceBar()
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        bar.delegate = self
+        bar.isHidden = true
+        self.findReplaceBar = bar
+
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(bar)
+        container.addSubview(scrollView)
+
+        // Collapse the bar to zero height while hidden so it reserves NO space
+        // above the editor. Activated by default (bar starts hidden).
+        let heightConstraint = bar.heightAnchor.constraint(equalToConstant: 0)
+        heightConstraint.isActive = true
+        barHeightConstraint = heightConstraint
+
+        NSLayoutConstraint.activate([
+            bar.topAnchor.constraint(equalTo: container.topAnchor),
+            bar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+
+            scrollView.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+
+        self.view = container
     }
 
     public override func viewDidLoad() {
@@ -201,6 +237,143 @@ public final class EditorViewController: NSViewController {
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
+    // MARK: Find & Replace
+
+    /// ⌘F — show the bar in find mode.
+    @objc public func showFindBar(_ sender: Any?) { presentFindBar(showingReplace: false) }
+
+    /// ⌥⌘F — show the bar in find+replace mode.
+    @objc public func showFindReplaceBar(_ sender: Any?) { presentFindBar(showingReplace: true) }
+
+    /// ⌘G / ⇧⌘G — next/previous match using the bar's current query. If the bar
+    /// isn't shown yet, show it first.
+    @objc public func findNextMatch(_ sender: Any?) {
+        guard let bar = findReplaceBar else { return }
+        if bar.isHidden { presentFindBar(showingReplace: false); return }
+        selectMatch(bar.query, forward: true)
+    }
+
+    @objc public func findPreviousMatch(_ sender: Any?) {
+        guard let bar = findReplaceBar else { return }
+        if bar.isHidden { presentFindBar(showingReplace: false); return }
+        selectMatch(bar.query, forward: false)
+    }
+
+    private func presentFindBar(showingReplace: Bool) {
+        guard let bar = findReplaceBar else { return }
+        // Seed the find field with the current selection, if any.
+        let selected = (textView.string as NSString).substring(with: textView.selectedRange())
+        bar.isHidden = false
+        // Let the bar's intrinsic height drive its size (collapse off).
+        barHeightConstraint?.isActive = false
+        bar.present(showingReplace: showingReplace, in: view.window)
+        if !selected.isEmpty && !selected.contains("\n") {
+            bar.setFindTerm(selected)
+        }
+        view.layoutSubtreeIfNeeded()
+        updateMatchStatus(for: bar.query)
+    }
+
+    private func hideFindBar() {
+        guard let bar = findReplaceBar else { return }
+        bar.isHidden = true
+        // Collapse to zero so it reserves no space above the editor.
+        barHeightConstraint?.constant = 0
+        barHeightConstraint?.isActive = true
+        view.layoutSubtreeIfNeeded()
+        view.window?.makeFirstResponder(textView)
+    }
+
+    /// Select and reveal the match at/after the current selection (or before it
+    /// for `forward == false`). Returns whether a match was found.
+    @discardableResult
+    private func selectMatch(_ query: SearchQuery, forward: Bool) -> Bool {
+        let text = textView.string
+        let matches = TextSearch.matches(of: query, in: text)
+        guard !matches.isEmpty else {
+            NSSound.beep()
+            updateMatchStatus(for: query)
+            return false
+        }
+        let selection = textView.selectedRange()
+        let target: NSRange
+        if forward {
+            target = matches.first(where: { $0.location >= NSMaxRange(selection) }) ?? matches[0]
+        } else {
+            target = matches.last(where: { NSMaxRange($0) <= selection.location }) ?? matches[matches.count - 1]
+        }
+        textView.setSelectedRange(target)
+        textView.scrollRangeToVisible(target)
+        textView.showFindIndicator(for: target)
+        updateMatchStatus(for: query)
+        return true
+    }
+
+    private func replaceCurrent(_ query: SearchQuery, with replacement: String) {
+        let selection = textView.selectedRange()
+        guard selection.length > 0 else { selectMatch(query, forward: true); return }
+        let selectedText = (textView.string as NSString).substring(with: selection)
+        // Confirm the current selection actually matches the query before replacing.
+        let matchesSelection = TextSearch.matches(of: query, in: selectedText).contains { $0 == NSRange(location: 0, length: (selectedText as NSString).length) }
+        guard matchesSelection else { selectMatch(query, forward: true); return }
+
+        // Compute the replacement (regex template expansion via the engine).
+        let (replaced, _) = TextSearch.replacingAll(of: query, in: selectedText, with: replacement)
+        if textView.shouldChangeText(in: selection, replacementString: replaced) {
+            textView.replaceCharacters(in: selection, with: replaced)
+            textView.didChangeText()
+        }
+        // Move to the next match.
+        selectMatch(query, forward: true)
+    }
+
+    private func replaceAllMatches(_ query: SearchQuery, with replacement: String) {
+        let text = textView.string
+        let (result, count) = TextSearch.replacingAll(of: query, in: text, with: replacement)
+        guard count > 0 else { NSSound.beep(); findReplaceBar?.setStatus("Not found"); return }
+        let whole = NSRange(location: 0, length: (text as NSString).length)
+        if textView.shouldChangeText(in: whole, replacementString: result) {
+            textView.replaceCharacters(in: whole, with: result)
+            textView.didChangeText()
+        }
+        findReplaceBar?.setStatus("Replaced \(count)")
+    }
+
+    // Test hooks.
+    func runFindForTesting(_ query: SearchQuery, forward: Bool) { selectMatch(query, forward: forward) }
+    func runReplaceAllForTesting(_ query: SearchQuery, with replacement: String) { replaceAllMatches(query, with: replacement) }
+    var findBarHeightForTesting: CGFloat { findReplaceBar?.frame.height ?? -1 }
+    func closeFindBarForTesting() { hideFindBar() }
+
+    private func updateMatchStatus(for query: SearchQuery) {
+        guard let bar = findReplaceBar else { return }
+        if let error = TextSearch.validate(query) {
+            bar.setStatus("Bad regex")
+            _ = error
+            return
+        }
+        guard !query.term.isEmpty else { bar.setStatus(""); return }
+        let count = TextSearch.matches(of: query, in: textView.string).count
+        bar.setStatus(count == 0 ? "Not found" : "\(count) match\(count == 1 ? "" : "es")")
+    }
+}
+
+// MARK: - FindReplaceBarDelegate
+
+extension EditorViewController: FindReplaceBarDelegate {
+    func findBar(_ bar: FindReplaceBar, query: SearchQuery, didRequest action: FindReplaceBar.Action) {
+        switch action {
+        case .findNext: selectMatch(query, forward: true)
+        case .findPrevious: selectMatch(query, forward: false)
+        case .replace: replaceCurrent(query, with: bar.replacementText)
+        case .replaceAll: replaceAllMatches(query, with: bar.replacementText)
+        case .liveUpdate: updateMatchStatus(for: query)
+        }
+    }
+
+    func findBarDidClose(_ bar: FindReplaceBar) {
+        hideFindBar()
+    }
 }
 
 // MARK: - NSTextViewDelegate

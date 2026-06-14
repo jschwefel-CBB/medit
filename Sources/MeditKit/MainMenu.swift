@@ -143,25 +143,32 @@ public enum MainMenu {
         let item = NSMenuItem()
         let menu = NSMenu(title: "Find")
 
-        // The native find bar uses tag-based routing via performFindPanelAction:.
-        func findItem(_ title: String, tag: Int, key: String, mask: NSEvent.ModifierFlags = .command) -> NSMenuItem {
-            let mi = NSMenuItem(title: title, action: #selector(NSTextView.performFindPanelAction(_:)), keyEquivalent: key)
-            mi.tag = tag
-            mi.keyEquivalentModifierMask = mask
-            return mi
-        }
+        // Custom Find & Replace bar (supports regex, which Apple's find bar UI
+        // does not). Routed to EditorViewController via the responder chain.
+        let find = NSMenuItem(title: "Find…",
+                              action: #selector(EditorViewController.showFindBar(_:)), keyEquivalent: "f")
+        find.keyEquivalentModifierMask = [.command]
+        menu.addItem(find)
 
-        menu.addItem(findItem("Find…", tag: 1, key: "f"))                  // NSFindPanelActionShowFindPanel
-        menu.addItem(findItem("Find and Replace…", tag: 12, key: "f", mask: [.command, .option]))
-        menu.addItem(findItem("Find Next", tag: 2, key: "g"))
-        menu.addItem(findItem("Find Previous", tag: 3, key: "G"))
-        menu.addItem(findItem("Use Selection for Find", tag: 7, key: "e"))
-        menu.addItem(findItem("Jump to Selection", tag: 0, key: "j"))      // handled below
-        // Fix Jump to Selection to the proper centerSelectionInVisibleArea action.
-        if let jump = menu.items.last {
-            jump.action = #selector(NSResponder.centerSelectionInVisibleArea(_:))
-            jump.tag = 0
-        }
+        let findReplace = NSMenuItem(title: "Find and Replace…",
+                                     action: #selector(EditorViewController.showFindReplaceBar(_:)), keyEquivalent: "f")
+        findReplace.keyEquivalentModifierMask = [.command, .option]
+        menu.addItem(findReplace)
+
+        let findNext = NSMenuItem(title: "Find Next",
+                                  action: #selector(EditorViewController.findNextMatch(_:)), keyEquivalent: "g")
+        findNext.keyEquivalentModifierMask = [.command]
+        menu.addItem(findNext)
+
+        let findPrev = NSMenuItem(title: "Find Previous",
+                                  action: #selector(EditorViewController.findPreviousMatch(_:)), keyEquivalent: "G")
+        findPrev.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(findPrev)
+
+        let jump = NSMenuItem(title: "Jump to Selection",
+                              action: #selector(NSResponder.centerSelectionInVisibleArea(_:)), keyEquivalent: "j")
+        jump.keyEquivalentModifierMask = [.command]
+        menu.addItem(jump)
         menu.addItem(.separator())
 
         let allTabs = NSMenuItem(title: "Find in All Tabs…",

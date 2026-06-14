@@ -115,6 +115,9 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// Test hook: force the editor view (and thus viewDidLoad) to load.
     func loadViewIfNeededForTesting() { editor?.loadViewIfNeeded() }
 
+    /// Test hook: the editor view controller.
+    var editorForTesting: EditorViewController? { editor }
+
     /// Called by the document after it reloads from disk (revert).
     func documentTextDidReload() {
         editor?.reloadFromDocument()
