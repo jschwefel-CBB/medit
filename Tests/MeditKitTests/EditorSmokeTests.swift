@@ -315,6 +315,49 @@ final class EditorSmokeTests: XCTestCase {
         forceRulerDraw(controller)
     }
 
+    func testEditorUsesEditorTextViewAndRenders() {
+        let controller = makeWindowController(text: "line one\nline two\nline three")
+        guard let window = controller.window else { return XCTFail("no window") }
+        window.setFrame(NSRect(x: 0, y: 0, width: 900, height: 600), display: true)
+        controller.showWindow(nil)
+        window.layoutIfNeeded()
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+        XCTAssertTrue(controller.focusedTextView is EditorTextView, "editor should use EditorTextView")
+        if let tv = controller.focusedTextView {
+            XCTAssertGreaterThan(tv.frame.width, 100, "editor collapsed")
+            XCTAssertEqual(tv.string, "line one\nline two\nline three")
+        }
+    }
+
+    func testOverwriteModeReplacesNextCharacter() {
+        let controller = makeWindowController(text: "abcdef")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("not EditorTextView") }
+        controller.showWindow(nil)
+        tv.setSelectedRange(NSRange(location: 0, length: 0))
+        tv.toggleOverwriteForTesting()
+        tv.insertText("X", replacementRange: tv.selectedRange())
+        XCTAssertEqual(tv.string, "Xbcdef", "overwrite should replace 'a', not insert")
+    }
+
+    func testInsertModeStillInserts() {
+        let controller = makeWindowController(text: "abcdef")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("not EditorTextView") }
+        controller.showWindow(nil)
+        tv.setSelectedRange(NSRange(location: 0, length: 0))
+        tv.insertText("X", replacementRange: tv.selectedRange())
+        XCTAssertEqual(tv.string, "Xabcdef", "insert mode should insert")
+    }
+
+    func testOverwriteAtEndOfLineAppends() {
+        let controller = makeWindowController(text: "ab\ncd")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("not EditorTextView") }
+        controller.showWindow(nil)
+        tv.setSelectedRange(NSRange(location: 2, length: 0))
+        tv.toggleOverwriteForTesting()
+        tv.insertText("X", replacementRange: tv.selectedRange())
+        XCTAssertEqual(tv.string, "abX\ncd", "at end of line, overwrite appends (no newline eaten)")
+    }
+
     /// Render the scroll view's ruler into an offscreen context to execute the
     /// drawing code path headlessly.
     private func forceRulerDraw(_ controller: EditorWindowController) {
