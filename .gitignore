@@ -39,3 +39,8 @@ Packages/
 # Misc
 *.swp
 *~.nib
+
+# Icon generator artifacts (regenerable via Tools/IconGen/iconmaker.swift)
+/Tools/IconGen/iconmaker
+/Tools/IconGen/iconset_out/
+/Tools/IconGen/previews/
