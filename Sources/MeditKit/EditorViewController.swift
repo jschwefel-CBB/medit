@@ -33,13 +33,15 @@ public final class EditorViewController: NSViewController {
     // MARK: View construction
 
     public override func loadView() {
-        // Use Apple's factory for the scroll-view + text-view + text-system
-        // wiring. A hand-rolled NSTextView(frame:) assembly rendered nothing
-        // (correct geometry and white-on-dark colors, yet invisible) — the
-        // factory sets up the TextKit stack and clip view correctly.
+        // We build the scroll view + text view + TextKit stack manually rather
+        // than via NSTextView.scrollableTextView(), because the factory can't
+        // produce our EditorTextView subclass. This assembly deliberately
+        // mirrors the factory's wiring (container width-tracks the view, layout
+        // manager + text storage attached) — an earlier ad-hoc assembly that
+        // got this wrong rendered correct geometry/colors yet showed no text, so
+        // keep the container/layoutManager/storage setup below intact.
         let frame = NSRect(x: 0, y: 0, width: 800, height: 560)
-        let scrollView = NSTextView.scrollableTextView()
-        scrollView.frame = frame
+        let scrollView = NSScrollView(frame: frame)
         scrollView.autoresizingMask = [.width, .height]
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
@@ -47,9 +49,26 @@ public final class EditorViewController: NSViewController {
         scrollView.borderType = .noBorder
         self.scrollView = scrollView
 
-        guard let textView = scrollView.documentView as? NSTextView else {
-            fatalError("scrollableTextView did not provide an NSTextView")
-        }
+        // Build EditorTextView with the same TextKit wiring the factory uses.
+        let contentSize = scrollView.contentSize
+        let textContainer = NSTextContainer(containerSize: NSSize(width: contentSize.width,
+                                                                  height: CGFloat.greatestFiniteMagnitude))
+        textContainer.widthTracksTextView = true
+        let layoutManager = NSLayoutManager()
+        layoutManager.addTextContainer(textContainer)
+        let textStorage = NSTextStorage()
+        textStorage.addLayoutManager(layoutManager)
+
+        let textView = EditorTextView(frame: NSRect(origin: .zero, size: contentSize),
+                                      textContainer: textContainer)
+        textView.minSize = NSSize(width: 0, height: contentSize.height)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude,
+                                  height: CGFloat.greatestFiniteMagnitude)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.pcStyleNavigationKeys = prefs.pcStyleNavigationKeys
+        scrollView.documentView = textView
         textView.isRichText = false                 // plain-text editor
         textView.allowsUndo = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
@@ -234,6 +253,10 @@ public final class EditorViewController: NSViewController {
         let isDark = view.effectiveAppearance.isDark
         highlighter?.setFont(name: prefs.fontName, size: prefs.fontSize)
         highlighter?.setTheme(prefs.highlightThemeName(forDarkMode: isDark))
+        if let editorTextView = textView as? EditorTextView {
+            editorTextView.pcStyleNavigationKeys = prefs.pcStyleNavigationKeys
+            if !prefs.pcStyleNavigationKeys { editorTextView.resetOverwriteMode() }
+        }
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
