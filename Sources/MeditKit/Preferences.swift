@@ -1,0 +1,116 @@
+import Foundation
+
+/// User-selectable window/syntax appearance.
+public enum AppAppearance: String, CaseIterable {
+    case system
+    case light
+    case dark
+}
+
+/// Typed wrapper over `UserDefaults` for medit's settings. A single shared
+/// instance (`Preferences.shared`) backs the live app; tests inject an
+/// ephemeral `UserDefaults` suite. Any setter posts `Preferences.didChange`
+/// so open editors can react.
+public final class Preferences {
+
+    public static let shared = Preferences(defaults: .standard)
+
+    /// Posted whenever any preference changes.
+    public static let didChangeNotification = Notification.Name("medit.preferencesDidChange")
+
+    public static let minFontSize: CGFloat = 6
+    public static let maxFontSize: CGFloat = 96
+
+    private let defaults: UserDefaults
+
+    public init(defaults: UserDefaults) {
+        self.defaults = defaults
+        registerDefaults()
+    }
+
+    private enum Key {
+        static let showLineNumbers = "showLineNumbers"
+        static let wrapLines = "wrapLines"
+        static let appearance = "appearance"
+        static let fontName = "fontName"
+        static let fontSize = "fontSize"
+        static let tabWidth = "tabWidth"
+        static let insertSpacesForTab = "insertSpacesForTab"
+        static let lightThemeName = "lightThemeName"
+        static let darkThemeName = "darkThemeName"
+    }
+
+    private func registerDefaults() {
+        defaults.register(defaults: [
+            Key.showLineNumbers: true,
+            Key.wrapLines: false,
+            Key.appearance: AppAppearance.system.rawValue,
+            Key.fontName: "Menlo",
+            Key.fontSize: 13.0,
+            Key.tabWidth: 4,
+            Key.insertSpacesForTab: true,
+            Key.lightThemeName: "atom-one-light",
+            Key.darkThemeName: "atom-one-dark"
+        ])
+    }
+
+    private func didChange() {
+        NotificationCenter.default.post(name: Preferences.didChangeNotification, object: self)
+    }
+
+    // MARK: Properties
+
+    public var showLineNumbers: Bool {
+        get { defaults.bool(forKey: Key.showLineNumbers) }
+        set { defaults.set(newValue, forKey: Key.showLineNumbers); didChange() }
+    }
+
+    public var wrapLines: Bool {
+        get { defaults.bool(forKey: Key.wrapLines) }
+        set { defaults.set(newValue, forKey: Key.wrapLines); didChange() }
+    }
+
+    public var appearance: AppAppearance {
+        get { AppAppearance(rawValue: defaults.string(forKey: Key.appearance) ?? "") ?? .system }
+        set { defaults.set(newValue.rawValue, forKey: Key.appearance); didChange() }
+    }
+
+    public var fontName: String {
+        get { defaults.string(forKey: Key.fontName) ?? "Menlo" }
+        set { defaults.set(newValue, forKey: Key.fontName); didChange() }
+    }
+
+    public var fontSize: CGFloat {
+        get { CGFloat(defaults.double(forKey: Key.fontSize)) }
+        set {
+            let clamped = min(max(newValue, Preferences.minFontSize), Preferences.maxFontSize)
+            defaults.set(Double(clamped), forKey: Key.fontSize)
+            didChange()
+        }
+    }
+
+    public var tabWidth: Int {
+        get { defaults.integer(forKey: Key.tabWidth) }
+        set { defaults.set(max(1, newValue), forKey: Key.tabWidth); didChange() }
+    }
+
+    public var insertSpacesForTab: Bool {
+        get { defaults.bool(forKey: Key.insertSpacesForTab) }
+        set { defaults.set(newValue, forKey: Key.insertSpacesForTab); didChange() }
+    }
+
+    public var lightThemeName: String {
+        get { defaults.string(forKey: Key.lightThemeName) ?? "atom-one-light" }
+        set { defaults.set(newValue, forKey: Key.lightThemeName); didChange() }
+    }
+
+    public var darkThemeName: String {
+        get { defaults.string(forKey: Key.darkThemeName) ?? "atom-one-dark" }
+        set { defaults.set(newValue, forKey: Key.darkThemeName); didChange() }
+    }
+
+    /// The highlight.js theme name to use for the given effective appearance.
+    public func highlightThemeName(forDarkMode darkMode: Bool) -> String {
+        darkMode ? darkThemeName : lightThemeName
+    }
+}
