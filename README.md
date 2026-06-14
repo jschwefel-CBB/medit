@@ -65,6 +65,7 @@ xcodebuild -project medit.xcodeproj -scheme medit -configuration Debug build
   BOM, ISO Latin-1 fallback) with faithful round-trip on save; recent files;
   unsaved-changes prompts; drag-and-drop; session restore. Sandboxed with
   user-selected file access.
+- **PC-style navigation keys** — Home/End move to the start/end of the line (Ctrl for the document, Shift to select); Insert toggles overwrite mode with a block caret (Shift+Insert pastes, Ctrl+Insert copies). Toggle in Settings; on by default.
 
 ## Keyboard shortcuts
 
@@ -80,6 +81,9 @@ xcodebuild -project medit.xcodeproj -scheme medit -configuration Debug build
 | ⌘G / ⇧⌘G | Find next / previous |
 | ⇧⌘F | Find in all tabs |
 | ⇧⌘L | Toggle line numbers |
+| Home / End | Line start / end |
+| Ctrl+Home / Ctrl+End | Document start / end |
+| Insert | Toggle overwrite mode |
 | ⌃⌘F | Enter full screen |
 | ⌘, | Settings |
 
