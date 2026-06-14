@@ -1,0 +1,232 @@
+import AppKit
+
+/// Builds medit's menu bar programmatically (no storyboard). Standard macOS
+/// layout — App / File / Edit / Find / View / Window / Help — wired to the
+/// document-architecture first-responder actions so the editor behaves like a
+/// native Mac app (real ⌘-shortcuts, undo/cut/copy/paste, services, etc.).
+public enum MainMenu {
+
+    public static func build(appName: String) -> NSMenu {
+        let mainMenu = NSMenu()
+
+        mainMenu.addItem(appMenuItem(appName: appName))
+        mainMenu.addItem(fileMenuItem())
+        mainMenu.addItem(editMenuItem())
+        mainMenu.addItem(findMenuItem())
+        mainMenu.addItem(viewMenuItem())
+        mainMenu.addItem(windowMenuItem())
+        mainMenu.addItem(helpMenuItem(appName: appName))
+
+        return mainMenu
+    }
+
+    // MARK: App menu
+
+    private static func appMenuItem(appName: String) -> NSMenuItem {
+        let item = NSMenuItem()
+        let menu = NSMenu()
+
+        menu.addItem(withTitle: "About \(appName)",
+                     action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        menu.addItem(.separator())
+
+        let settings = NSMenuItem(title: "Settings…",
+                                  action: #selector(AppDelegate.showPreferences(_:)), keyEquivalent: ",")
+        menu.addItem(settings)
+        menu.addItem(.separator())
+
+        let services = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
+        let servicesMenu = NSMenu()
+        services.submenu = servicesMenu
+        NSApp.servicesMenu = servicesMenu
+        menu.addItem(services)
+        menu.addItem(.separator())
+
+        menu.addItem(withTitle: "Hide \(appName)",
+                     action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let hideOthers = NSMenuItem(title: "Hide Others",
+                                    action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        hideOthers.keyEquivalentModifierMask = [.command, .option]
+        menu.addItem(hideOthers)
+        menu.addItem(withTitle: "Show All",
+                     action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit \(appName)",
+                     action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+
+        item.submenu = menu
+        return item
+    }
+
+    // MARK: File
+
+    private static func fileMenuItem() -> NSMenuItem {
+        let item = NSMenuItem()
+        let menu = NSMenu(title: "File")
+
+        menu.addItem(withTitle: "New",
+                     action: #selector(NSDocumentController.newDocument(_:)), keyEquivalent: "n")
+        menu.addItem(withTitle: "Open…",
+                     action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
+
+        let openRecent = NSMenuItem(title: "Open Recent", action: nil, keyEquivalent: "")
+        let recentMenu = NSMenu(title: "Open Recent")
+        let clear = NSMenuItem(title: "Clear Menu",
+                               action: #selector(NSDocumentController.clearRecentDocuments(_:)), keyEquivalent: "")
+        recentMenu.addItem(clear)
+        openRecent.submenu = recentMenu
+        menu.addItem(openRecent)
+        menu.addItem(.separator())
+
+        menu.addItem(withTitle: "Close",
+                     action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        menu.addItem(withTitle: "Save…",
+                     action: #selector(NSDocument.save(_:)), keyEquivalent: "s")
+        let saveAs = NSMenuItem(title: "Save As…",
+                                action: #selector(NSDocument.saveAs(_:)), keyEquivalent: "S")
+        saveAs.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(saveAs)
+        menu.addItem(withTitle: "Revert to Saved",
+                     action: #selector(NSDocument.revertToSaved(_:)), keyEquivalent: "")
+        menu.addItem(.separator())
+
+        menu.addItem(withTitle: "Page Setup…",
+                     action: #selector(NSDocument.runPageLayout(_:)), keyEquivalent: "P")
+        menu.addItem(withTitle: "Print…",
+                     action: #selector(NSDocument.printDocument(_:)), keyEquivalent: "p")
+
+        item.submenu = menu
+        return item
+    }
+
+    // MARK: Edit
+
+    private static func editMenuItem() -> NSMenuItem {
+        let item = NSMenuItem()
+        let menu = NSMenu(title: "Edit")
+
+        menu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(redo)
+        menu.addItem(.separator())
+
+        menu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        menu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        menu.addItem(withTitle: "Delete", action: #selector(NSText.delete(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        menu.addItem(.separator())
+
+        // Spelling & substitutions submenu (native).
+        let spelling = NSMenuItem(title: "Spelling and Grammar", action: nil, keyEquivalent: "")
+        let spellingMenu = NSMenu(title: "Spelling and Grammar")
+        spellingMenu.addItem(withTitle: "Show Spelling and Grammar",
+                             action: #selector(NSText.showGuessPanel(_:)), keyEquivalent: ":")
+        spellingMenu.addItem(withTitle: "Check Document Now",
+                             action: #selector(NSText.checkSpelling(_:)), keyEquivalent: ";")
+        spellingMenu.addItem(.separator())
+        spellingMenu.addItem(withTitle: "Check Spelling While Typing",
+                             action: #selector(NSTextView.toggleContinuousSpellChecking(_:)), keyEquivalent: "")
+        spelling.submenu = spellingMenu
+        menu.addItem(spelling)
+
+        item.submenu = menu
+        return item
+    }
+
+    // MARK: Find
+
+    private static func findMenuItem() -> NSMenuItem {
+        let item = NSMenuItem()
+        let menu = NSMenu(title: "Find")
+
+        // The native find bar uses tag-based routing via performFindPanelAction:.
+        func findItem(_ title: String, tag: Int, key: String, mask: NSEvent.ModifierFlags = .command) -> NSMenuItem {
+            let mi = NSMenuItem(title: title, action: #selector(NSTextView.performFindPanelAction(_:)), keyEquivalent: key)
+            mi.tag = tag
+            mi.keyEquivalentModifierMask = mask
+            return mi
+        }
+
+        menu.addItem(findItem("Find…", tag: 1, key: "f"))                  // NSFindPanelActionShowFindPanel
+        menu.addItem(findItem("Find and Replace…", tag: 12, key: "f", mask: [.command, .option]))
+        menu.addItem(findItem("Find Next", tag: 2, key: "g"))
+        menu.addItem(findItem("Find Previous", tag: 3, key: "G"))
+        menu.addItem(findItem("Use Selection for Find", tag: 7, key: "e"))
+        menu.addItem(findItem("Jump to Selection", tag: 0, key: "j"))      // handled below
+        // Fix Jump to Selection to the proper centerSelectionInVisibleArea action.
+        if let jump = menu.items.last {
+            jump.action = #selector(NSResponder.centerSelectionInVisibleArea(_:))
+            jump.tag = 0
+        }
+        menu.addItem(.separator())
+
+        let allTabs = NSMenuItem(title: "Find in All Tabs…",
+                                 action: #selector(EditorWindowController.findInAllTabs(_:)), keyEquivalent: "f")
+        allTabs.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(allTabs)
+
+        item.submenu = menu
+        return item
+    }
+
+    // MARK: View
+
+    private static func viewMenuItem() -> NSMenuItem {
+        let item = NSMenuItem()
+        let menu = NSMenu(title: "View")
+
+        let lineNumbers = NSMenuItem(title: "Show Line Numbers",
+                                     action: #selector(EditorWindowController.toggleLineNumbers(_:)), keyEquivalent: "l")
+        lineNumbers.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(lineNumbers)
+
+        let wrap = NSMenuItem(title: "Wrap Lines",
+                              action: #selector(EditorWindowController.toggleWordWrap(_:)), keyEquivalent: "")
+        menu.addItem(wrap)
+        menu.addItem(.separator())
+
+        // Standard full-screen toggle (⌃⌘F).
+        let fullScreen = NSMenuItem(title: "Enter Full Screen",
+                                    action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
+        fullScreen.keyEquivalentModifierMask = [.command, .control]
+        menu.addItem(fullScreen)
+
+        item.submenu = menu
+        return item
+    }
+
+    // MARK: Window
+
+    private static func windowMenuItem() -> NSMenuItem {
+        let item = NSMenuItem()
+        let menu = NSMenu(title: "Window")
+
+        menu.addItem(withTitle: "Minimize",
+                     action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        menu.addItem(withTitle: "Zoom",
+                     action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        menu.addItem(.separator())
+        // Native tab management items get inserted by AppKit when tabbing is on,
+        // but provide the standard "Bring All to Front".
+        menu.addItem(withTitle: "Bring All to Front",
+                     action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
+
+        item.submenu = menu
+        NSApp.windowsMenu = menu
+        return item
+    }
+
+    // MARK: Help
+
+    private static func helpMenuItem(appName: String) -> NSMenuItem {
+        let item = NSMenuItem()
+        let menu = NSMenu(title: "Help")
+        menu.addItem(withTitle: "\(appName) Help",
+                     action: #selector(NSApplication.showHelp(_:)), keyEquivalent: "?")
+        item.submenu = menu
+        NSApp.helpMenu = menu
+        return item
+    }
+}
