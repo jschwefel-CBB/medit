@@ -64,13 +64,16 @@ public final class LineNumberRulerView: NSRulerView {
               let layoutManager = textView.layoutManager,
               let textContainer = textView.textContainer else { return }
 
-        // Background + trailing divider.
+        // Paint ONLY the ruler's own strip — never the passed `rect`, which can
+        // extend across the document and would cover the text. Use the ruler's
+        // bounds intersected with the dirty rect.
+        let strip = bounds.intersection(rect)
         backgroundColor.setFill()
-        rect.fill()
+        strip.fill()
         dividerColor.setStroke()
         let divider = NSBezierPath()
-        divider.move(to: NSPoint(x: bounds.maxX - 0.5, y: rect.minY))
-        divider.line(to: NSPoint(x: bounds.maxX - 0.5, y: rect.maxY))
+        divider.move(to: NSPoint(x: bounds.maxX - 0.5, y: bounds.minY))
+        divider.line(to: NSPoint(x: bounds.maxX - 0.5, y: bounds.maxY))
         divider.lineWidth = 1
         divider.stroke()
 

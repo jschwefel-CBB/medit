@@ -29,13 +29,23 @@ public final class EditorViewController: NSViewController {
     // MARK: View construction
 
     public override func loadView() {
-        scrollView = NSScrollView()
+        // Use Apple's factory for the scroll-view + text-view + text-system
+        // wiring. A hand-rolled NSTextView(frame:) assembly rendered nothing
+        // (correct geometry and white-on-dark colors, yet invisible) — the
+        // factory sets up the TextKit stack and clip view correctly.
+        let frame = NSRect(x: 0, y: 0, width: 800, height: 560)
+        let scrollView = NSTextView.scrollableTextView()
+        scrollView.frame = frame
+        scrollView.autoresizingMask = [.width, .height]
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
+        self.scrollView = scrollView
 
-        let textView = NSTextView()
+        guard let textView = scrollView.documentView as? NSTextView else {
+            fatalError("scrollableTextView did not provide an NSTextView")
+        }
         textView.isRichText = false                 // plain-text editor
         textView.allowsUndo = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
@@ -46,13 +56,13 @@ public final class EditorViewController: NSViewController {
         textView.usesFindBar = true                 // native Cmd-F find bar
         textView.isIncrementalSearchingEnabled = true
         textView.textContainerInset = NSSize(width: 4, height: 4)
-        textView.autoresizingMask = [.width]
-        textView.isVerticallyResizable = true
-        textView.isHorizontallyResizable = false
+        textView.drawsBackground = true
+        textView.backgroundColor = .textBackgroundColor
+        textView.textColor = EditorColors.foreground
+        textView.insertionPointColor = EditorColors.foreground
         textView.delegate = self
         self.textView = textView
 
-        scrollView.documentView = textView
         self.view = scrollView
     }
 
@@ -102,6 +112,9 @@ public final class EditorViewController: NSViewController {
         textView.defaultParagraphStyle = style
         textView.typingAttributes[.paragraphStyle] = style
         textView.typingAttributes[.font] = font
+        // Always carry a foreground so the caret and freshly typed/pasted text
+        // are visible even before the highlighter runs.
+        textView.typingAttributes[.foregroundColor] = EditorColors.foreground
     }
 
     // MARK: Wrap

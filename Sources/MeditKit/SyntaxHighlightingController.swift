@@ -93,7 +93,14 @@ public final class SyntaxHighlightingController {
 
         isApplying = true
         textStorage.beginEditing()
-        textStorage.setAttributes(nil, range: fullRange)
+        // Reset to a known-visible base (font + system text color) rather than
+        // wiping to nil — a nil wipe removes the foreground, so any range the
+        // styled string doesn't cover would render with no color (invisible on a
+        // dark background). The styled attributes below then override per range.
+        let baseFont = NSFont(name: fontName, size: fontSize)
+            ?? NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        textStorage.setAttributes([.font: baseFont, .foregroundColor: EditorColors.foreground],
+                                  range: fullRange)
         // Copy attributes from the styled string onto our storage.
         styled.enumerateAttributes(in: NSRange(location: 0, length: styled.length), options: []) { attrs, range, _ in
             // Guard against any range drift if the string lengths differ.
@@ -110,7 +117,7 @@ public final class SyntaxHighlightingController {
             ?? NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         return NSAttributedString(string: code, attributes: [
             .font: font,
-            .foregroundColor: NSColor.textColor
+            .foregroundColor: EditorColors.foreground
         ])
     }
 }
