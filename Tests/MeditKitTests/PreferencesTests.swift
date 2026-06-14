@@ -30,6 +30,13 @@ final class PreferencesTests: XCTestCase {
         XCTAssertTrue(prefs.insertSpacesForTab)
     }
 
+    func testPCNavigationDefaultsOnAndPersists() {
+        XCTAssertTrue(prefs.pcStyleNavigationKeys, "PC-style nav keys should default ON")
+        prefs.pcStyleNavigationKeys = false
+        let reloaded = Preferences(defaults: defaults)
+        XCTAssertFalse(reloaded.pcStyleNavigationKeys)
+    }
+
     func testValuesPersistAndReload() {
         prefs.showLineNumbers = false
         prefs.wrapLines = true
