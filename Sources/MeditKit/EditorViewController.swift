@@ -13,6 +13,9 @@ public final class EditorViewController: NSViewController {
     private var highlighter: SyntaxHighlightingController?
     private var appearanceObservation: NSKeyValueObservation?
 
+    /// The window controller that handles "New Tab" from our context menu.
+    weak var newTabActionTarget: AnyObject?
+
     private let prefs: Preferences
 
     public init(document: TextDocument, preferences: Preferences = .shared) {
@@ -194,6 +197,18 @@ extension EditorViewController: NSTextViewDelegate {
         document?.updateText(textView.string)
         highlighter?.scheduleHighlight()
         ruler?.needsDisplay = true
+    }
+
+    /// Inject "New Tab" at the top of the editor's right-click menu.
+    public func textView(_ view: NSTextView, menu: NSMenu, for event: NSEvent, at charIndex: Int) -> NSMenu? {
+        let item = NSMenuItem(title: "New Tab",
+                              action: #selector(EditorWindowController.newTabFromMenu(_:)),
+                              keyEquivalent: "")
+        // Route to the window controller regardless of first-responder quirks.
+        item.target = newTabActionTarget
+        menu.insertItem(item, at: 0)
+        menu.insertItem(.separator(), at: 1)
+        return menu
     }
 }
 

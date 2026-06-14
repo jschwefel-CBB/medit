@@ -85,4 +85,7 @@ public final class TextDocument: NSDocument {
     var currentEditorTextOrModel: String {
         editorWindowController?.currentEditorText ?? text
     }
+
+    /// Test hook: seed the model text without a file read.
+    func setTextForTesting(_ value: String) { text = value }
 }

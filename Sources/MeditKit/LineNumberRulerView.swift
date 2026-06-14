@@ -92,13 +92,20 @@ public final class LineNumberRulerView: NSRulerView {
         // by counting newlines up to that point.
         var lineNumber = numberOfLines(in: nsText, upTo: charRange.location)
 
+        let numberOfGlyphs = layoutManager.numberOfGlyphs
         var index = charRange.location
         let end = NSMaxRange(charRange)
 
-        // Walk each logical line in the visible range.
-        while index <= end {
+        // Walk each logical line in the visible range. Only enter the loop when
+        // there are glyphs to lay out; an empty document is handled solely by
+        // the extra-line-fragment branch below (avoids querying glyph 0 when no
+        // glyphs exist, which logs "_NSLayoutTreeLineFragmentRectForGlyphAtIndex
+        // invalid glyph index").
+        while numberOfGlyphs > 0 && index < end {
             let lineRange = nsText.lineRange(for: NSRange(location: index, length: 0))
             let glyphIndex = layoutManager.glyphIndexForCharacter(at: lineRange.location)
+            guard glyphIndex < numberOfGlyphs else { break }
+
             var effectiveGlyphRange = NSRange()
             let fragmentRect = layoutManager.lineFragmentRect(forGlyphAt: glyphIndex,
                                                               effectiveRange: &effectiveGlyphRange)

@@ -66,6 +66,8 @@ public enum MainMenu {
 
         menu.addItem(withTitle: "New",
                      action: #selector(NSDocumentController.newDocument(_:)), keyEquivalent: "n")
+        menu.addItem(withTitle: "New Tab",
+                     action: #selector(EditorWindowController.newWindowForTab(_:)), keyEquivalent: "t")
         menu.addItem(withTitle: "Open…",
                      action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
 
