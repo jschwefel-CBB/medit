@@ -10,20 +10,28 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     private let prefs: Preferences
     private var editor: EditorViewController!
 
+    /// Default size for a window with no remembered frame.
+    static let defaultWindowSize = NSSize(width: 1100, height: 750)
+    /// Hard floor — a window is never restored or resized smaller than this, so
+    /// it can't come back tiny from a stale autosaved frame.
+    static let minWindowSize = NSSize(width: 800, height: 560)
+
     public init(document: TextDocument, preferences: Preferences = .shared) {
         self.textDocument = document
         self.prefs = preferences
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1100, height: 750),
+            contentRect: NSRect(origin: .zero, size: EditorWindowController.defaultWindowSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.tabbingMode = .preferred         // stack documents as native tabs
         window.tabbingIdentifier = "medit.editor"
+        // A real floor so a window can never be saved/restored absurdly small
+        // (the old 360x240 floor is what let it come back tiny).
+        window.minSize = EditorWindowController.minWindowSize
         window.setFrameAutosaveName("medit.editor.window")
-        window.minSize = NSSize(width: 360, height: 240)
 
         super.init(window: window)
 
@@ -38,6 +46,25 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     public override func windowDidLoad() {
         super.windowDidLoad()
         NSWindow.allowsAutomaticWindowTabbing = true
+        enforceMinimumSize()
+    }
+
+    /// If a restored/autosaved frame came back smaller than the floor (e.g. an
+    /// old tiny session), grow it back to at least the minimum, keeping the
+    /// top-left corner anchored. Honors "remember my size" for any size at or
+    /// above the floor.
+    private func enforceMinimumSize() {
+        guard let window else { return }
+        let min = EditorWindowController.minWindowSize
+        let frame = window.frame
+        if frame.width < min.width || frame.height < min.height {
+            let newWidth = max(frame.width, min.width)
+            let newHeight = max(frame.height, min.height)
+            // Anchor top-left: keep maxY (top) fixed as height grows.
+            let newOrigin = NSPoint(x: frame.origin.x, y: frame.maxY - newHeight)
+            window.setFrame(NSRect(origin: newOrigin, size: NSSize(width: newWidth, height: newHeight)),
+                            display: true)
+        }
     }
 
     /// Order the window on screen, then force the tab bar visible. Empirically,
