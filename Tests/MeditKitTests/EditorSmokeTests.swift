@@ -339,6 +339,44 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertEqual(tv.string, "Xbcdef", "overwrite should replace 'a', not insert")
     }
 
+    /// Synthesize a real Insert keyDown (hardware keyCode 114 = Insert/Help on
+    /// Mac) and verify it toggles overwrite mode through the actual keyDown path.
+    /// Regression: detecting by NSInsertFunctionKey missed this — a PC Insert key
+    /// reports keyCode 114 / NSHelpFunctionKey, so the key did nothing (beeped).
+    func testInsertKeyTogglesOverwriteViaKeyDown() {
+        let controller = makeWindowController(text: "hello")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("not EditorTextView") }
+        controller.showWindow(nil)
+        XCTAssertFalse(tv.isOverwriteMode)
+
+        let insertEvent = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [],
+            timestamp: 0, windowNumber: tv.window?.windowNumber ?? 0, context: nil,
+            characters: "\u{F746}",                 // NSHelpFunctionKey
+            charactersIgnoringModifiers: "\u{F746}",
+            isARepeat: false, keyCode: 114)!
+        tv.keyDown(with: insertEvent)
+        XCTAssertTrue(tv.isOverwriteMode, "Insert (keyCode 114) should toggle overwrite ON")
+
+        tv.keyDown(with: insertEvent)
+        XCTAssertFalse(tv.isOverwriteMode, "Insert again should toggle overwrite OFF")
+    }
+
+    /// With the PC-keys preference off, the Insert key must NOT be intercepted.
+    func testInsertKeyIgnoredWhenPreferenceOff() {
+        let controller = makeWindowController(text: "hello")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("not EditorTextView") }
+        controller.showWindow(nil)
+        tv.pcStyleNavigationKeys = false
+        let insertEvent = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [],
+            timestamp: 0, windowNumber: tv.window?.windowNumber ?? 0, context: nil,
+            characters: "\u{F746}", charactersIgnoringModifiers: "\u{F746}",
+            isARepeat: false, keyCode: 114)!
+        tv.keyDown(with: insertEvent)
+        XCTAssertFalse(tv.isOverwriteMode, "preference off: Insert must not toggle overwrite")
+    }
+
     func testInsertModeStillInserts() {
         let controller = makeWindowController(text: "abcdef")
         guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("not EditorTextView") }

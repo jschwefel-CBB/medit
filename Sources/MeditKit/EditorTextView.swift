@@ -15,29 +15,46 @@ public final class EditorTextView: NSTextView {
 
     private var homeChar: unichar { unichar(NSHomeFunctionKey) }
     private var endChar: unichar { unichar(NSEndFunctionKey) }
-    private var insertChar: unichar { unichar(NSInsertFunctionKey) }
+
+    /// Hardware keyCode of the Insert key. On a PC keyboard under macOS this is
+    /// the same physical key as Help (keyCode 114), and it reports the
+    /// `NSHelpFunctionKey` unichar — NOT `NSInsertFunctionKey`. Matching on the
+    /// keyCode is the reliable signal across keyboards.
+    private static let insertKeyCode: UInt16 = 114
 
     public override func keyDown(with event: NSEvent) {
-        guard pcStyleNavigationKeys,
-              let chars = event.charactersIgnoringModifiers, chars.utf16.count == 1,
-              let first = chars.utf16.first else {
-            super.keyDown(with: event); return
-        }
+        guard pcStyleNavigationKeys else { super.keyDown(with: event); return }
+
         let mods = event.modifierFlags
         let shift = mods.contains(.shift)
         let control = mods.contains(.control)
-        switch first {
-        case homeChar:
-            applyNav(control ? .docStart : .lineStart, extend: shift)
-        case endChar:
-            applyNav(control ? .docEnd : .lineEnd, extend: shift)
-        case insertChar:
+
+        // Insert: detect by hardware keyCode (Insert == Help == 114 on Mac) so it
+        // works regardless of whether the unichar is NSInsertFunctionKey or
+        // NSHelpFunctionKey.
+        if event.keyCode == EditorTextView.insertKeyCode {
             if shift { paste(nil) }
             else if control { copy(nil) }
             else { isOverwriteMode.toggle() }
-        default:
-            super.keyDown(with: event)
+            return
         }
+
+        // Home / End: detect by the function-key unichar.
+        if let chars = event.charactersIgnoringModifiers, chars.utf16.count == 1,
+           let first = chars.utf16.first {
+            switch first {
+            case homeChar:
+                applyNav(control ? .docStart : .lineStart, extend: shift)
+                return
+            case endChar:
+                applyNav(control ? .docEnd : .lineEnd, extend: shift)
+                return
+            default:
+                break
+            }
+        }
+
+        super.keyDown(with: event)
     }
 
     private func applyNav(_ command: KeyboardNavigator.NavCommand, extend: Bool) {
