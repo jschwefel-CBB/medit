@@ -358,6 +358,40 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertEqual(tv.string, "abX\ncd", "at end of line, overwrite appends (no newline eaten)")
     }
 
+    func testTurningOffPreferencePropagatesAndResetsOverwrite() {
+        // Task 4 wiring: when the PC-style-navigation preference is turned off,
+        // the editor must push the new value into its text view AND reset
+        // overwrite mode. Build the controller directly so we hold the exact
+        // prefs instance the editor observes.
+        let prefs = Preferences(defaults: UserDefaults(suiteName: "medit.smoke.\(UUID().uuidString)")!)
+        prefs.pcStyleNavigationKeys = true
+        let document = TextDocument()
+        document.setTextForTesting("abcdef")
+        let controller = EditorWindowController(document: document, preferences: prefs)
+        _ = controller.window
+        controller.loadViewIfNeededForTesting()
+        controller.showWindow(nil)
+
+        guard let tv = controller.focusedTextView as? EditorTextView else {
+            return XCTFail("not EditorTextView")
+        }
+
+        // Enter overwrite mode.
+        tv.toggleOverwriteForTesting()
+        XCTAssertTrue(tv.isOverwriteMode, "overwrite mode should be on after toggle")
+
+        // Turn the preference OFF — this posts the change notification the
+        // editor observes.
+        prefs.pcStyleNavigationKeys = false
+        // Pump the run loop so the notification is delivered.
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+
+        XCTAssertFalse(tv.pcStyleNavigationKeys,
+                       "preference change should propagate into the text view")
+        XCTAssertFalse(tv.isOverwriteMode,
+                       "turning off the preference should reset overwrite mode")
+    }
+
     /// Render the scroll view's ruler into an offscreen context to execute the
     /// drawing code path headlessly.
     private func forceRulerDraw(_ controller: EditorWindowController) {
