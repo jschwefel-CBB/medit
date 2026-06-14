@@ -11,6 +11,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var lineNumbersCheck: NSButton!
     private var wrapCheck: NSButton!
     private var spacesCheck: NSButton!
+    private var pcKeysCheck: NSButton!
     private var tabWidthField: NSTextField!
 
     public init(preferences: Preferences = .shared) {
@@ -61,6 +62,9 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         lineNumbersCheck = NSButton(checkboxWithTitle: "Show line numbers", target: self, action: #selector(checkChanged))
         wrapCheck = NSButton(checkboxWithTitle: "Wrap long lines", target: self, action: #selector(checkChanged))
         spacesCheck = NSButton(checkboxWithTitle: "Insert spaces instead of tabs", target: self, action: #selector(checkChanged))
+        pcKeysCheck = NSButton(checkboxWithTitle: "PC-style Home/End/Insert keys",
+                               target: self, action: #selector(checkChanged))
+        pcKeysCheck.translatesAutoresizingMaskIntoConstraints = false
         [lineNumbersCheck, wrapCheck, spacesCheck].forEach { $0?.translatesAutoresizingMaskIntoConstraints = false }
 
         // Tab width
@@ -72,7 +76,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         tabWidthField.action = #selector(tabWidthChanged)
 
         [fontTitle, fontLabel, fontButton, appearanceTitle, appearancePopup,
-         lineNumbersCheck, wrapCheck, spacesCheck, tabTitle, tabWidthField]
+         lineNumbersCheck, wrapCheck, spacesCheck, pcKeysCheck, tabTitle, tabWidthField]
             .forEach { content.addSubview($0!) }
 
         let leftCol: CGFloat = 110
@@ -98,8 +102,10 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             wrapCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
             spacesCheck.topAnchor.constraint(equalTo: wrapCheck.bottomAnchor, constant: 10),
             spacesCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
+            pcKeysCheck.topAnchor.constraint(equalTo: spacesCheck.bottomAnchor, constant: 10),
+            pcKeysCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
 
-            tabTitle.topAnchor.constraint(equalTo: spacesCheck.bottomAnchor, constant: 20),
+            tabTitle.topAnchor.constraint(equalTo: pcKeysCheck.bottomAnchor, constant: 20),
             tabTitle.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             tabTitle.widthAnchor.constraint(equalToConstant: leftCol - 20),
             tabWidthField.centerYAnchor.constraint(equalTo: tabTitle.centerYAnchor),
@@ -129,6 +135,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         lineNumbersCheck.state = prefs.showLineNumbers ? .on : .off
         wrapCheck.state = prefs.wrapLines ? .on : .off
         spacesCheck.state = prefs.insertSpacesForTab ? .on : .off
+        pcKeysCheck.state = prefs.pcStyleNavigationKeys ? .on : .off
         tabWidthField.integerValue = prefs.tabWidth
         applyAppAppearance()
     }
@@ -169,6 +176,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         prefs.showLineNumbers = lineNumbersCheck.state == .on
         prefs.wrapLines = wrapCheck.state == .on
         prefs.insertSpacesForTab = spacesCheck.state == .on
+        prefs.pcStyleNavigationKeys = pcKeysCheck.state == .on
     }
 
     @objc private func tabWidthChanged(_ sender: Any?) {
