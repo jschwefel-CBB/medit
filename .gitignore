@@ -1,0 +1,41 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Xcode — user-specific
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Xcode — build
+build/
+DerivedData/
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Packages/
+# Package.resolved is intentionally committed (this is an app, not a library)
+# so the exact resolved Highlightr version is reproducible.
+
+# Obj-C / Swift
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Misc
+*.swp
+*~.nib
