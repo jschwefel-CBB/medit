@@ -59,6 +59,12 @@ final class PreferencesTests: XCTestCase {
         XCTAssertFalse(Preferences(defaults: defaults).stripTrailingWhitespaceOnSave)
     }
 
+    func testShowInvisiblesDefaultsOffAndPersists() {
+        XCTAssertFalse(prefs.showInvisibles)
+        prefs.showInvisibles = true
+        XCTAssertTrue(Preferences(defaults: defaults).showInvisibles)
+    }
+
     func testValuesPersistAndReload() {
         prefs.showLineNumbers = false
         prefs.wrapLines = true

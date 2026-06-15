@@ -27,6 +27,9 @@ public final class EditorViewController: NSViewController {
     // Go to Line.
     private var goToLineSheet: GoToLineSheet?
 
+    // Show Invisibles.
+    private weak var invisiblesLayoutManager: InvisiblesLayoutManager?
+
     private let prefs: Preferences
 
     public init(document: TextDocument, preferences: Preferences = .shared) {
@@ -61,8 +64,10 @@ public final class EditorViewController: NSViewController {
         let textContainer = NSTextContainer(containerSize: NSSize(width: contentSize.width,
                                                                   height: CGFloat.greatestFiniteMagnitude))
         textContainer.widthTracksTextView = true
-        let layoutManager = NSLayoutManager()
+        let layoutManager = InvisiblesLayoutManager()
+        layoutManager.showInvisibles = prefs.showInvisibles
         layoutManager.addTextContainer(textContainer)
+        self.invisiblesLayoutManager = layoutManager
         let textStorage = NSTextStorage()
         textStorage.addLayoutManager(layoutManager)
 
@@ -292,6 +297,8 @@ public final class EditorViewController: NSViewController {
             editorTextView.indentTabWidth = prefs.tabWidth
             editorTextView.indentUseSpaces = prefs.insertSpacesForTab
         }
+        applyStatusBarVisibility(prefs.showStatusBar)
+        applyShowInvisibles(prefs.showInvisibles)
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -348,6 +355,11 @@ public final class EditorViewController: NSViewController {
     public func applyStatusBarVisibility(_ visible: Bool) {
         statusBar?.isHidden = !visible
         statusBarHeightConstraint?.constant = visible ? 22 : 0
+    }
+
+    public func applyShowInvisibles(_ show: Bool) {
+        invisiblesLayoutManager?.showInvisibles = show
+        textView.needsDisplay = true
     }
 
     /// ⌘G / ⇧⌘G — next/previous match using the bar's current query. If the bar

@@ -84,6 +84,25 @@ final class EditorSmokeTests: XCTestCase {
         }
     }
 
+    func testShowInvisiblesTogglesWithoutBreakingRender() {
+        let controller = makeWindowController(text: "a b\tc\nd e")
+        guard let window = controller.window, let editor = controller.editorForTesting else { return XCTFail("no editor") }
+        window.setFrame(NSRect(x: 0, y: 0, width: 900, height: 600), display: true)
+        controller.showWindow(nil)
+        window.layoutIfNeeded()
+        editor.applyShowInvisibles(true)
+        window.layoutIfNeeded()
+        // Force a draw cycle; must not crash and text view must still have size.
+        if let tv = controller.focusedTextView {
+            let rep = tv.bitmapImageRepForCachingDisplay(in: tv.bounds)
+            if let rep { tv.cacheDisplay(in: tv.bounds, to: rep) }
+            XCTAssertGreaterThan(tv.frame.width, 100, "editor collapsed with invisibles on")
+            XCTAssertEqual(tv.string, "a b\tc\nd e", "text unchanged by invisibles rendering")
+        }
+        editor.applyShowInvisibles(false)
+        window.layoutIfNeeded()
+    }
+
     func testRulerStaysNarrowAndDoesNotCoverDocument() {
         // Regression: the line-number ruler painted its background across the
         // whole document, hiding the text. The ruler's thickness must stay a

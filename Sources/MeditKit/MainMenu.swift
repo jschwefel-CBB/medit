@@ -204,6 +204,10 @@ public enum MainMenu {
         let statusBar = NSMenuItem(title: "Show Status Bar",
                                    action: #selector(EditorWindowController.toggleStatusBar(_:)), keyEquivalent: "")
         menu.addItem(statusBar)
+
+        let invisibles = NSMenuItem(title: "Show Invisibles",
+                                    action: #selector(EditorWindowController.toggleInvisibles(_:)), keyEquivalent: "")
+        menu.addItem(invisibles)
         menu.addItem(.separator())
 
         // Standard full-screen toggle (⌃⌘F).

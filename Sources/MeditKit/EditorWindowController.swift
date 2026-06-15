@@ -174,6 +174,11 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         editor?.applyStatusBarVisibility(prefs.showStatusBar)
     }
 
+    @IBAction public func toggleInvisibles(_ sender: Any?) {
+        prefs.showInvisibles.toggle()
+        editor?.applyShowInvisibles(prefs.showInvisibles)
+    }
+
     /// Keep the View-menu check marks in sync with current state.
     public func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
@@ -183,6 +188,8 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
             menuItem.state = prefs.wrapLines ? .on : .off
         case #selector(toggleStatusBar(_:)):
             menuItem.state = prefs.showStatusBar ? .on : .off
+        case #selector(toggleInvisibles(_:)):
+            menuItem.state = prefs.showInvisibles ? .on : .off
         default:
             break
         }
