@@ -17,6 +17,10 @@ public final class EditorViewController: NSViewController {
     /// The window controller that handles "New Tab" from our context menu.
     weak var newTabActionTarget: AnyObject?
 
+    // Reload banner (external-change notice), above the find bar.
+    private var reloadBanner: ReloadBanner?
+    private var reloadBannerHeightConstraint: NSLayoutConstraint?
+
     // Find & Replace.
     private var findReplaceBar: FindReplaceBar?
     private var barHeightConstraint: NSLayoutConstraint?
@@ -108,6 +112,19 @@ public final class EditorViewController: NSViewController {
         let container = NSView(frame: frame)
         container.autoresizingMask = [.width, .height]
 
+        // Reload banner sits ABOVE the find bar (order: reload banner / find bar
+        // / scroll view / status bar). Like the find bar, it collapses to zero
+        // height while hidden so it reserves NO space above the editor.
+        let banner = ReloadBanner()
+        banner.translatesAutoresizingMaskIntoConstraints = false
+        banner.isHidden = true
+        banner.onReload = { [weak self] in
+            self?.document?.revertToSavedSafely()
+            self?.hideReloadBanner()
+        }
+        banner.onDismiss = { [weak self] in self?.hideReloadBanner() }
+        self.reloadBanner = banner
+
         let bar = FindReplaceBar()
         bar.translatesAutoresizingMaskIntoConstraints = false
         bar.delegate = self
@@ -115,8 +132,14 @@ public final class EditorViewController: NSViewController {
         self.findReplaceBar = bar
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(banner)
         container.addSubview(bar)
         container.addSubview(scrollView)
+
+        // Collapse the banner to zero height while hidden (starts hidden).
+        let bannerHeight = banner.heightAnchor.constraint(equalToConstant: 0)
+        bannerHeight.isActive = true
+        reloadBannerHeightConstraint = bannerHeight
 
         // Collapse the bar to zero height while hidden so it reserves NO space
         // above the editor. Activated by default (bar starts hidden).
@@ -125,7 +148,11 @@ public final class EditorViewController: NSViewController {
         barHeightConstraint = heightConstraint
 
         NSLayoutConstraint.activate([
-            bar.topAnchor.constraint(equalTo: container.topAnchor),
+            banner.topAnchor.constraint(equalTo: container.topAnchor),
+            banner.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            banner.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+
+            bar.topAnchor.constraint(equalTo: banner.bottomAnchor),
             bar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
 
@@ -476,6 +503,26 @@ public final class EditorViewController: NSViewController {
         barHeightConstraint?.isActive = true
         view.layoutSubtreeIfNeeded()
         view.window?.makeFirstResponder(textView)
+    }
+
+    // MARK: Reload banner
+
+    /// Show the external-change banner with `message`, expanding it to its
+    /// intrinsic height (collapse constraint deactivated).
+    func showReloadBanner(message: String) {
+        guard let banner = reloadBanner else { return }
+        banner.show(message: message)
+        reloadBannerHeightConstraint?.isActive = false
+        view.layoutSubtreeIfNeeded()
+    }
+
+    /// Hide the external-change banner, collapsing it back to zero height.
+    func hideReloadBanner() {
+        guard let banner = reloadBanner else { return }
+        banner.hide()
+        reloadBannerHeightConstraint?.constant = 0
+        reloadBannerHeightConstraint?.isActive = true
+        view.layoutSubtreeIfNeeded()
     }
 
     /// Select and reveal the match at/after the current selection (or before it

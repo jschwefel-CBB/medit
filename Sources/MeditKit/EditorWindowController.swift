@@ -112,6 +112,9 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// The editor's text view, used by cross-tab search to focus a match.
     var focusedTextView: NSTextView? { editor?.textView }
 
+    /// The editor view controller, for external-change banner display.
+    var editorForExternalChange: EditorViewController? { editor }
+
     /// Test hook: force the editor view (and thus viewDidLoad) to load.
     func loadViewIfNeededForTesting() { editor?.loadViewIfNeeded() }
 

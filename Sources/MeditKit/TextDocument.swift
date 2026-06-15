@@ -123,6 +123,57 @@ public final class TextDocument: NSDocument {
         }
     }
 
+    // MARK: External-change detection (NSFilePresenter)
+
+    /// Reload from disk, refreshing the editor. Safe to call from the banner.
+    public func revertToSavedSafely() {
+        guard let url = fileURL, let type = fileType else { return }
+        try? revert(toContentsOf: url, ofType: type)
+    }
+
+    public override func presentedItemDidChange() {
+        // Called on a background queue; marshal to main.
+        DispatchQueue.main.async { [weak self] in
+            self?.handleExternalChange(deleted: false)
+        }
+    }
+
+    public override func accommodatePresentedItemDeletion(completionHandler: @escaping (Error?) -> Void) {
+        DispatchQueue.main.async { [weak self] in
+            self?.handleExternalChange(deleted: true)
+            completionHandler(nil)
+        }
+    }
+
+    private func handleExternalChange(deleted: Bool) {
+        if deleted {
+            // Keep the buffer; mark modified so it can be re-saved.
+            updateChangeCount(.changeDone)
+            editorWindowController?.editorForExternalChange?.showReloadBanner(message: "The file has been moved or deleted.")
+            return
+        }
+        let policy = Preferences.shared.externalChangePolicy
+        switch ExternalChangeResolver.action(policy: policy, isDirty: isDocumentEdited) {
+        case .reloadSilently:
+            revertToSavedSafely()
+        case .banner:
+            editorWindowController?.editorForExternalChange?.showReloadBanner(message: "This file has changed on disk.")
+        case .prompt:
+            presentReloadPrompt()
+        }
+    }
+
+    private func presentReloadPrompt() {
+        let alert = NSAlert()
+        alert.messageText = "This file has changed on disk."
+        alert.informativeText = "Reload it and discard your unsaved changes, or keep your version?"
+        alert.addButton(withTitle: "Reload")
+        alert.addButton(withTitle: "Keep My Version")
+        if alert.runModal() == .alertFirstButtonReturn {
+            revertToSavedSafely()
+        }
+    }
+
     /// Auto-detected language: file extension first, then a shebang on the first
     /// line. nil when neither matches.
     public var detectedLanguage: String? {
