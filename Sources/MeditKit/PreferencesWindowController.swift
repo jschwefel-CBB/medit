@@ -21,10 +21,11 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     public init(preferences: Preferences = .shared) {
         self.prefs = preferences
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 340),
-            styleMask: [.titled, .closable],
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 400),
+            styleMask: [.titled, .closable, .resizable],
             backing: .buffered, defer: false)
         window.title = "Settings"
+        window.minSize = NSSize(width: 420, height: 240)
         super.init(window: window)
         window.delegate = self
         window.center()
@@ -36,8 +37,18 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
     // MARK: UI
 
+    /// A top-left-origin container so the top-down Auto Layout below reads
+    /// naturally and scrolls correctly inside an NSScrollView.
+    private final class FlippedView: NSView {
+        override var isFlipped: Bool { true }
+    }
+
     private func buildUI() {
-        guard let content = window?.contentView else { return }
+        guard let windowContent = window?.contentView else { return }
+        // All controls live on this document view inside a scroll view, so the
+        // settings scroll if they don't fit the window.
+        let content = FlippedView()
+        content.translatesAutoresizingMaskIntoConstraints = false
 
         func label(_ s: String) -> NSTextField {
             let f = NSTextField(labelWithString: s)
@@ -146,6 +157,30 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             externalChangePopup.centerYAnchor.constraint(equalTo: externalChangeTitle.centerYAnchor),
             externalChangePopup.leadingAnchor.constraint(equalTo: externalChangeTitle.trailingAnchor, constant: 8),
             externalChangePopup.widthAnchor.constraint(equalToConstant: 180),
+
+            // Define the document view's size: fixed width, and a bottom anchored
+            // below the last row so the scroll view knows the content height.
+            content.widthAnchor.constraint(equalToConstant: 420),
+            externalChangePopup.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
+        ])
+
+        // Host the content in a scroll view so Settings scroll if they don't fit.
+        let scrollView = NSScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.drawsBackground = false
+        scrollView.documentView = content
+        windowContent.addSubview(scrollView)
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(equalTo: windowContent.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: windowContent.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: windowContent.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: windowContent.bottomAnchor),
+            // The document view's width tracks the scroll view (no horizontal scroll).
+            content.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
+            content.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
         ])
     }
 

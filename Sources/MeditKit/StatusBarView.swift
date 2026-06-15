@@ -66,8 +66,36 @@ public final class StatusBarView: NSView {
         positionLabel.stringValue = "Ln \(line), Col \(column)"
         languageButton.title = language
         encodingButton.title = encoding
-        lineEndingButton.title = (lineEnding == .lf) ? "LF" : "CRLF"
-        modeLabel.stringValue = overwrite ? "OVR" : "INS"
+        lineEndingButton.title = StatusBarView.lineEndingLabel(lineEnding)
+        applyMode(overwrite: overwrite)
+    }
+
+    /// Short label with an OS hint, e.g. "LF (Unix/Linux)" / "CRLF (Windows)".
+    private static func lineEndingLabel(_ ending: LineEnding) -> String {
+        ending == .lf ? "LF (Unix/Linux)" : "CRLF (Windows)"
+    }
+
+    /// Style the INS/OVR field: plain in insert mode; an eye-catching (but not
+    /// garish) filled accent "pill" in overwrite mode so the state is obvious.
+    private func applyMode(overwrite: Bool) {
+        if overwrite {
+            let attrs: [NSAttributedString.Key: Any] = [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
+            ]
+            modeLabel.attributedStringValue = NSAttributedString(string: " OVR ", attributes: attrs)
+            modeLabel.drawsBackground = true
+            modeLabel.backgroundColor = NSColor.controlAccentColor
+            modeLabel.wantsLayer = true
+            modeLabel.layer?.cornerRadius = 3
+            modeLabel.layer?.masksToBounds = true
+        } else {
+            modeLabel.drawsBackground = false
+            modeLabel.layer?.backgroundColor = nil
+            modeLabel.stringValue = "INS"
+            modeLabel.textColor = .secondaryLabelColor
+            modeLabel.font = .systemFont(ofSize: 11)
+        }
     }
 
     @objc private func languageButtonClicked() {
@@ -127,7 +155,7 @@ public final class StatusBarView: NSView {
     @objc private func lineEndingButtonClicked() {
         let menu = NSMenu()
         for ending in [LineEnding.lf, .crlf] {
-            let item = NSMenuItem(title: ending == .lf ? "LF" : "CRLF", action: #selector(lineEndingPicked(_:)), keyEquivalent: "")
+            let item = NSMenuItem(title: StatusBarView.lineEndingLabel(ending), action: #selector(lineEndingPicked(_:)), keyEquivalent: "")
             item.representedObject = ending.rawValue; item.target = self
             menu.addItem(item)
         }
