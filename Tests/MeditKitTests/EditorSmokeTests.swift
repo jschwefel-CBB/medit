@@ -84,6 +84,33 @@ final class EditorSmokeTests: XCTestCase {
         }
     }
 
+    func testWrappedTextContainerReflowsWhenWidened() {
+        // Regression: in wrap mode, widening the window didn't re-flow text live
+        // because the container width was pinned to a stale snapshot. The wrapping
+        // container width must follow the scroll view's content width on resize.
+        let controller = makeWindowController(text: String(repeating: "word ", count: 200))
+        guard let window = controller.window, let editor = controller.editorForTesting else {
+            return XCTFail("no editor")
+        }
+        window.setFrame(NSRect(x: 0, y: 0, width: 700, height: 600), display: true)
+        controller.showWindow(nil)
+        window.layoutIfNeeded()
+        editor.applyWrapMode(true)
+        editor.syncWrapWidthForTesting()
+        window.layoutIfNeeded()
+        let narrowWidth = editor.wrapContainerWidthForTesting
+        XCTAssertGreaterThan(narrowWidth, 0, "wrap container should have a real width")
+
+        // Widen the window substantially.
+        window.setFrame(NSRect(x: 0, y: 0, width: 1200, height: 600), display: true)
+        window.layoutIfNeeded()
+        editor.syncWrapWidthForTesting()
+        let wideWidth = editor.wrapContainerWidthForTesting
+
+        XCTAssertGreaterThan(wideWidth, narrowWidth + 200,
+                             "wrap container width must grow with the window (live reflow)")
+    }
+
     func testShowInvisiblesTogglesWithoutBreakingRender() {
         let controller = makeWindowController(text: "a b\tc\nd e")
         guard let window = controller.window, let editor = controller.editorForTesting else { return XCTFail("no editor") }

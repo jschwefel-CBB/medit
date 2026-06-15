@@ -187,14 +187,14 @@ public final class EditorTextView: NSTextView {
         blockRect.fill()
     }
 
-    /// Briefly highlight the bracket matching the one adjacent to the caret.
+    /// Bracket-match highlighting is intentionally disabled. The previous
+    /// implementation used `showFindIndicator(for:)`, whose animated yellow bubble
+    /// re-flashed on every keystroke inside a bracket pair — visually jarring. A
+    /// proper static, depth-colored ("rainbow brackets") highlight is planned as a
+    /// separate feature; until then, no bracket highlight is drawn.
+    /// `BracketMatcher` (the pure matching logic) is retained for that feature.
     public func highlightMatchingBracket() {
-        let sel = selectedRange()
-        guard sel.length == 0 else { return }
-        guard let partner = BracketMatcher.matchingOffset(in: string, at: sel.location) else { return }
-        let range = NSRange(location: partner, length: 1)
-        guard NSMaxRange(range) <= (string as NSString).length else { return }
-        showFindIndicator(for: range)
+        // no-op (see doc comment)
     }
 
     /// Resetting overwrite mode (used when the preference is toggled off).
