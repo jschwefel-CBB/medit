@@ -21,6 +21,9 @@ public final class TextDocument: NSDocument {
     /// UTF-8; UTF-16/32 always emit a BOM via Foundation regardless).
     public var writesBOM: Bool = false
 
+    /// Manual language override (nil = auto-detect). Session-only; not persisted.
+    public var languageOverride: String?
+
     /// Set by the window controller so the document can push fresh text into
     /// the editor after a revert/reload.
     weak var editorWindowController: EditorWindowController?
@@ -87,9 +90,9 @@ public final class TextDocument: NSDocument {
     }
 
     /// The language used for highlighting: a manual override wins, else the
-    /// detected language. (languageOverride is added in Task 3.)
+    /// detected language.
     public var highlightLanguage: String? {
-        detectedLanguage
+        languageOverride ?? detectedLanguage
     }
 
     /// The most current text: the live editor contents if a window is open,

@@ -118,6 +118,9 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// Test hook: the editor view controller.
     var editorForTesting: EditorViewController? { editor }
 
+    /// Test hook: the underlying document.
+    var documentForTesting: TextDocument? { textDocument }
+
     /// Called by the document after it reloads from disk (revert).
     func documentTextDidReload() {
         editor?.reloadFromDocument()

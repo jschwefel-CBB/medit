@@ -520,6 +520,18 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertEqual(tv.string, "    foo\n    ", "new line should copy the 4-space indent")
     }
 
+    func testManualLanguageOverrideWinsOverDetection() {
+        let controller = makeWindowController(text: "print('hi')")
+        guard let editor = controller.editorForTesting else { return XCTFail("no editor") }
+        controller.showWindow(nil)
+        // Force a manual override and confirm the document reports it.
+        editor.setLanguageOverrideForTesting("rust")
+        XCTAssertEqual(controller.documentForTesting?.highlightLanguage, "rust")
+        // Auto-detect clears it (untitled doc with no extension/shebang -> nil).
+        editor.setLanguageOverrideForTesting(nil)
+        XCTAssertNil(controller.documentForTesting?.highlightLanguage)
+    }
+
     func testAutoIndentAddsLevelAfterBrace() {
         let controller = makeWindowController(text: "if x {")
         guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("no tv") }

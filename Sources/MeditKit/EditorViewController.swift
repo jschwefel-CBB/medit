@@ -138,6 +138,13 @@ public final class EditorViewController: NSViewController {
         // status bar's top (instead of the container bottom).
         let statusBar = StatusBarView()
         statusBar.translatesAutoresizingMaskIntoConstraints = false
+        statusBar.onLanguagePick = { [weak self] pick in
+            switch pick {
+            case "auto": self?.setLanguageOverride(nil)
+            case "plaintext": self?.setLanguageOverride("plaintext")
+            default: self?.setLanguageOverride(pick)
+            }
+        }
         self.statusBar = statusBar
         container.addSubview(statusBar)
 
@@ -375,23 +382,27 @@ public final class EditorViewController: NSViewController {
         guard let statusBar else { return }
         let sel = textView.selectedRange()
         let pos = TextPosition.lineColumn(forOffset: sel.location, in: textView.string)
-        let language = document?.highlightLanguage.map { displayLanguageName($0) } ?? "Plain Text"
+        let overrideOrDetected = document?.highlightLanguage
+        let language: String
+        switch overrideOrDetected {
+        case .none: language = "Plain Text"
+        case .some("plaintext"): language = "Plain Text"
+        case .some(let id): language = LanguageCatalog.displayName(for: id)
+        }
         let encoding = TextEncodingDetector.displayName(for: document?.fileEncoding ?? .utf8)
         let overwrite = (textView as? EditorTextView)?.isOverwriteMode ?? false
         statusBar.update(line: pos.line, column: pos.column, language: language, encoding: encoding, overwrite: overwrite)
     }
 
-    private func displayLanguageName(_ id: String) -> String {
-        // highlight.js ids are lowercase; show a tidy label.
-        switch id {
-        case "cpp": return "C++"
-        case "objectivec": return "Objective-C"
-        case "xml": return "HTML/XML"
-        case "javascript": return "JavaScript"
-        case "typescript": return "TypeScript"
-        default: return id.prefix(1).uppercased() + id.dropFirst()
-        }
+    /// Apply a manual language override (nil = auto-detect), re-highlight, and
+    /// refresh the status bar.
+    func setLanguageOverride(_ id: String?) {
+        document?.languageOverride = id
+        highlighter?.setLanguage(document?.highlightLanguage)
+        updateStatusBar()
     }
+
+    func setLanguageOverrideForTesting(_ id: String?) { setLanguageOverride(id) }
 
     public func applyStatusBarVisibility(_ visible: Bool) {
         statusBar?.isHidden = !visible
