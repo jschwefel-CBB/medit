@@ -21,6 +21,19 @@ public final class TextDocument: NSDocument {
     /// UTF-8; UTF-16/32 always emit a BOM via Foundation regardless).
     public var writesBOM: Bool = false
 
+    /// Manual language override (nil = auto-detect). Session-only; not persisted.
+    public var languageOverride: String?
+
+    /// Line ending used on save (detected on read; default LF).
+    public var lineEnding: LineEnding = .lf
+    /// The original file bytes from the last read, for Reinterpret.
+    public private(set) var originalData: Data?
+
+    /// The file's modification date when we last read or wrote it. Used to ignore
+    /// spurious file-presenter callbacks (including our own I/O) and only react to
+    /// a genuine on-disk change.
+    private var lastKnownModificationDate: Date?
+
     /// Set by the window controller so the document can push fresh text into
     /// the editor after a revert/reload.
     weak var editorWindowController: EditorWindowController?
@@ -48,8 +61,21 @@ public final class TextDocument: NSDocument {
         self.text = decoded.string
         self.fileEncoding = decoded.encoding
         self.writesBOM = decoded.hadBOM
+        self.originalData = data
+        self.lineEnding = LineEndings.detect(self.text)
+        captureModificationDate()
         // If the window already exists (revert), refresh its editor.
         editorWindowController?.documentTextDidReload()
+    }
+
+    /// Record the current on-disk modification date of the file (if any).
+    private func captureModificationDate() {
+        lastKnownModificationDate = currentFileModificationDate()
+    }
+
+    private func currentFileModificationDate() -> Date? {
+        guard let url = fileURL else { return nil }
+        return (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
     }
 
     // MARK: Writing
@@ -60,10 +86,14 @@ public final class TextDocument: NSDocument {
         if let live = editorWindowController?.currentEditorText {
             self.text = live
         }
+        // Build the on-disk bytes from a LOCAL copy so a save never mutates the
+        // in-memory text (which would disturb the caret/selection in the editor).
+        var outText = self.text
         if Preferences.shared.stripTrailingWhitespaceOnSave {
-            self.text = TextHygiene.cleaned(self.text, stripTrailing: true, ensureFinalNewline: true)
+            outText = TextHygiene.cleaned(outText, stripTrailing: true, ensureFinalNewline: true)
         }
-        return TextEncodingDetector.encode(text, as: fileEncoding, includeBOM: writesBOM)
+        outText = LineEndings.normalize(outText, to: lineEnding)
+        return TextEncodingDetector.encode(outText, as: fileEncoding, includeBOM: writesBOM)
     }
 
     // MARK: Editor <-> model sync
@@ -76,11 +106,151 @@ public final class TextDocument: NSDocument {
         updateChangeCount(.changeDone)
     }
 
-    /// A short language identifier for syntax highlighting, derived from the
-    /// file name (nil for unsaved/untitled or unknown types).
+    // MARK: Encoding / line-ending operations
+
+    /// Re-decode the original file bytes as `encoding` (fixes a wrong auto-detect).
+    /// No-op if there are no original bytes or decode fails.
+    public func reinterpret(as encoding: String.Encoding) {
+        guard let data = originalData,
+              let decoded = String(bytes: data, encoding: encoding) else { return }
+        self.text = decoded
+        self.fileEncoding = encoding
+        self.lineEnding = LineEndings.detect(decoded)
+        editorWindowController?.documentTextDidReload()
+        updateChangeCount(.changeDone)
+    }
+
+    /// Keep the current text; write it in `encoding` on the next save.
+    public func convert(to encoding: String.Encoding) {
+        guard encoding != fileEncoding else { return }
+        self.fileEncoding = encoding
+        updateChangeCount(.changeDone)
+    }
+
+    /// Set the save line ending and normalize the in-memory text to match.
+    public func setLineEnding(_ ending: LineEnding) {
+        guard ending != lineEnding else { return }
+        self.lineEnding = ending
+        let normalized = LineEndings.normalize(text, to: ending)
+        if normalized != text {
+            self.text = normalized
+            editorWindowController?.documentTextDidReload()
+            updateChangeCount(.changeDone)
+        }
+    }
+
+    // MARK: External-change detection (NSFilePresenter)
+
+    /// Reload from disk, refreshing the editor. Safe to call from the banner.
+    public func revertToSavedSafely() {
+        guard let url = fileURL, let type = fileType else { return }
+        try? revert(toContentsOf: url, ofType: type)
+        // revert() calls read(from:) which re-captures the modification date.
+    }
+
+    public override func presentedItemDidChange() {
+        // Called on a background queue; marshal to main.
+        DispatchQueue.main.async { [weak self] in
+            self?.handleExternalChange(deleted: false)
+        }
+    }
+
+    public override func accommodatePresentedItemDeletion(completionHandler: @escaping (Error?) -> Void) {
+        DispatchQueue.main.async { [weak self] in
+            self?.handleExternalChange(deleted: true)
+            completionHandler(nil)
+        }
+    }
+
+    private func handleExternalChange(deleted: Bool) {
+        guard let url = fileURL else { return }
+
+        if deleted {
+            // Only treat as deleted if the file truly no longer exists (rename/
+            // atomic-save can fire this spuriously).
+            if FileManager.default.fileExists(atPath: url.path) { return }
+            updateChangeCount(.changeDone)
+            editorWindowController?.editorForExternalChange?.showReloadBanner(message: "The file has been moved or deleted.")
+            return
+        }
+
+        // Ignore callbacks that aren't a genuine on-disk change. This kills the
+        // false positive on open/save (our own I/O) and spurious presenter pings:
+        // the file must (a) have a newer modification date than the one we
+        // recorded, AND (b) actually contain different bytes than we loaded.
+        guard isGenuineExternalChange(url: url) else { return }
+
+        let policy = Preferences.shared.externalChangePolicy
+        switch ExternalChangeResolver.action(policy: policy, isDirty: isDocumentEdited) {
+        case .reloadSilently:
+            revertToSavedSafely()
+        case .banner:
+            editorWindowController?.editorForExternalChange?.showReloadBanner(message: "This file has changed on disk.")
+        case .prompt:
+            presentReloadPrompt()
+        }
+    }
+
+    /// True only when the file on disk actually contains different bytes than
+    /// what we last loaded. The byte comparison is the authoritative signal (it
+    /// kills the false positive on open/save and any spurious presenter ping);
+    /// the modification date is only a cheap pre-check to skip the read when the
+    /// file demonstrably hasn't been touched since we recorded it.
+    ///
+    /// Note: filesystem mtime can have 1-second resolution, so we do NOT treat
+    /// "same second" as "unchanged" — only a strictly-older disk date short-
+    /// circuits. Otherwise we fall through to the content comparison.
+    private func isGenuineExternalChange(url: URL) -> Bool {
+        let diskDate = currentFileModificationDate()
+        // Skip the read only if the disk date is strictly OLDER than what we
+        // recorded (can't be a newer change). Equal or newer -> verify content.
+        if let known = lastKnownModificationDate, let disk = diskDate, disk < known {
+            return false
+        }
+        guard let diskData = try? Data(contentsOf: url) else { return false }
+        guard let original = originalData else {
+            // No baseline bytes (shouldn't happen for a loaded file) — be safe.
+            lastKnownModificationDate = diskDate
+            return false
+        }
+        if diskData == original {
+            // Same content (our own save, a touch, a no-op ping). Record the date
+            // and the (unchanged) bytes so we don't keep re-reading.
+            lastKnownModificationDate = diskDate
+            return false
+        }
+        // Genuine change: adopt the new bytes as the baseline so the same change
+        // isn't reported twice, and update the date.
+        originalData = diskData
+        lastKnownModificationDate = diskDate
+        return true
+    }
+
+    private func presentReloadPrompt() {
+        let alert = NSAlert()
+        alert.messageText = "This file has changed on disk."
+        alert.informativeText = "Reload it and discard your unsaved changes, or keep your version?"
+        alert.addButton(withTitle: "Reload")
+        alert.addButton(withTitle: "Keep My Version")
+        if alert.runModal() == .alertFirstButtonReturn {
+            revertToSavedSafely()
+        }
+    }
+
+    /// Auto-detected language: file extension first, then a shebang on the first
+    /// line. nil when neither matches.
+    public var detectedLanguage: String? {
+        if let url = fileURL, let byExt = LanguageMap.language(forURL: url) {
+            return byExt
+        }
+        let firstLine = text.prefix(while: { $0 != "\n" })
+        return ShebangDetector.language(forFirstLine: String(firstLine))
+    }
+
+    /// The language used for highlighting: a manual override wins, else the
+    /// detected language.
     public var highlightLanguage: String? {
-        guard let url = fileURL else { return nil }
-        return LanguageMap.language(forURL: url)
+        languageOverride ?? detectedLanguage
     }
 
     /// The most current text: the live editor contents if a window is open,
@@ -91,4 +261,9 @@ public final class TextDocument: NSDocument {
 
     /// Test hook: seed the model text without a file read.
     func setTextForTesting(_ value: String) { text = value }
+
+    /// Test hooks for the external-change guard.
+    func isGenuineExternalChangeForTesting(url: URL) -> Bool { isGenuineExternalChange(url: url) }
+    func captureModificationDateForTesting() { captureModificationDate() }
+    func setOriginalDataForTesting(_ data: Data) { originalData = data }
 }

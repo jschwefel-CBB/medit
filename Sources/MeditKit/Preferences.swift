@@ -44,6 +44,7 @@ public final class Preferences {
         static let showInvisibles = "showInvisibles"
         static let lightThemeName = "lightThemeName"
         static let darkThemeName = "darkThemeName"
+        static let externalChangePolicy = "externalChangePolicy"
     }
 
     private func registerDefaults() {
@@ -62,7 +63,8 @@ public final class Preferences {
             Key.stripTrailingWhitespaceOnSave: true,
             Key.showInvisibles: false,
             Key.lightThemeName: "atom-one-light",
-            Key.darkThemeName: "atom-one-dark"
+            Key.darkThemeName: "atom-one-dark",
+            Key.externalChangePolicy: ExternalChangePolicy.notify.rawValue
         ])
     }
 
@@ -149,6 +151,12 @@ public final class Preferences {
     public var darkThemeName: String {
         get { defaults.string(forKey: Key.darkThemeName) ?? "atom-one-dark" }
         set { defaults.set(newValue, forKey: Key.darkThemeName); didChange() }
+    }
+
+    /// How medit reacts when an open file changes on disk.
+    public var externalChangePolicy: ExternalChangePolicy {
+        get { ExternalChangePolicy(rawValue: defaults.string(forKey: Key.externalChangePolicy) ?? "") ?? .notify }
+        set { defaults.set(newValue.rawValue, forKey: Key.externalChangePolicy); didChange() }
     }
 
     /// The highlight.js theme name to use for the given effective appearance.

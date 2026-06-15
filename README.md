@@ -72,6 +72,14 @@ Targets **macOS 14 (Sonoma)** and later. Apple Silicon and Intel.
   BOM, ISO Latin-1 fallback) with faithful round-trip on save; recent files;
   unsaved-changes prompts; drag-and-drop; session restore. Runs sandboxed with
   user-selected file access.
+- **Manual language selection** — click the language in the status bar to override
+  syntax highlighting; "Auto-Detect" returns control. Detection also reads shebang
+  lines (e.g. `#!/usr/bin/env python`) for extension-less scripts.
+- **Encoding & line endings** — click the encoding in the status bar to Reinterpret
+  (re-decode the file bytes) or Convert (re-encode on save); choose LF or CRLF.
+- **Reload on external change** — medit notices when an open file changes on disk
+  and offers to reload (a banner by default; Prompt / Auto-reload-if-clean in
+  Settings). A deleted file keeps your buffer so you can re-save it.
 
 ## Install
 
@@ -177,7 +185,7 @@ medit/
 │   ├── medit.entitlements     App Sandbox + user-selected file access
 │   └── Assets.xcassets        App icon
 ├── Tools/IconGen/             Core Graphics icon generator (iconmaker.swift)
-└── docs/superpowers/          Design specs + implementation plans
+└── docs/                       Design specs (docs/specs/) + plans (docs/plans/)
 ```
 
 The design deliberately keeps the GUI-free logic — encoding detection, language
@@ -237,8 +245,9 @@ Contributions are welcome. A few ground rules that keep the codebase healthy:
 - **Match the existing style.** Look at neighboring files (`TextSearch.swift`,
   `Preferences.swift`) for the house patterns.
 
-Design specs and implementation plans live under `docs/superpowers/` if you want
-to see how a feature was reasoned about before it was built.
+Design specs live under `docs/specs/` and implementation plans under
+`docs/plans/` if you want to see how a feature was reasoned about before it was
+built.
 
 ## License
 

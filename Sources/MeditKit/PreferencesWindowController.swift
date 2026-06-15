@@ -16,14 +16,16 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var autoCloseCheck: NSButton!
     private var stripWSCheck: NSButton!
     private var tabWidthField: NSTextField!
+    private var externalChangePopup: NSPopUpButton!
 
     public init(preferences: Preferences = .shared) {
         self.prefs = preferences
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 300),
-            styleMask: [.titled, .closable],
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 400),
+            styleMask: [.titled, .closable, .resizable],
             backing: .buffered, defer: false)
         window.title = "Settings"
+        window.minSize = NSSize(width: 420, height: 240)
         super.init(window: window)
         window.delegate = self
         window.center()
@@ -35,8 +37,18 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
     // MARK: UI
 
+    /// A top-left-origin container so the top-down Auto Layout below reads
+    /// naturally and scrolls correctly inside an NSScrollView.
+    private final class FlippedView: NSView {
+        override var isFlipped: Bool { true }
+    }
+
     private func buildUI() {
-        guard let content = window?.contentView else { return }
+        guard let windowContent = window?.contentView else { return }
+        // All controls live on this document view inside a scroll view, so the
+        // settings scroll if they don't fit the window.
+        let content = FlippedView()
+        content.translatesAutoresizingMaskIntoConstraints = false
 
         func label(_ s: String) -> NSTextField {
             let f = NSTextField(labelWithString: s)
@@ -87,9 +99,17 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         tabWidthField.target = self
         tabWidthField.action = #selector(tabWidthChanged)
 
+        // External-change policy row
+        let externalChangeTitle = label("On external change:")
+        externalChangePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+        externalChangePopup.translatesAutoresizingMaskIntoConstraints = false
+        externalChangePopup.addItems(withTitles: ["Notify", "Prompt", "Auto-reload if clean"])
+        externalChangePopup.target = self
+        externalChangePopup.action = #selector(externalChangePolicyChanged)
+
         [fontTitle, fontLabel, fontButton, appearanceTitle, appearancePopup,
          lineNumbersCheck, wrapCheck, spacesCheck, pcKeysCheck, autoIndentCheck, autoCloseCheck,
-         stripWSCheck, tabTitle, tabWidthField]
+         stripWSCheck, tabTitle, tabWidthField, externalChangeTitle, externalChangePopup]
             .forEach { content.addSubview($0!) }
 
         let leftCol: CGFloat = 110
@@ -130,6 +150,37 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             tabWidthField.centerYAnchor.constraint(equalTo: tabTitle.centerYAnchor),
             tabWidthField.leadingAnchor.constraint(equalTo: tabTitle.trailingAnchor, constant: 8),
             tabWidthField.widthAnchor.constraint(equalToConstant: 60),
+
+            externalChangeTitle.topAnchor.constraint(equalTo: tabTitle.bottomAnchor, constant: 20),
+            externalChangeTitle.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
+            externalChangeTitle.widthAnchor.constraint(equalToConstant: 130),
+            externalChangePopup.centerYAnchor.constraint(equalTo: externalChangeTitle.centerYAnchor),
+            externalChangePopup.leadingAnchor.constraint(equalTo: externalChangeTitle.trailingAnchor, constant: 8),
+            externalChangePopup.widthAnchor.constraint(equalToConstant: 180),
+
+            // Define the document view's size: fixed width, and a bottom anchored
+            // below the last row so the scroll view knows the content height.
+            content.widthAnchor.constraint(equalToConstant: 420),
+            externalChangePopup.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
+        ])
+
+        // Host the content in a scroll view so Settings scroll if they don't fit.
+        let scrollView = NSScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.drawsBackground = false
+        scrollView.documentView = content
+        windowContent.addSubview(scrollView)
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(equalTo: windowContent.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: windowContent.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: windowContent.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: windowContent.bottomAnchor),
+            // The document view's width tracks the scroll view (no horizontal scroll).
+            content.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
+            content.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
         ])
     }
 
@@ -159,6 +210,11 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         autoCloseCheck.state = prefs.autoCloseBrackets ? .on : .off
         stripWSCheck.state = prefs.stripTrailingWhitespaceOnSave ? .on : .off
         tabWidthField.integerValue = prefs.tabWidth
+        switch prefs.externalChangePolicy {
+        case .notify: externalChangePopup.selectItem(at: 0)
+        case .prompt: externalChangePopup.selectItem(at: 1)
+        case .autoIfClean: externalChangePopup.selectItem(at: 2)
+        }
         applyAppAppearance()
     }
 
@@ -206,6 +262,14 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
     @objc private func tabWidthChanged(_ sender: Any?) {
         prefs.tabWidth = max(1, tabWidthField.integerValue)
+    }
+
+    @objc private func externalChangePolicyChanged(_ sender: Any?) {
+        switch externalChangePopup.indexOfSelectedItem {
+        case 1: prefs.externalChangePolicy = .prompt
+        case 2: prefs.externalChangePolicy = .autoIfClean
+        default: prefs.externalChangePolicy = .notify
+        }
     }
 
     /// Apply the chosen appearance to the whole app.

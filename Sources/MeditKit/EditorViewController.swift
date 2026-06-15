@@ -17,6 +17,10 @@ public final class EditorViewController: NSViewController {
     /// The window controller that handles "New Tab" from our context menu.
     weak var newTabActionTarget: AnyObject?
 
+    // Reload banner (external-change notice), above the find bar.
+    private var reloadBanner: ReloadBanner?
+    private var reloadBannerHeightConstraint: NSLayoutConstraint?
+
     // Find & Replace.
     private var findReplaceBar: FindReplaceBar?
     private var barHeightConstraint: NSLayoutConstraint?
@@ -108,6 +112,19 @@ public final class EditorViewController: NSViewController {
         let container = NSView(frame: frame)
         container.autoresizingMask = [.width, .height]
 
+        // Reload banner sits ABOVE the find bar (order: reload banner / find bar
+        // / scroll view / status bar). Like the find bar, it collapses to zero
+        // height while hidden so it reserves NO space above the editor.
+        let banner = ReloadBanner()
+        banner.translatesAutoresizingMaskIntoConstraints = false
+        banner.isHidden = true
+        banner.onReload = { [weak self] in
+            self?.document?.revertToSavedSafely()
+            self?.hideReloadBanner()
+        }
+        banner.onDismiss = { [weak self] in self?.hideReloadBanner() }
+        self.reloadBanner = banner
+
         let bar = FindReplaceBar()
         bar.translatesAutoresizingMaskIntoConstraints = false
         bar.delegate = self
@@ -115,8 +132,14 @@ public final class EditorViewController: NSViewController {
         self.findReplaceBar = bar
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(banner)
         container.addSubview(bar)
         container.addSubview(scrollView)
+
+        // Collapse the banner to zero height while hidden (starts hidden).
+        let bannerHeight = banner.heightAnchor.constraint(equalToConstant: 0)
+        bannerHeight.isActive = true
+        reloadBannerHeightConstraint = bannerHeight
 
         // Collapse the bar to zero height while hidden so it reserves NO space
         // above the editor. Activated by default (bar starts hidden).
@@ -125,7 +148,11 @@ public final class EditorViewController: NSViewController {
         barHeightConstraint = heightConstraint
 
         NSLayoutConstraint.activate([
-            bar.topAnchor.constraint(equalTo: container.topAnchor),
+            banner.topAnchor.constraint(equalTo: container.topAnchor),
+            banner.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            banner.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+
+            bar.topAnchor.constraint(equalTo: banner.bottomAnchor),
             bar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
 
@@ -138,6 +165,25 @@ public final class EditorViewController: NSViewController {
         // status bar's top (instead of the container bottom).
         let statusBar = StatusBarView()
         statusBar.translatesAutoresizingMaskIntoConstraints = false
+        statusBar.onLanguagePick = { [weak self] pick in
+            switch pick {
+            case "auto": self?.setLanguageOverride(nil)
+            case "plaintext": self?.setLanguageOverride("plaintext")
+            default: self?.setLanguageOverride(pick)
+            }
+        }
+        statusBar.onReinterpret = { [weak self] enc in
+            self?.document?.reinterpret(as: enc)
+            self?.rehighlightAndRefresh()
+        }
+        statusBar.onConvert = { [weak self] enc in
+            self?.document?.convert(to: enc)
+            self?.updateStatusBar()
+        }
+        statusBar.onLineEndingPick = { [weak self] ending in
+            self?.document?.setLineEnding(ending)
+            self?.updateStatusBar()
+        }
         self.statusBar = statusBar
         container.addSubview(statusBar)
 
@@ -375,22 +421,39 @@ public final class EditorViewController: NSViewController {
         guard let statusBar else { return }
         let sel = textView.selectedRange()
         let pos = TextPosition.lineColumn(forOffset: sel.location, in: textView.string)
-        let language = document?.highlightLanguage.map { displayLanguageName($0) } ?? "Plain Text"
+        let overrideOrDetected = document?.highlightLanguage
+        let language: String
+        switch overrideOrDetected {
+        case .none: language = "Plain Text"
+        case .some("plaintext"): language = "Plain Text"
+        case .some(let id): language = LanguageCatalog.displayName(for: id)
+        }
         let encoding = TextEncodingDetector.displayName(for: document?.fileEncoding ?? .utf8)
         let overwrite = (textView as? EditorTextView)?.isOverwriteMode ?? false
-        statusBar.update(line: pos.line, column: pos.column, language: language, encoding: encoding, overwrite: overwrite)
+        statusBar.update(line: pos.line, column: pos.column, language: language, encoding: encoding,
+                         lineEnding: document?.lineEnding ?? .lf, overwrite: overwrite)
     }
 
-    private func displayLanguageName(_ id: String) -> String {
-        // highlight.js ids are lowercase; show a tidy label.
-        switch id {
-        case "cpp": return "C++"
-        case "objectivec": return "Objective-C"
-        case "xml": return "HTML/XML"
-        case "javascript": return "JavaScript"
-        case "typescript": return "TypeScript"
-        default: return id.prefix(1).uppercased() + id.dropFirst()
+    /// Apply a manual language override (nil = auto-detect), re-highlight, and
+    /// refresh the status bar.
+    func setLanguageOverride(_ id: String?) {
+        document?.languageOverride = id
+        highlighter?.setLanguage(document?.highlightLanguage)
+        updateStatusBar()
+    }
+
+    func setLanguageOverrideForTesting(_ id: String?) { setLanguageOverride(id) }
+
+    /// After a Reinterpret (or any op that replaces the buffer from the model),
+    /// push the model text into the view, re-highlight, and refresh chrome.
+    private func rehighlightAndRefresh() {
+        if let storage = textView.textStorage {
+            textView.string = document?.text ?? textView.string
+            _ = storage
         }
+        highlighter?.highlightNow()
+        updateStatusBar()
+        ruler?.needsDisplay = true
     }
 
     public func applyStatusBarVisibility(_ visible: Bool) {
@@ -440,6 +503,26 @@ public final class EditorViewController: NSViewController {
         barHeightConstraint?.isActive = true
         view.layoutSubtreeIfNeeded()
         view.window?.makeFirstResponder(textView)
+    }
+
+    // MARK: Reload banner
+
+    /// Show the external-change banner with `message`, expanding it to its
+    /// intrinsic height (collapse constraint deactivated).
+    func showReloadBanner(message: String) {
+        guard let banner = reloadBanner else { return }
+        banner.show(message: message)
+        reloadBannerHeightConstraint?.isActive = false
+        view.layoutSubtreeIfNeeded()
+    }
+
+    /// Hide the external-change banner, collapsing it back to zero height.
+    func hideReloadBanner() {
+        guard let banner = reloadBanner else { return }
+        banner.hide()
+        reloadBannerHeightConstraint?.constant = 0
+        reloadBannerHeightConstraint?.isActive = true
+        view.layoutSubtreeIfNeeded()
     }
 
     /// Select and reveal the match at/after the current selection (or before it

@@ -520,6 +520,34 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertEqual(tv.string, "    foo\n    ", "new line should copy the 4-space indent")
     }
 
+    func testManualLanguageOverrideWinsOverDetection() {
+        let controller = makeWindowController(text: "print('hi')")
+        guard let editor = controller.editorForTesting else { return XCTFail("no editor") }
+        controller.showWindow(nil)
+        // Force a manual override and confirm the document reports it.
+        editor.setLanguageOverrideForTesting("rust")
+        XCTAssertEqual(controller.documentForTesting?.highlightLanguage, "rust")
+        // Auto-detect clears it (untitled doc with no extension/shebang -> nil).
+        editor.setLanguageOverrideForTesting(nil)
+        XCTAssertNil(controller.documentForTesting?.highlightLanguage)
+    }
+
+    func testReloadBannerShowsAndHidesWithoutBreakingRender() {
+        let controller = makeWindowController(text: "content")
+        guard let window = controller.window, let editor = controller.editorForTesting else { return XCTFail("no editor") }
+        window.setFrame(NSRect(x: 0, y: 0, width: 900, height: 600), display: true)
+        controller.showWindow(nil)
+        window.layoutIfNeeded()
+        editor.showReloadBanner(message: "This file has changed on disk.")
+        window.layoutIfNeeded()
+        if let tv = controller.focusedTextView {
+            XCTAssertGreaterThan(tv.frame.width, 100, "editor collapsed when banner shown")
+            XCTAssertEqual(tv.string, "content")
+        }
+        editor.hideReloadBanner()
+        window.layoutIfNeeded()
+    }
+
     func testAutoIndentAddsLevelAfterBrace() {
         let controller = makeWindowController(text: "if x {")
         guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("no tv") }
