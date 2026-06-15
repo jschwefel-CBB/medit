@@ -72,6 +72,14 @@ Targets **macOS 14 (Sonoma)** and later. Apple Silicon and Intel.
   BOM, ISO Latin-1 fallback) with faithful round-trip on save; recent files;
   unsaved-changes prompts; drag-and-drop; session restore. Runs sandboxed with
   user-selected file access.
+- **Manual language selection** — click the language in the status bar to override
+  syntax highlighting; "Auto-Detect" returns control. Detection also reads shebang
+  lines (e.g. `#!/usr/bin/env python`) for extension-less scripts.
+- **Encoding & line endings** — click the encoding in the status bar to Reinterpret
+  (re-decode the file bytes) or Convert (re-encode on save); choose LF or CRLF.
+- **Reload on external change** — medit notices when an open file changes on disk
+  and offers to reload (a banner by default; Prompt / Auto-reload-if-clean in
+  Settings). A deleted file keeps your buffer so you can re-save it.
 
 ## Install
 
