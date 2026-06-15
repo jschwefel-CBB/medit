@@ -76,11 +76,20 @@ public final class TextDocument: NSDocument {
         updateChangeCount(.changeDone)
     }
 
-    /// A short language identifier for syntax highlighting, derived from the
-    /// file name (nil for unsaved/untitled or unknown types).
+    /// Auto-detected language: file extension first, then a shebang on the first
+    /// line. nil when neither matches.
+    public var detectedLanguage: String? {
+        if let url = fileURL, let byExt = LanguageMap.language(forURL: url) {
+            return byExt
+        }
+        let firstLine = text.prefix(while: { $0 != "\n" })
+        return ShebangDetector.language(forFirstLine: String(firstLine))
+    }
+
+    /// The language used for highlighting: a manual override wins, else the
+    /// detected language. (languageOverride is added in Task 3.)
     public var highlightLanguage: String? {
-        guard let url = fileURL else { return nil }
-        return LanguageMap.language(forURL: url)
+        detectedLanguage
     }
 
     /// The most current text: the live editor contents if a window is open,
