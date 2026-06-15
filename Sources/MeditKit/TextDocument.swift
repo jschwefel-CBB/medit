@@ -29,6 +29,11 @@ public final class TextDocument: NSDocument {
     /// The original file bytes from the last read, for Reinterpret.
     public private(set) var originalData: Data?
 
+    /// The file's modification date when we last read or wrote it. Used to ignore
+    /// spurious file-presenter callbacks (including our own I/O) and only react to
+    /// a genuine on-disk change.
+    private var lastKnownModificationDate: Date?
+
     /// Set by the window controller so the document can push fresh text into
     /// the editor after a revert/reload.
     weak var editorWindowController: EditorWindowController?
@@ -58,8 +63,19 @@ public final class TextDocument: NSDocument {
         self.writesBOM = decoded.hadBOM
         self.originalData = data
         self.lineEnding = LineEndings.detect(self.text)
+        captureModificationDate()
         // If the window already exists (revert), refresh its editor.
         editorWindowController?.documentTextDidReload()
+    }
+
+    /// Record the current on-disk modification date of the file (if any).
+    private func captureModificationDate() {
+        lastKnownModificationDate = currentFileModificationDate()
+    }
+
+    private func currentFileModificationDate() -> Date? {
+        guard let url = fileURL else { return nil }
+        return (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
     }
 
     // MARK: Writing
@@ -129,6 +145,7 @@ public final class TextDocument: NSDocument {
     public func revertToSavedSafely() {
         guard let url = fileURL, let type = fileType else { return }
         try? revert(toContentsOf: url, ofType: type)
+        // revert() calls read(from:) which re-captures the modification date.
     }
 
     public override func presentedItemDidChange() {
@@ -146,12 +163,23 @@ public final class TextDocument: NSDocument {
     }
 
     private func handleExternalChange(deleted: Bool) {
+        guard let url = fileURL else { return }
+
         if deleted {
-            // Keep the buffer; mark modified so it can be re-saved.
+            // Only treat as deleted if the file truly no longer exists (rename/
+            // atomic-save can fire this spuriously).
+            if FileManager.default.fileExists(atPath: url.path) { return }
             updateChangeCount(.changeDone)
             editorWindowController?.editorForExternalChange?.showReloadBanner(message: "The file has been moved or deleted.")
             return
         }
+
+        // Ignore callbacks that aren't a genuine on-disk change. This kills the
+        // false positive on open/save (our own I/O) and spurious presenter pings:
+        // the file must (a) have a newer modification date than the one we
+        // recorded, AND (b) actually contain different bytes than we loaded.
+        guard isGenuineExternalChange(url: url) else { return }
+
         let policy = Preferences.shared.externalChangePolicy
         switch ExternalChangeResolver.action(policy: policy, isDirty: isDocumentEdited) {
         case .reloadSilently:
@@ -161,6 +189,41 @@ public final class TextDocument: NSDocument {
         case .prompt:
             presentReloadPrompt()
         }
+    }
+
+    /// True only when the file on disk actually contains different bytes than
+    /// what we last loaded. The byte comparison is the authoritative signal (it
+    /// kills the false positive on open/save and any spurious presenter ping);
+    /// the modification date is only a cheap pre-check to skip the read when the
+    /// file demonstrably hasn't been touched since we recorded it.
+    ///
+    /// Note: filesystem mtime can have 1-second resolution, so we do NOT treat
+    /// "same second" as "unchanged" — only a strictly-older disk date short-
+    /// circuits. Otherwise we fall through to the content comparison.
+    private func isGenuineExternalChange(url: URL) -> Bool {
+        let diskDate = currentFileModificationDate()
+        // Skip the read only if the disk date is strictly OLDER than what we
+        // recorded (can't be a newer change). Equal or newer -> verify content.
+        if let known = lastKnownModificationDate, let disk = diskDate, disk < known {
+            return false
+        }
+        guard let diskData = try? Data(contentsOf: url) else { return false }
+        guard let original = originalData else {
+            // No baseline bytes (shouldn't happen for a loaded file) — be safe.
+            lastKnownModificationDate = diskDate
+            return false
+        }
+        if diskData == original {
+            // Same content (our own save, a touch, a no-op ping). Record the date
+            // and the (unchanged) bytes so we don't keep re-reading.
+            lastKnownModificationDate = diskDate
+            return false
+        }
+        // Genuine change: adopt the new bytes as the baseline so the same change
+        // isn't reported twice, and update the date.
+        originalData = diskData
+        lastKnownModificationDate = diskDate
+        return true
     }
 
     private func presentReloadPrompt() {
@@ -198,4 +261,9 @@ public final class TextDocument: NSDocument {
 
     /// Test hook: seed the model text without a file read.
     func setTextForTesting(_ value: String) { text = value }
+
+    /// Test hooks for the external-change guard.
+    func isGenuineExternalChangeForTesting(url: URL) -> Bool { isGenuineExternalChange(url: url) }
+    func captureModificationDateForTesting() { captureModificationDate() }
+    func setOriginalDataForTesting(_ data: Data) { originalData = data }
 }
