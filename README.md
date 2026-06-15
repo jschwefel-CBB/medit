@@ -51,13 +51,23 @@ Targets **macOS 14 (Sonoma)** and later. Apple Silicon and Intel.
   (Apple's built-in find bar can't expose regex in its UI; this one can.)
 - **Find in All Tabs** — search across every open document at once (⇧⌘F), with
   regex; click a result to jump straight to it.
+- **Go to Line** — jump to any line number (⌘L or ⌃G).
+- **Status bar** — live line:column, language, encoding, and insert/overwrite
+  mode at the bottom of the window (toggle in **View**).
+- **Auto-indent & bracket assist** — new lines keep the previous indent (and add
+  a level after `{` or `:`); typing a bracket auto-closes it and highlights its
+  match. Both toggle in **Settings** (on by default).
+- **Whitespace hygiene** — strip trailing whitespace and ensure a final newline on
+  save (on by default; toggle in **Settings**), plus a **Show Invisibles** view to
+  render spaces and tabs as faint markers.
 - **PC-style navigation keys** — Home/End move to the start/end of the line
   (Ctrl for the whole document, Shift to extend the selection); **Insert** toggles
   overwrite ("type-over") mode with a block caret, Shift+Insert pastes, Ctrl+Insert
   copies. On by default; toggle it off in **Settings** to restore macOS-native
   Home/End.
 - **Preferences** — font, appearance (System / Light / Dark), default word wrap,
-  line-number visibility, tab width, and the PC-keys toggle (⌘,).
+  line-number visibility, tab width, auto-indent, auto-close brackets,
+  strip-on-save, and the PC-keys toggle (⌘,).
 - **Faithful file handling** — encoding detection on open (UTF-8, UTF-16/32 with
   BOM, ISO Latin-1 fallback) with faithful round-trip on save; recent files;
   unsaved-changes prompts; drag-and-drop; session restore. Runs sandboxed with
@@ -95,7 +105,7 @@ Press **Run** (⌘R). Xcode resolves HighlighterSwift on the first build.
 
 ```sh
 swift build
-swift test          # 68 tests: pure logic + headless editor smoke tests
+swift test          # 116 tests: pure logic + headless editor smoke tests
 ```
 
 ### Build the app bundle without opening Xcode
@@ -129,6 +139,7 @@ xattr -dr com.apple.quarantine /Applications/medit.app
 | ⌥⌘F | Find & Replace |
 | ⌘G / ⇧⌘G | Find next / previous |
 | ⇧⌘F | Find in all tabs |
+| ⌘L / ⌃G | Go to Line |
 | ⇧⌘L | Toggle line numbers |
 | Home / End | Line start / end |
 | Shift+Home / Shift+End | Extend selection to line start / end |
@@ -152,11 +163,13 @@ medit/
 │   ├── Documents / windows    TextDocument (NSDocument), EditorWindowController,
 │   │                          EditorViewController, EditorTextView
 │   ├── Editor pieces          LineNumberRulerView, SyntaxHighlightingController,
-│   │                          FindReplaceBar, EditorColors
+│   │                          FindReplaceBar, StatusBarView, GoToLineSheet,
+│   │                          InvisiblesLayoutManager, EditorColors
 │   ├── Pure logic (tested)    TextEncodingDetector, LanguageMap, TextSearch,
-│   │                          KeyboardNavigator, Preferences
+│   │                          KeyboardNavigator, TextLocator, TextPosition,
+│   │                          Indenter, BracketMatcher, TextHygiene, Preferences
 │   └── Cross-tab search       FindInTabsCoordinator
-├── Tests/MeditKitTests/       68 tests (logic + headless editor smoke tests)
+├── Tests/MeditKitTests/       116 tests (logic + headless editor smoke tests)
 ├── App/                       Thin Xcode app target
 │   ├── medit.xcodeproj        Depends on the local ../  package
 │   ├── main.swift             Entry point — boots NSApplication
