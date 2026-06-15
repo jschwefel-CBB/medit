@@ -20,6 +20,16 @@ public final class EditorViewController: NSViewController {
     private var findReplaceBar: FindReplaceBar?
     private var barHeightConstraint: NSLayoutConstraint?
 
+    // Status bar.
+    private var statusBar: StatusBarView?
+    private var statusBarHeightConstraint: NSLayoutConstraint?
+
+    // Go to Line.
+    private var goToLineSheet: GoToLineSheet?
+
+    // Show Invisibles.
+    private weak var invisiblesLayoutManager: InvisiblesLayoutManager?
+
     private let prefs: Preferences
 
     public init(document: TextDocument, preferences: Preferences = .shared) {
@@ -54,8 +64,10 @@ public final class EditorViewController: NSViewController {
         let textContainer = NSTextContainer(containerSize: NSSize(width: contentSize.width,
                                                                   height: CGFloat.greatestFiniteMagnitude))
         textContainer.widthTracksTextView = true
-        let layoutManager = NSLayoutManager()
+        let layoutManager = InvisiblesLayoutManager()
+        layoutManager.showInvisibles = prefs.showInvisibles
         layoutManager.addTextContainer(textContainer)
+        self.invisiblesLayoutManager = layoutManager
         let textStorage = NSTextStorage()
         textStorage.addLayoutManager(layoutManager)
 
@@ -68,6 +80,10 @@ public final class EditorViewController: NSViewController {
         textView.isHorizontallyResizable = false
         textView.autoresizingMask = [.width]
         textView.pcStyleNavigationKeys = prefs.pcStyleNavigationKeys
+        textView.autoIndentEnabled = prefs.autoIndent
+        textView.autoCloseBracketsEnabled = prefs.autoCloseBrackets
+        textView.indentTabWidth = prefs.tabWidth
+        textView.indentUseSpaces = prefs.insertSpacesForTab
         scrollView.documentView = textView
         textView.isRichText = false                 // plain-text editor
         textView.allowsUndo = true
@@ -115,7 +131,24 @@ public final class EditorViewController: NSViewController {
             scrollView.topAnchor.constraint(equalTo: bar.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+
+        // Status bar pinned to the bottom; the scroll view's bottom now meets the
+        // status bar's top (instead of the container bottom).
+        let statusBar = StatusBarView()
+        statusBar.translatesAutoresizingMaskIntoConstraints = false
+        self.statusBar = statusBar
+        container.addSubview(statusBar)
+
+        let sbHeight = statusBar.heightAnchor.constraint(equalToConstant: 22)
+        sbHeight.isActive = true
+        statusBarHeightConstraint = sbHeight
+
+        NSLayoutConstraint.activate([
+            scrollView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            statusBar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            statusBar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            statusBar.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
 
         self.view = container
@@ -128,6 +161,9 @@ public final class EditorViewController: NSViewController {
         applyWrapMode(prefs.wrapLines)
         configureRuler(visible: prefs.showLineNumbers)
         configureHighlighter()
+        (textView as? EditorTextView)?.onOverwriteModeChange = { [weak self] _ in self?.updateStatusBar() }
+        applyStatusBarVisibility(prefs.showStatusBar)
+        updateStatusBar()
         observePreferences()
     }
 
@@ -256,7 +292,13 @@ public final class EditorViewController: NSViewController {
         if let editorTextView = textView as? EditorTextView {
             editorTextView.pcStyleNavigationKeys = prefs.pcStyleNavigationKeys
             if !prefs.pcStyleNavigationKeys { editorTextView.resetOverwriteMode() }
+            editorTextView.autoIndentEnabled = prefs.autoIndent
+            editorTextView.autoCloseBracketsEnabled = prefs.autoCloseBrackets
+            editorTextView.indentTabWidth = prefs.tabWidth
+            editorTextView.indentUseSpaces = prefs.insertSpacesForTab
         }
+        applyStatusBarVisibility(prefs.showStatusBar)
+        applyShowInvisibles(prefs.showInvisibles)
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -267,6 +309,58 @@ public final class EditorViewController: NSViewController {
 
     /// ⌥⌘F — show the bar in find+replace mode.
     @objc public func showFindReplaceBar(_ sender: Any?) { presentFindBar(showingReplace: true) }
+
+    /// ⌘L / ⌃G — prompt for a line number and jump to it.
+    @objc public func goToLine(_ sender: Any?) {
+        guard let window = view.window else { return }
+        let sheet = GoToLineSheet()
+        goToLineSheet = sheet
+        sheet.present(on: window) { [weak self] line in
+            guard let self, let offset = TextLocator.characterIndex(forLine: line, in: self.textView.string) else {
+                return false
+            }
+            let range = NSRange(location: offset, length: 0)
+            self.textView.setSelectedRange(range)
+            self.textView.scrollRangeToVisible(range)
+            self.textView.showFindIndicator(for: range)
+            self.view.window?.makeFirstResponder(self.textView)
+            return true
+        }
+    }
+
+    // MARK: Status bar
+
+    private func updateStatusBar() {
+        guard let statusBar else { return }
+        let sel = textView.selectedRange()
+        let pos = TextPosition.lineColumn(forOffset: sel.location, in: textView.string)
+        let language = document?.highlightLanguage.map { displayLanguageName($0) } ?? "Plain Text"
+        let encoding = TextEncodingDetector.displayName(for: document?.fileEncoding ?? .utf8)
+        let overwrite = (textView as? EditorTextView)?.isOverwriteMode ?? false
+        statusBar.update(line: pos.line, column: pos.column, language: language, encoding: encoding, overwrite: overwrite)
+    }
+
+    private func displayLanguageName(_ id: String) -> String {
+        // highlight.js ids are lowercase; show a tidy label.
+        switch id {
+        case "cpp": return "C++"
+        case "objectivec": return "Objective-C"
+        case "xml": return "HTML/XML"
+        case "javascript": return "JavaScript"
+        case "typescript": return "TypeScript"
+        default: return id.prefix(1).uppercased() + id.dropFirst()
+        }
+    }
+
+    public func applyStatusBarVisibility(_ visible: Bool) {
+        statusBar?.isHidden = !visible
+        statusBarHeightConstraint?.constant = visible ? 22 : 0
+    }
+
+    public func applyShowInvisibles(_ show: Bool) {
+        invisiblesLayoutManager?.showInvisibles = show
+        textView.needsDisplay = true
+    }
 
     /// ⌘G / ⇧⌘G — next/previous match using the bar's current query. If the bar
     /// isn't shown yet, show it first.
@@ -406,6 +500,12 @@ extension EditorViewController: NSTextViewDelegate {
         document?.updateText(textView.string)
         highlighter?.scheduleHighlight()
         ruler?.needsDisplay = true
+        updateStatusBar()
+    }
+
+    public func textViewDidChangeSelection(_ notification: Notification) {
+        updateStatusBar()
+        (textView as? EditorTextView)?.highlightMatchingBracket()
     }
 
     /// Inject "New Tab" at the top of the editor's right-click menu.

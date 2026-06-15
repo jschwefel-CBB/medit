@@ -84,6 +84,20 @@ public enum TextEncodingDetector {
         return Decoded(string: string, encoding: reported, hadBOM: true)
     }
 
+    // MARK: Display
+
+    /// A short human-readable name for an encoding (for the status bar).
+    public static func displayName(for encoding: String.Encoding) -> String {
+        switch encoding {
+        case .utf8: return "UTF-8"
+        case .utf16, .utf16LittleEndian, .utf16BigEndian: return "UTF-16"
+        case .utf32, .utf32LittleEndian, .utf32BigEndian: return "UTF-32"
+        case .isoLatin1: return "ISO Latin-1"
+        case .ascii: return "ASCII"
+        default: return "Text"
+        }
+    }
+
     // MARK: Encoding
 
     /// Encode text for writing to disk. When `includeBOM` is true and the

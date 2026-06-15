@@ -31,12 +31,17 @@ public final class Preferences {
     private enum Key {
         static let showLineNumbers = "showLineNumbers"
         static let wrapLines = "wrapLines"
+        static let showStatusBar = "showStatusBar"
         static let pcStyleNavigationKeys = "pcStyleNavigationKeys"
         static let appearance = "appearance"
         static let fontName = "fontName"
         static let fontSize = "fontSize"
         static let tabWidth = "tabWidth"
         static let insertSpacesForTab = "insertSpacesForTab"
+        static let autoIndent = "autoIndent"
+        static let autoCloseBrackets = "autoCloseBrackets"
+        static let stripTrailingWhitespaceOnSave = "stripTrailingWhitespaceOnSave"
+        static let showInvisibles = "showInvisibles"
         static let lightThemeName = "lightThemeName"
         static let darkThemeName = "darkThemeName"
     }
@@ -45,12 +50,17 @@ public final class Preferences {
         defaults.register(defaults: [
             Key.showLineNumbers: true,
             Key.wrapLines: false,
+            Key.showStatusBar: true,
             Key.pcStyleNavigationKeys: true,
             Key.appearance: AppAppearance.system.rawValue,
             Key.fontName: "Menlo",
             Key.fontSize: 13.0,
             Key.tabWidth: 4,
             Key.insertSpacesForTab: true,
+            Key.autoIndent: true,
+            Key.autoCloseBrackets: true,
+            Key.stripTrailingWhitespaceOnSave: true,
+            Key.showInvisibles: false,
             Key.lightThemeName: "atom-one-light",
             Key.darkThemeName: "atom-one-dark"
         ])
@@ -70,6 +80,11 @@ public final class Preferences {
     public var wrapLines: Bool {
         get { defaults.bool(forKey: Key.wrapLines) }
         set { defaults.set(newValue, forKey: Key.wrapLines); didChange() }
+    }
+
+    public var showStatusBar: Bool {
+        get { defaults.bool(forKey: Key.showStatusBar) }
+        set { defaults.set(newValue, forKey: Key.showStatusBar); didChange() }
     }
 
     public var pcStyleNavigationKeys: Bool {
@@ -104,6 +119,26 @@ public final class Preferences {
     public var insertSpacesForTab: Bool {
         get { defaults.bool(forKey: Key.insertSpacesForTab) }
         set { defaults.set(newValue, forKey: Key.insertSpacesForTab); didChange() }
+    }
+
+    public var autoIndent: Bool {
+        get { defaults.bool(forKey: Key.autoIndent) }
+        set { defaults.set(newValue, forKey: Key.autoIndent); didChange() }
+    }
+
+    public var autoCloseBrackets: Bool {
+        get { defaults.bool(forKey: Key.autoCloseBrackets) }
+        set { defaults.set(newValue, forKey: Key.autoCloseBrackets); didChange() }
+    }
+
+    public var stripTrailingWhitespaceOnSave: Bool {
+        get { defaults.bool(forKey: Key.stripTrailingWhitespaceOnSave) }
+        set { defaults.set(newValue, forKey: Key.stripTrailingWhitespaceOnSave); didChange() }
+    }
+
+    public var showInvisibles: Bool {
+        get { defaults.bool(forKey: Key.showInvisibles) }
+        set { defaults.set(newValue, forKey: Key.showInvisibles); didChange() }
     }
 
     public var lightThemeName: String {

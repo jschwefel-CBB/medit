@@ -120,6 +120,12 @@ public enum MainMenu {
         menu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         menu.addItem(.separator())
 
+        let goToLine = NSMenuItem(title: "Go to Line…",
+                                  action: #selector(EditorViewController.goToLine(_:)), keyEquivalent: "l")
+        goToLine.keyEquivalentModifierMask = [.command]
+        menu.addItem(goToLine)
+        menu.addItem(.separator())
+
         // Spelling & substitutions submenu (native).
         let spelling = NSMenuItem(title: "Spelling and Grammar", action: nil, keyEquivalent: "")
         let spellingMenu = NSMenu(title: "Spelling and Grammar")
@@ -194,6 +200,14 @@ public enum MainMenu {
         let wrap = NSMenuItem(title: "Wrap Lines",
                               action: #selector(EditorWindowController.toggleWordWrap(_:)), keyEquivalent: "")
         menu.addItem(wrap)
+
+        let statusBar = NSMenuItem(title: "Show Status Bar",
+                                   action: #selector(EditorWindowController.toggleStatusBar(_:)), keyEquivalent: "")
+        menu.addItem(statusBar)
+
+        let invisibles = NSMenuItem(title: "Show Invisibles",
+                                    action: #selector(EditorWindowController.toggleInvisibles(_:)), keyEquivalent: "")
+        menu.addItem(invisibles)
         menu.addItem(.separator())
 
         // Standard full-screen toggle (⌃⌘F).

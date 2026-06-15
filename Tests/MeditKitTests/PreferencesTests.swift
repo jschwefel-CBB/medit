@@ -37,6 +37,34 @@ final class PreferencesTests: XCTestCase {
         XCTAssertFalse(reloaded.pcStyleNavigationKeys)
     }
 
+    func testShowStatusBarDefaultsOnAndPersists() {
+        XCTAssertTrue(prefs.showStatusBar)
+        prefs.showStatusBar = false
+        XCTAssertFalse(Preferences(defaults: defaults).showStatusBar)
+    }
+
+    func testEditingAssistDefaultsOnAndPersist() {
+        XCTAssertTrue(prefs.autoIndent)
+        XCTAssertTrue(prefs.autoCloseBrackets)
+        prefs.autoIndent = false
+        prefs.autoCloseBrackets = false
+        let r = Preferences(defaults: defaults)
+        XCTAssertFalse(r.autoIndent)
+        XCTAssertFalse(r.autoCloseBrackets)
+    }
+
+    func testStripOnSaveDefaultsOnAndPersists() {
+        XCTAssertTrue(prefs.stripTrailingWhitespaceOnSave)
+        prefs.stripTrailingWhitespaceOnSave = false
+        XCTAssertFalse(Preferences(defaults: defaults).stripTrailingWhitespaceOnSave)
+    }
+
+    func testShowInvisiblesDefaultsOffAndPersists() {
+        XCTAssertFalse(prefs.showInvisibles)
+        prefs.showInvisibles = true
+        XCTAssertTrue(Preferences(defaults: defaults).showInvisibles)
+    }
+
     func testValuesPersistAndReload() {
         prefs.showLineNumbers = false
         prefs.wrapLines = true
