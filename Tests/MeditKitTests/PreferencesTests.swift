@@ -106,4 +106,10 @@ final class PreferencesTests: XCTestCase {
         prefs.appearance = .dark
         XCTAssertEqual(prefs.highlightThemeName(forDarkMode: true), prefs.darkThemeName)
     }
+
+    func testExternalChangePolicyDefaultsNotifyAndPersists() {
+        XCTAssertEqual(prefs.externalChangePolicy, .notify)
+        prefs.externalChangePolicy = .autoIfClean
+        XCTAssertEqual(Preferences(defaults: defaults).externalChangePolicy, .autoIfClean)
+    }
 }

@@ -16,11 +16,12 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var autoCloseCheck: NSButton!
     private var stripWSCheck: NSButton!
     private var tabWidthField: NSTextField!
+    private var externalChangePopup: NSPopUpButton!
 
     public init(preferences: Preferences = .shared) {
         self.prefs = preferences
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 300),
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 340),
             styleMask: [.titled, .closable],
             backing: .buffered, defer: false)
         window.title = "Settings"
@@ -87,9 +88,17 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         tabWidthField.target = self
         tabWidthField.action = #selector(tabWidthChanged)
 
+        // External-change policy row
+        let externalChangeTitle = label("On external change:")
+        externalChangePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+        externalChangePopup.translatesAutoresizingMaskIntoConstraints = false
+        externalChangePopup.addItems(withTitles: ["Notify", "Prompt", "Auto-reload if clean"])
+        externalChangePopup.target = self
+        externalChangePopup.action = #selector(externalChangePolicyChanged)
+
         [fontTitle, fontLabel, fontButton, appearanceTitle, appearancePopup,
          lineNumbersCheck, wrapCheck, spacesCheck, pcKeysCheck, autoIndentCheck, autoCloseCheck,
-         stripWSCheck, tabTitle, tabWidthField]
+         stripWSCheck, tabTitle, tabWidthField, externalChangeTitle, externalChangePopup]
             .forEach { content.addSubview($0!) }
 
         let leftCol: CGFloat = 110
@@ -130,6 +139,13 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             tabWidthField.centerYAnchor.constraint(equalTo: tabTitle.centerYAnchor),
             tabWidthField.leadingAnchor.constraint(equalTo: tabTitle.trailingAnchor, constant: 8),
             tabWidthField.widthAnchor.constraint(equalToConstant: 60),
+
+            externalChangeTitle.topAnchor.constraint(equalTo: tabTitle.bottomAnchor, constant: 20),
+            externalChangeTitle.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
+            externalChangeTitle.widthAnchor.constraint(equalToConstant: 130),
+            externalChangePopup.centerYAnchor.constraint(equalTo: externalChangeTitle.centerYAnchor),
+            externalChangePopup.leadingAnchor.constraint(equalTo: externalChangeTitle.trailingAnchor, constant: 8),
+            externalChangePopup.widthAnchor.constraint(equalToConstant: 180),
         ])
     }
 
@@ -159,6 +175,11 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         autoCloseCheck.state = prefs.autoCloseBrackets ? .on : .off
         stripWSCheck.state = prefs.stripTrailingWhitespaceOnSave ? .on : .off
         tabWidthField.integerValue = prefs.tabWidth
+        switch prefs.externalChangePolicy {
+        case .notify: externalChangePopup.selectItem(at: 0)
+        case .prompt: externalChangePopup.selectItem(at: 1)
+        case .autoIfClean: externalChangePopup.selectItem(at: 2)
+        }
         applyAppAppearance()
     }
 
@@ -206,6 +227,14 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
     @objc private func tabWidthChanged(_ sender: Any?) {
         prefs.tabWidth = max(1, tabWidthField.integerValue)
+    }
+
+    @objc private func externalChangePolicyChanged(_ sender: Any?) {
+        switch externalChangePopup.indexOfSelectedItem {
+        case 1: prefs.externalChangePolicy = .prompt
+        case 2: prefs.externalChangePolicy = .autoIfClean
+        default: prefs.externalChangePolicy = .notify
+        }
     }
 
     /// Apply the chosen appearance to the whole app.
