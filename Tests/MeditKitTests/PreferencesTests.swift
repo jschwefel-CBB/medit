@@ -43,6 +43,16 @@ final class PreferencesTests: XCTestCase {
         XCTAssertFalse(Preferences(defaults: defaults).showStatusBar)
     }
 
+    func testEditingAssistDefaultsOnAndPersist() {
+        XCTAssertTrue(prefs.autoIndent)
+        XCTAssertTrue(prefs.autoCloseBrackets)
+        prefs.autoIndent = false
+        prefs.autoCloseBrackets = false
+        let r = Preferences(defaults: defaults)
+        XCTAssertFalse(r.autoIndent)
+        XCTAssertFalse(r.autoCloseBrackets)
+    }
+
     func testValuesPersistAndReload() {
         prefs.showLineNumbers = false
         prefs.wrapLines = true

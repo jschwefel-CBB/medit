@@ -8,6 +8,15 @@ public final class EditorTextView: NSTextView {
     /// Gates the PC-style key handling. Set by the editor from Preferences.
     public var pcStyleNavigationKeys: Bool = true
 
+    /// Keep indentation (and add a level after an opener) on Return.
+    public var autoIndentEnabled: Bool = true
+    /// Auto-insert closing brackets and skip over them; brackets only (no quotes).
+    public var autoCloseBracketsEnabled: Bool = true
+
+    /// Tab width and spaces-vs-tab for auto-indent (set by the editor from prefs).
+    public var indentTabWidth: Int = 4
+    public var indentUseSpaces: Bool = true
+
     /// Called whenever overwrite mode changes (so the status bar can update).
     public var onOverwriteModeChange: ((Bool) -> Void)?
 
@@ -94,7 +103,60 @@ public final class EditorTextView: NSTextView {
         return ns.lineRange(for: range)
     }
 
+    public override func insertNewline(_ sender: Any?) {
+        guard autoIndentEnabled else { super.insertNewline(sender); return }
+        let ns = string as NSString
+        let caret = selectedRange().location
+        let lineRange = ns.lineRange(for: NSRange(location: caret, length: 0))
+        // The text of the current line up to (not past) its newline.
+        var lineText = ns.substring(with: lineRange)
+        if lineText.hasSuffix("\n") { lineText.removeLast() }
+        let indent = Indenter.indent(forNewLineAfter: lineText, tabWidth: indentTabWidth, useSpaces: indentUseSpaces)
+        let insertion = "\n" + indent
+        let sel = selectedRange()
+        if shouldChangeText(in: sel, replacementString: insertion) {
+            replaceCharacters(in: sel, with: insertion)
+            didChangeText()
+        }
+    }
+
     public override func insertText(_ string: Any, replacementRange: NSRange) {
+        if autoCloseBracketsEnabled, let typed = (string as? String) ?? (string as? NSAttributedString)?.string,
+           typed.count == 1, let ch = typed.first {
+            let openers: [Character: Character] = ["(": ")", "[": "]", "{": "}"]
+            let closersSet: Set<Character> = [")", "]", "}"]
+            let sel = selectedRange()
+            let ns = self.string as NSString
+
+            // Skip over an existing closer.
+            if closersSet.contains(ch), sel.length == 0, sel.location < ns.length,
+               ns.substring(with: NSRange(location: sel.location, length: 1)) == String(ch) {
+                setSelectedRange(NSRange(location: sel.location + 1, length: 0))
+                return
+            }
+            // Auto-close an opener; wrap a selection if present.
+            if let close = openers[ch] {
+                if sel.length > 0 {
+                    let selected = ns.substring(with: sel)
+                    let replacement = String(ch) + selected + String(close)
+                    if shouldChangeText(in: sel, replacementString: replacement) {
+                        replaceCharacters(in: sel, with: replacement)
+                        didChangeText()
+                        setSelectedRange(NSRange(location: sel.location + 1, length: (selected as NSString).length))
+                    }
+                    return
+                } else {
+                    let pair = String(ch) + String(close)
+                    if shouldChangeText(in: sel, replacementString: pair) {
+                        replaceCharacters(in: sel, with: pair)
+                        didChangeText()
+                        setSelectedRange(NSRange(location: sel.location + 1, length: 0))
+                    }
+                    return
+                }
+            }
+        }
+        // Existing overwrite-mode handling.
         guard isOverwriteMode else {
             super.insertText(string, replacementRange: replacementRange)
             return
@@ -123,6 +185,16 @@ public final class EditorTextView: NSTextView {
         let blockRect = NSRect(x: rect.minX, y: rect.minY, width: width, height: rect.height)
         color.withAlphaComponent(0.45).setFill()
         blockRect.fill()
+    }
+
+    /// Briefly highlight the bracket matching the one adjacent to the caret.
+    public func highlightMatchingBracket() {
+        let sel = selectedRange()
+        guard sel.length == 0 else { return }
+        guard let partner = BracketMatcher.matchingOffset(in: string, at: sel.location) else { return }
+        let range = NSRange(location: partner, length: 1)
+        guard NSMaxRange(range) <= (string as NSString).length else { return }
+        showFindIndicator(for: range)
     }
 
     /// Resetting overwrite mode (used when the preference is toggled off).

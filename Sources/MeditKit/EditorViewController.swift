@@ -75,6 +75,10 @@ public final class EditorViewController: NSViewController {
         textView.isHorizontallyResizable = false
         textView.autoresizingMask = [.width]
         textView.pcStyleNavigationKeys = prefs.pcStyleNavigationKeys
+        textView.autoIndentEnabled = prefs.autoIndent
+        textView.autoCloseBracketsEnabled = prefs.autoCloseBrackets
+        textView.indentTabWidth = prefs.tabWidth
+        textView.indentUseSpaces = prefs.insertSpacesForTab
         scrollView.documentView = textView
         textView.isRichText = false                 // plain-text editor
         textView.allowsUndo = true
@@ -283,6 +287,10 @@ public final class EditorViewController: NSViewController {
         if let editorTextView = textView as? EditorTextView {
             editorTextView.pcStyleNavigationKeys = prefs.pcStyleNavigationKeys
             if !prefs.pcStyleNavigationKeys { editorTextView.resetOverwriteMode() }
+            editorTextView.autoIndentEnabled = prefs.autoIndent
+            editorTextView.autoCloseBracketsEnabled = prefs.autoCloseBrackets
+            editorTextView.indentTabWidth = prefs.tabWidth
+            editorTextView.indentUseSpaces = prefs.insertSpacesForTab
         }
     }
 
@@ -485,6 +493,7 @@ extension EditorViewController: NSTextViewDelegate {
 
     public func textViewDidChangeSelection(_ notification: Notification) {
         updateStatusBar()
+        (textView as? EditorTextView)?.highlightMatchingBracket()
     }
 
     /// Inject "New Tab" at the top of the editor's right-click menu.

@@ -38,6 +38,8 @@ public final class Preferences {
         static let fontSize = "fontSize"
         static let tabWidth = "tabWidth"
         static let insertSpacesForTab = "insertSpacesForTab"
+        static let autoIndent = "autoIndent"
+        static let autoCloseBrackets = "autoCloseBrackets"
         static let lightThemeName = "lightThemeName"
         static let darkThemeName = "darkThemeName"
     }
@@ -53,6 +55,8 @@ public final class Preferences {
             Key.fontSize: 13.0,
             Key.tabWidth: 4,
             Key.insertSpacesForTab: true,
+            Key.autoIndent: true,
+            Key.autoCloseBrackets: true,
             Key.lightThemeName: "atom-one-light",
             Key.darkThemeName: "atom-one-dark"
         ])
@@ -111,6 +115,16 @@ public final class Preferences {
     public var insertSpacesForTab: Bool {
         get { defaults.bool(forKey: Key.insertSpacesForTab) }
         set { defaults.set(newValue, forKey: Key.insertSpacesForTab); didChange() }
+    }
+
+    public var autoIndent: Bool {
+        get { defaults.bool(forKey: Key.autoIndent) }
+        set { defaults.set(newValue, forKey: Key.autoIndent); didChange() }
+    }
+
+    public var autoCloseBrackets: Bool {
+        get { defaults.bool(forKey: Key.autoCloseBrackets) }
+        set { defaults.set(newValue, forKey: Key.autoCloseBrackets); didChange() }
     }
 
     public var lightThemeName: String {

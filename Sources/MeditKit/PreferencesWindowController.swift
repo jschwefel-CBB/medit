@@ -12,6 +12,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var wrapCheck: NSButton!
     private var spacesCheck: NSButton!
     private var pcKeysCheck: NSButton!
+    private var autoIndentCheck: NSButton!
+    private var autoCloseCheck: NSButton!
     private var tabWidthField: NSTextField!
 
     public init(preferences: Preferences = .shared) {
@@ -65,6 +67,12 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         pcKeysCheck = NSButton(checkboxWithTitle: "PC-style Home/End/Insert keys",
                                target: self, action: #selector(checkChanged))
         pcKeysCheck.translatesAutoresizingMaskIntoConstraints = false
+        autoIndentCheck = NSButton(checkboxWithTitle: "Auto-indent new lines",
+                                   target: self, action: #selector(checkChanged))
+        autoIndentCheck.translatesAutoresizingMaskIntoConstraints = false
+        autoCloseCheck = NSButton(checkboxWithTitle: "Auto-close brackets",
+                                  target: self, action: #selector(checkChanged))
+        autoCloseCheck.translatesAutoresizingMaskIntoConstraints = false
         [lineNumbersCheck, wrapCheck, spacesCheck].forEach { $0?.translatesAutoresizingMaskIntoConstraints = false }
 
         // Tab width
@@ -76,7 +84,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         tabWidthField.action = #selector(tabWidthChanged)
 
         [fontTitle, fontLabel, fontButton, appearanceTitle, appearancePopup,
-         lineNumbersCheck, wrapCheck, spacesCheck, pcKeysCheck, tabTitle, tabWidthField]
+         lineNumbersCheck, wrapCheck, spacesCheck, pcKeysCheck, autoIndentCheck, autoCloseCheck,
+         tabTitle, tabWidthField]
             .forEach { content.addSubview($0!) }
 
         let leftCol: CGFloat = 110
@@ -104,8 +113,12 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             spacesCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
             pcKeysCheck.topAnchor.constraint(equalTo: spacesCheck.bottomAnchor, constant: 10),
             pcKeysCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
+            autoIndentCheck.topAnchor.constraint(equalTo: pcKeysCheck.bottomAnchor, constant: 10),
+            autoIndentCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
+            autoCloseCheck.topAnchor.constraint(equalTo: autoIndentCheck.bottomAnchor, constant: 10),
+            autoCloseCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
 
-            tabTitle.topAnchor.constraint(equalTo: pcKeysCheck.bottomAnchor, constant: 20),
+            tabTitle.topAnchor.constraint(equalTo: autoCloseCheck.bottomAnchor, constant: 20),
             tabTitle.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             tabTitle.widthAnchor.constraint(equalToConstant: leftCol - 20),
             tabWidthField.centerYAnchor.constraint(equalTo: tabTitle.centerYAnchor),
@@ -136,6 +149,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         wrapCheck.state = prefs.wrapLines ? .on : .off
         spacesCheck.state = prefs.insertSpacesForTab ? .on : .off
         pcKeysCheck.state = prefs.pcStyleNavigationKeys ? .on : .off
+        autoIndentCheck.state = prefs.autoIndent ? .on : .off
+        autoCloseCheck.state = prefs.autoCloseBrackets ? .on : .off
         tabWidthField.integerValue = prefs.tabWidth
         applyAppAppearance()
     }
@@ -177,6 +192,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         prefs.wrapLines = wrapCheck.state == .on
         prefs.insertSpacesForTab = spacesCheck.state == .on
         prefs.pcStyleNavigationKeys = pcKeysCheck.state == .on
+        prefs.autoIndent = autoIndentCheck.state == .on
+        prefs.autoCloseBrackets = autoCloseCheck.state == .on
     }
 
     @objc private func tabWidthChanged(_ sender: Any?) {

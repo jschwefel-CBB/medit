@@ -430,6 +430,62 @@ final class EditorSmokeTests: XCTestCase {
                        "turning off the preference should reset overwrite mode")
     }
 
+    func testAutoCloseInsertsClosingBracket() {
+        let controller = makeWindowController(text: "")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("no tv") }
+        controller.showWindow(nil)
+        tv.autoCloseBracketsEnabled = true
+        tv.setSelectedRange(NSRange(location: 0, length: 0))
+        tv.insertText("(", replacementRange: tv.selectedRange())
+        XCTAssertEqual(tv.string, "()", "typing ( should insert the closing )")
+        XCTAssertEqual(tv.selectedRange(), NSRange(location: 1, length: 0), "caret between the pair")
+    }
+
+    func testAutoCloseSkipsOverExistingCloser() {
+        let controller = makeWindowController(text: "()")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("no tv") }
+        controller.showWindow(nil)
+        tv.autoCloseBracketsEnabled = true
+        tv.setSelectedRange(NSRange(location: 1, length: 0))  // between ( and )
+        tv.insertText(")", replacementRange: tv.selectedRange())
+        XCTAssertEqual(tv.string, "()", "typing ) over an existing ) should not duplicate it")
+        XCTAssertEqual(tv.selectedRange(), NSRange(location: 2, length: 0), "caret moved past )")
+    }
+
+    func testAutoCloseWrapsSelection() {
+        let controller = makeWindowController(text: "abc")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("no tv") }
+        controller.showWindow(nil)
+        tv.autoCloseBracketsEnabled = true
+        tv.setSelectedRange(NSRange(location: 0, length: 3))  // select "abc"
+        tv.insertText("(", replacementRange: tv.selectedRange())
+        XCTAssertEqual(tv.string, "(abc)", "typing ( with a selection should wrap it")
+    }
+
+    func testAutoIndentCopiesLeadingWhitespace() {
+        let controller = makeWindowController(text: "    foo")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("no tv") }
+        controller.showWindow(nil)
+        tv.autoIndentEnabled = true
+        tv.indentUseSpaces = true
+        tv.indentTabWidth = 4
+        tv.setSelectedRange(NSRange(location: 7, length: 0))  // end of "    foo"
+        tv.insertNewline(nil)
+        XCTAssertEqual(tv.string, "    foo\n    ", "new line should copy the 4-space indent")
+    }
+
+    func testAutoIndentAddsLevelAfterBrace() {
+        let controller = makeWindowController(text: "if x {")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("no tv") }
+        controller.showWindow(nil)
+        tv.autoIndentEnabled = true
+        tv.indentUseSpaces = true
+        tv.indentTabWidth = 4
+        tv.setSelectedRange(NSRange(location: 6, length: 0))  // end of "if x {"
+        tv.insertNewline(nil)
+        XCTAssertEqual(tv.string, "if x {\n    ", "new line after { should add one indent level")
+    }
+
     /// Render the scroll view's ruler into an offscreen context to execute the
     /// drawing code path headlessly.
     private func forceRulerDraw(_ controller: EditorWindowController) {
