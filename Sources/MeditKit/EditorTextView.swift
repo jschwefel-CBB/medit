@@ -23,6 +23,13 @@ public final class EditorTextView: NSTextView {
     private static let insertKeyCode: UInt16 = 114
 
     public override func keyDown(with event: NSEvent) {
+        // Ctrl+G -> Go to Line (routes up the responder chain to the controller).
+        if event.modifierFlags.contains(.control),
+           event.charactersIgnoringModifiers?.lowercased() == "g" {
+            NSApp.sendAction(Selector(("goToLine:")), to: nil, from: self)
+            return
+        }
+
         guard pcStyleNavigationKeys else { super.keyDown(with: event); return }
 
         let mods = event.modifierFlags

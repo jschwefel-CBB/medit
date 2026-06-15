@@ -120,6 +120,12 @@ public enum MainMenu {
         menu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         menu.addItem(.separator())
 
+        let goToLine = NSMenuItem(title: "Go to Line…",
+                                  action: #selector(EditorViewController.goToLine(_:)), keyEquivalent: "l")
+        goToLine.keyEquivalentModifierMask = [.command]
+        menu.addItem(goToLine)
+        menu.addItem(.separator())
+
         // Spelling & substitutions submenu (native).
         let spelling = NSMenuItem(title: "Spelling and Grammar", action: nil, keyEquivalent: "")
         let spellingMenu = NSMenu(title: "Spelling and Grammar")

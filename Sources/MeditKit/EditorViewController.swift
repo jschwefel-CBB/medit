@@ -20,6 +20,9 @@ public final class EditorViewController: NSViewController {
     private var findReplaceBar: FindReplaceBar?
     private var barHeightConstraint: NSLayoutConstraint?
 
+    // Go to Line.
+    private var goToLineSheet: GoToLineSheet?
+
     private let prefs: Preferences
 
     public init(document: TextDocument, preferences: Preferences = .shared) {
@@ -267,6 +270,24 @@ public final class EditorViewController: NSViewController {
 
     /// ⌥⌘F — show the bar in find+replace mode.
     @objc public func showFindReplaceBar(_ sender: Any?) { presentFindBar(showingReplace: true) }
+
+    /// ⌘L / ⌃G — prompt for a line number and jump to it.
+    @objc public func goToLine(_ sender: Any?) {
+        guard let window = view.window else { return }
+        let sheet = GoToLineSheet()
+        goToLineSheet = sheet
+        sheet.present(on: window) { [weak self] line in
+            guard let self, let offset = TextLocator.characterIndex(forLine: line, in: self.textView.string) else {
+                return false
+            }
+            let range = NSRange(location: offset, length: 0)
+            self.textView.setSelectedRange(range)
+            self.textView.scrollRangeToVisible(range)
+            self.textView.showFindIndicator(for: range)
+            self.view.window?.makeFirstResponder(self.textView)
+            return true
+        }
+    }
 
     /// ⌘G / ⇧⌘G — next/previous match using the bar's current query. If the bar
     /// isn't shown yet, show it first.
