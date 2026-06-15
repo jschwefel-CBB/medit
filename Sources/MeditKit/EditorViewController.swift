@@ -12,6 +12,7 @@ public final class EditorViewController: NSViewController {
     private var ruler: LineNumberRulerView?
     private var highlighter: SyntaxHighlightingController?
     private var appearanceObservation: NSKeyValueObservation?
+    private var isWrapping = false
 
     /// The window controller that handles "New Tab" from our context menu.
     weak var newTabActionTarget: AnyObject?
@@ -165,6 +166,21 @@ public final class EditorViewController: NSViewController {
         applyStatusBarVisibility(prefs.showStatusBar)
         updateStatusBar()
         observePreferences()
+        observeResize()
+    }
+
+    private func observeResize() {
+        // Reflow wrapped text live as the scroll view / clip view changes size.
+        scrollView.postsFrameChangedNotifications = true
+        scrollView.contentView.postsFrameChangedNotifications = true
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        let nc = NotificationCenter.default
+        nc.addObserver(self, selector: #selector(scrollViewContentDidResize(_:)),
+                       name: NSView.frameDidChangeNotification, object: scrollView)
+        nc.addObserver(self, selector: #selector(scrollViewContentDidResize(_:)),
+                       name: NSView.frameDidChangeNotification, object: scrollView.contentView)
+        nc.addObserver(self, selector: #selector(scrollViewContentDidResize(_:)),
+                       name: NSView.boundsDidChangeNotification, object: scrollView.contentView)
     }
 
     // MARK: Document text
@@ -213,13 +229,18 @@ public final class EditorViewController: NSViewController {
     public func applyWrapMode(_ wrap: Bool) {
         guard let container = textView.textContainer else { return }
         let infinite = CGFloat.greatestFiniteMagnitude
+        isWrapping = wrap
         if wrap {
+            // Width-tracking: the container follows the text view's width, so do
+            // NOT pin a fixed containerSize.width (a stale snapshot is exactly
+            // what stopped live reflow on resize). We also update it explicitly
+            // on each resize via scrollViewContentDidResize().
             container.widthTracksTextView = true
-            container.containerSize = NSSize(width: scrollView.contentSize.width,
-                                             height: infinite)
             textView.isHorizontallyResizable = false
+            textView.maxSize = NSSize(width: infinite, height: infinite)
             textView.autoresizingMask = [.width]
             scrollView.hasHorizontalScroller = false
+            syncWrapWidth()
         } else {
             container.widthTracksTextView = false
             container.containerSize = NSSize(width: infinite, height: infinite)
@@ -228,6 +249,26 @@ public final class EditorViewController: NSViewController {
             scrollView.hasHorizontalScroller = true
         }
         textView.didChangeText()
+        ruler?.needsDisplay = true
+    }
+
+    /// Set the wrapping text container's width to the scroll view's current
+    /// content width and force a re-layout, so wrapped text re-flows immediately.
+    private func syncWrapWidth() {
+        guard isWrapping, let container = textView.textContainer,
+              let layoutManager = textView.layoutManager else { return }
+        let width = scrollView.contentSize.width
+        if container.size.width != width {
+            container.size = NSSize(width: width, height: container.size.height)
+        }
+        // Invalidate layout for the full range so the new width takes effect live.
+        let full = NSRange(location: 0, length: (textView.string as NSString).length)
+        layoutManager.invalidateLayout(forCharacterRange: full, actualCharacterRange: nil)
+    }
+
+    /// Called when the scroll view / clip view resizes; reflows wrapped text.
+    @objc private func scrollViewContentDidResize(_ note: Notification) {
+        syncWrapWidth()
         ruler?.needsDisplay = true
     }
 
@@ -461,6 +502,9 @@ public final class EditorViewController: NSViewController {
     func runReplaceAllForTesting(_ query: SearchQuery, with replacement: String) { replaceAllMatches(query, with: replacement) }
     var findBarHeightForTesting: CGFloat { findReplaceBar?.frame.height ?? -1 }
     func closeFindBarForTesting() { hideFindBar() }
+    /// Test hook: simulate a resize-driven reflow and report the wrap container width.
+    func syncWrapWidthForTesting() { syncWrapWidth() }
+    var wrapContainerWidthForTesting: CGFloat { textView.textContainer?.size.width ?? -1 }
 
     private func updateMatchStatus(for query: SearchQuery) {
         guard let bar = findReplaceBar else { return }
@@ -505,7 +549,9 @@ extension EditorViewController: NSTextViewDelegate {
 
     public func textViewDidChangeSelection(_ notification: Notification) {
         updateStatusBar()
-        (textView as? EditorTextView)?.highlightMatchingBracket()
+        // Bracket-match highlight intentionally not invoked here: the old
+        // showFindIndicator flash was jarring on every keystroke. A static
+        // depth-colored highlight is planned as a separate feature.
     }
 
     /// Inject "New Tab" at the top of the editor's right-click menu.

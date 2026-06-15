@@ -1,0 +1,11 @@
+#!/bin/sh
+# Hard guard: refuse any commit that introduces a "superpowers" path.
+# Design docs live in docs/specs/ and docs/plans/ — never under superpowers/.
+offending=$(git diff --cached --name-only | grep -i 'superpowers' || true)
+if [ -n "$offending" ]; then
+    echo "✖ COMMIT BLOCKED: a 'superpowers' path is staged:" >&2
+    echo "$offending" | sed 's/^/    /' >&2
+    echo "Move design docs to docs/specs/ or docs/plans/ instead." >&2
+    exit 1
+fi
+exit 0

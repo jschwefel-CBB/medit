@@ -44,3 +44,8 @@ Packages/
 /Tools/IconGen/iconmaker
 /Tools/IconGen/iconset_out/
 /Tools/IconGen/previews/
+
+# NEVER reintroduce this directory. Design docs live in docs/specs/ and
+# docs/plans/. Any 'superpowers' path is ignored so it can never be committed.
+**/superpowers/
+superpowers/
