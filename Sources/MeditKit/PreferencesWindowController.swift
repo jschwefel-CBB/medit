@@ -14,6 +14,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var pcKeysCheck: NSButton!
     private var autoIndentCheck: NSButton!
     private var autoCloseCheck: NSButton!
+    private var stripWSCheck: NSButton!
     private var tabWidthField: NSTextField!
 
     public init(preferences: Preferences = .shared) {
@@ -73,6 +74,9 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         autoCloseCheck = NSButton(checkboxWithTitle: "Auto-close brackets",
                                   target: self, action: #selector(checkChanged))
         autoCloseCheck.translatesAutoresizingMaskIntoConstraints = false
+        stripWSCheck = NSButton(checkboxWithTitle: "Strip trailing whitespace on save",
+                                target: self, action: #selector(checkChanged))
+        stripWSCheck.translatesAutoresizingMaskIntoConstraints = false
         [lineNumbersCheck, wrapCheck, spacesCheck].forEach { $0?.translatesAutoresizingMaskIntoConstraints = false }
 
         // Tab width
@@ -85,7 +89,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
         [fontTitle, fontLabel, fontButton, appearanceTitle, appearancePopup,
          lineNumbersCheck, wrapCheck, spacesCheck, pcKeysCheck, autoIndentCheck, autoCloseCheck,
-         tabTitle, tabWidthField]
+         stripWSCheck, tabTitle, tabWidthField]
             .forEach { content.addSubview($0!) }
 
         let leftCol: CGFloat = 110
@@ -117,8 +121,10 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             autoIndentCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
             autoCloseCheck.topAnchor.constraint(equalTo: autoIndentCheck.bottomAnchor, constant: 10),
             autoCloseCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
+            stripWSCheck.topAnchor.constraint(equalTo: autoCloseCheck.bottomAnchor, constant: 10),
+            stripWSCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
 
-            tabTitle.topAnchor.constraint(equalTo: autoCloseCheck.bottomAnchor, constant: 20),
+            tabTitle.topAnchor.constraint(equalTo: stripWSCheck.bottomAnchor, constant: 20),
             tabTitle.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             tabTitle.widthAnchor.constraint(equalToConstant: leftCol - 20),
             tabWidthField.centerYAnchor.constraint(equalTo: tabTitle.centerYAnchor),
@@ -151,6 +157,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         pcKeysCheck.state = prefs.pcStyleNavigationKeys ? .on : .off
         autoIndentCheck.state = prefs.autoIndent ? .on : .off
         autoCloseCheck.state = prefs.autoCloseBrackets ? .on : .off
+        stripWSCheck.state = prefs.stripTrailingWhitespaceOnSave ? .on : .off
         tabWidthField.integerValue = prefs.tabWidth
         applyAppAppearance()
     }
@@ -194,6 +201,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         prefs.pcStyleNavigationKeys = pcKeysCheck.state == .on
         prefs.autoIndent = autoIndentCheck.state == .on
         prefs.autoCloseBrackets = autoCloseCheck.state == .on
+        prefs.stripTrailingWhitespaceOnSave = stripWSCheck.state == .on
     }
 
     @objc private func tabWidthChanged(_ sender: Any?) {

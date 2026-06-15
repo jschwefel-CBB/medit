@@ -60,6 +60,9 @@ public final class TextDocument: NSDocument {
         if let live = editorWindowController?.currentEditorText {
             self.text = live
         }
+        if Preferences.shared.stripTrailingWhitespaceOnSave {
+            self.text = TextHygiene.cleaned(self.text, stripTrailing: true, ensureFinalNewline: true)
+        }
         return TextEncodingDetector.encode(text, as: fileEncoding, includeBOM: writesBOM)
     }
 

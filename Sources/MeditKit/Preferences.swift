@@ -40,6 +40,7 @@ public final class Preferences {
         static let insertSpacesForTab = "insertSpacesForTab"
         static let autoIndent = "autoIndent"
         static let autoCloseBrackets = "autoCloseBrackets"
+        static let stripTrailingWhitespaceOnSave = "stripTrailingWhitespaceOnSave"
         static let lightThemeName = "lightThemeName"
         static let darkThemeName = "darkThemeName"
     }
@@ -57,6 +58,7 @@ public final class Preferences {
             Key.insertSpacesForTab: true,
             Key.autoIndent: true,
             Key.autoCloseBrackets: true,
+            Key.stripTrailingWhitespaceOnSave: true,
             Key.lightThemeName: "atom-one-light",
             Key.darkThemeName: "atom-one-dark"
         ])
@@ -125,6 +127,11 @@ public final class Preferences {
     public var autoCloseBrackets: Bool {
         get { defaults.bool(forKey: Key.autoCloseBrackets) }
         set { defaults.set(newValue, forKey: Key.autoCloseBrackets); didChange() }
+    }
+
+    public var stripTrailingWhitespaceOnSave: Bool {
+        get { defaults.bool(forKey: Key.stripTrailingWhitespaceOnSave) }
+        set { defaults.set(newValue, forKey: Key.stripTrailingWhitespaceOnSave); didChange() }
     }
 
     public var lightThemeName: String {
