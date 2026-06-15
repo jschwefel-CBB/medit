@@ -31,6 +31,7 @@ public final class Preferences {
     private enum Key {
         static let showLineNumbers = "showLineNumbers"
         static let wrapLines = "wrapLines"
+        static let showStatusBar = "showStatusBar"
         static let pcStyleNavigationKeys = "pcStyleNavigationKeys"
         static let appearance = "appearance"
         static let fontName = "fontName"
@@ -45,6 +46,7 @@ public final class Preferences {
         defaults.register(defaults: [
             Key.showLineNumbers: true,
             Key.wrapLines: false,
+            Key.showStatusBar: true,
             Key.pcStyleNavigationKeys: true,
             Key.appearance: AppAppearance.system.rawValue,
             Key.fontName: "Menlo",
@@ -70,6 +72,11 @@ public final class Preferences {
     public var wrapLines: Bool {
         get { defaults.bool(forKey: Key.wrapLines) }
         set { defaults.set(newValue, forKey: Key.wrapLines); didChange() }
+    }
+
+    public var showStatusBar: Bool {
+        get { defaults.bool(forKey: Key.showStatusBar) }
+        set { defaults.set(newValue, forKey: Key.showStatusBar); didChange() }
     }
 
     public var pcStyleNavigationKeys: Bool {

@@ -37,6 +37,12 @@ final class PreferencesTests: XCTestCase {
         XCTAssertFalse(reloaded.pcStyleNavigationKeys)
     }
 
+    func testShowStatusBarDefaultsOnAndPersists() {
+        XCTAssertTrue(prefs.showStatusBar)
+        prefs.showStatusBar = false
+        XCTAssertFalse(Preferences(defaults: defaults).showStatusBar)
+    }
+
     func testValuesPersistAndReload() {
         prefs.showLineNumbers = false
         prefs.wrapLines = true

@@ -200,6 +200,10 @@ public enum MainMenu {
         let wrap = NSMenuItem(title: "Wrap Lines",
                               action: #selector(EditorWindowController.toggleWordWrap(_:)), keyEquivalent: "")
         menu.addItem(wrap)
+
+        let statusBar = NSMenuItem(title: "Show Status Bar",
+                                   action: #selector(EditorWindowController.toggleStatusBar(_:)), keyEquivalent: "")
+        menu.addItem(statusBar)
         menu.addItem(.separator())
 
         // Standard full-screen toggle (⌃⌘F).

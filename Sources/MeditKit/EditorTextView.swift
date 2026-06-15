@@ -8,9 +8,12 @@ public final class EditorTextView: NSTextView {
     /// Gates the PC-style key handling. Set by the editor from Preferences.
     public var pcStyleNavigationKeys: Bool = true
 
+    /// Called whenever overwrite mode changes (so the status bar can update).
+    public var onOverwriteModeChange: ((Bool) -> Void)?
+
     /// Per-window overwrite ("type-over") mode. Not persisted; resets each launch.
     public private(set) var isOverwriteMode: Bool = false {
-        didSet { needsDisplay = true }
+        didSet { needsDisplay = true; onOverwriteModeChange?(isOverwriteMode) }
     }
 
     private var homeChar: unichar { unichar(NSHomeFunctionKey) }
