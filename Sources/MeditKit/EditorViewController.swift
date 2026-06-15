@@ -145,6 +145,18 @@ public final class EditorViewController: NSViewController {
             default: self?.setLanguageOverride(pick)
             }
         }
+        statusBar.onReinterpret = { [weak self] enc in
+            self?.document?.reinterpret(as: enc)
+            self?.rehighlightAndRefresh()
+        }
+        statusBar.onConvert = { [weak self] enc in
+            self?.document?.convert(to: enc)
+            self?.updateStatusBar()
+        }
+        statusBar.onLineEndingPick = { [weak self] ending in
+            self?.document?.setLineEnding(ending)
+            self?.updateStatusBar()
+        }
         self.statusBar = statusBar
         container.addSubview(statusBar)
 
@@ -391,7 +403,8 @@ public final class EditorViewController: NSViewController {
         }
         let encoding = TextEncodingDetector.displayName(for: document?.fileEncoding ?? .utf8)
         let overwrite = (textView as? EditorTextView)?.isOverwriteMode ?? false
-        statusBar.update(line: pos.line, column: pos.column, language: language, encoding: encoding, overwrite: overwrite)
+        statusBar.update(line: pos.line, column: pos.column, language: language, encoding: encoding,
+                         lineEnding: document?.lineEnding ?? .lf, overwrite: overwrite)
     }
 
     /// Apply a manual language override (nil = auto-detect), re-highlight, and
@@ -403,6 +416,18 @@ public final class EditorViewController: NSViewController {
     }
 
     func setLanguageOverrideForTesting(_ id: String?) { setLanguageOverride(id) }
+
+    /// After a Reinterpret (or any op that replaces the buffer from the model),
+    /// push the model text into the view, re-highlight, and refresh chrome.
+    private func rehighlightAndRefresh() {
+        if let storage = textView.textStorage {
+            textView.string = document?.text ?? textView.string
+            _ = storage
+        }
+        highlighter?.highlightNow()
+        updateStatusBar()
+        ruler?.needsDisplay = true
+    }
 
     public func applyStatusBarVisibility(_ visible: Bool) {
         statusBar?.isHidden = !visible

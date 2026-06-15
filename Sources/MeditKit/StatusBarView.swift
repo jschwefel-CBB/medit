@@ -8,9 +8,17 @@ public final class StatusBarView: NSView {
     /// auto-detect; "plaintext" means no highlighting; otherwise a highlight.js id.
     public var onLanguagePick: ((String) -> Void)?
 
+    /// Called when the user asks to re-decode the file bytes as a new encoding.
+    public var onReinterpret: ((String.Encoding) -> Void)?
+    /// Called when the user asks to re-encode (on next save) as a new encoding.
+    public var onConvert: ((String.Encoding) -> Void)?
+    /// Called when the user picks a line ending (LF / CRLF).
+    public var onLineEndingPick: ((LineEnding) -> Void)?
+
     private let positionLabel = StatusBarView.makeLabel(align: .left)
     private let languageButton = StatusBarView.makeInlineButton()
-    private let encodingLabel = StatusBarView.makeLabel(align: .right)
+    private let encodingButton = StatusBarView.makeInlineButton()
+    private let lineEndingButton = StatusBarView.makeInlineButton()
     private let modeLabel = StatusBarView.makeLabel(align: .right)
 
     public override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: 22) }
@@ -22,8 +30,12 @@ public final class StatusBarView: NSView {
 
         languageButton.target = self
         languageButton.action = #selector(languageButtonClicked)
+        encodingButton.target = self
+        encodingButton.action = #selector(encodingButtonClicked)
+        lineEndingButton.target = self
+        lineEndingButton.action = #selector(lineEndingButtonClicked)
 
-        let stack = NSStackView(views: [positionLabel, NSView(), languageButton, sep(), encodingLabel, sep(), modeLabel])
+        let stack = NSStackView(views: [positionLabel, NSView(), languageButton, sep(), encodingButton, sep(), lineEndingButton, sep(), modeLabel])
         stack.orientation = .horizontal
         stack.spacing = 8
         stack.alignment = .centerY
@@ -49,10 +61,12 @@ public final class StatusBarView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    public func update(line: Int, column: Int, language: String, encoding: String, overwrite: Bool) {
+    public func update(line: Int, column: Int, language: String, encoding: String,
+                       lineEnding: LineEnding, overwrite: Bool) {
         positionLabel.stringValue = "Ln \(line), Col \(column)"
         languageButton.title = language
-        encodingLabel.stringValue = encoding
+        encodingButton.title = encoding
+        lineEndingButton.title = (lineEnding == .lf) ? "LF" : "CRLF"
         modeLabel.stringValue = overwrite ? "OVR" : "INS"
     }
 
@@ -85,6 +99,42 @@ public final class StatusBarView: NSView {
 
     @objc private func pickLanguage(_ sender: NSMenuItem) {
         if let id = sender.representedObject as? String { onLanguagePick?(id) }
+    }
+
+    @objc private func encodingButtonClicked() {
+        let menu = NSMenu()
+        for entry in EncodingCatalog.selectable {
+            let item = NSMenuItem(title: entry.displayName, action: nil, keyEquivalent: "")
+            let sub = NSMenu()
+            let re = NSMenuItem(title: "Reinterpret as \(entry.displayName)", action: #selector(reinterpretPicked(_:)), keyEquivalent: "")
+            re.representedObject = entry.encoding.rawValue; re.target = self
+            let conv = NSMenuItem(title: "Convert to \(entry.displayName)", action: #selector(convertPicked(_:)), keyEquivalent: "")
+            conv.representedObject = entry.encoding.rawValue; conv.target = self
+            sub.addItem(re); sub.addItem(conv)
+            item.submenu = sub
+            menu.addItem(item)
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: encodingButton.bounds.height), in: encodingButton)
+    }
+
+    @objc private func reinterpretPicked(_ s: NSMenuItem) {
+        if let raw = s.representedObject as? UInt { onReinterpret?(String.Encoding(rawValue: raw)) }
+    }
+    @objc private func convertPicked(_ s: NSMenuItem) {
+        if let raw = s.representedObject as? UInt { onConvert?(String.Encoding(rawValue: raw)) }
+    }
+
+    @objc private func lineEndingButtonClicked() {
+        let menu = NSMenu()
+        for ending in [LineEnding.lf, .crlf] {
+            let item = NSMenuItem(title: ending == .lf ? "LF" : "CRLF", action: #selector(lineEndingPicked(_:)), keyEquivalent: "")
+            item.representedObject = ending.rawValue; item.target = self
+            menu.addItem(item)
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: lineEndingButton.bounds.height), in: lineEndingButton)
+    }
+    @objc private func lineEndingPicked(_ s: NSMenuItem) {
+        if let raw = s.representedObject as? String, let e = LineEnding(rawValue: raw) { onLineEndingPick?(e) }
     }
 
     private func sep() -> NSView {

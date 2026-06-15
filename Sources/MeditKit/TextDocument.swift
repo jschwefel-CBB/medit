@@ -24,6 +24,11 @@ public final class TextDocument: NSDocument {
     /// Manual language override (nil = auto-detect). Session-only; not persisted.
     public var languageOverride: String?
 
+    /// Line ending used on save (detected on read; default LF).
+    public var lineEnding: LineEnding = .lf
+    /// The original file bytes from the last read, for Reinterpret.
+    public private(set) var originalData: Data?
+
     /// Set by the window controller so the document can push fresh text into
     /// the editor after a revert/reload.
     weak var editorWindowController: EditorWindowController?
@@ -51,6 +56,8 @@ public final class TextDocument: NSDocument {
         self.text = decoded.string
         self.fileEncoding = decoded.encoding
         self.writesBOM = decoded.hadBOM
+        self.originalData = data
+        self.lineEnding = LineEndings.detect(self.text)
         // If the window already exists (revert), refresh its editor.
         editorWindowController?.documentTextDidReload()
     }
@@ -63,10 +70,14 @@ public final class TextDocument: NSDocument {
         if let live = editorWindowController?.currentEditorText {
             self.text = live
         }
+        // Build the on-disk bytes from a LOCAL copy so a save never mutates the
+        // in-memory text (which would disturb the caret/selection in the editor).
+        var outText = self.text
         if Preferences.shared.stripTrailingWhitespaceOnSave {
-            self.text = TextHygiene.cleaned(self.text, stripTrailing: true, ensureFinalNewline: true)
+            outText = TextHygiene.cleaned(outText, stripTrailing: true, ensureFinalNewline: true)
         }
-        return TextEncodingDetector.encode(text, as: fileEncoding, includeBOM: writesBOM)
+        outText = LineEndings.normalize(outText, to: lineEnding)
+        return TextEncodingDetector.encode(outText, as: fileEncoding, includeBOM: writesBOM)
     }
 
     // MARK: Editor <-> model sync
@@ -77,6 +88,39 @@ public final class TextDocument: NSDocument {
         guard newText != text else { return }
         text = newText
         updateChangeCount(.changeDone)
+    }
+
+    // MARK: Encoding / line-ending operations
+
+    /// Re-decode the original file bytes as `encoding` (fixes a wrong auto-detect).
+    /// No-op if there are no original bytes or decode fails.
+    public func reinterpret(as encoding: String.Encoding) {
+        guard let data = originalData,
+              let decoded = String(bytes: data, encoding: encoding) else { return }
+        self.text = decoded
+        self.fileEncoding = encoding
+        self.lineEnding = LineEndings.detect(decoded)
+        editorWindowController?.documentTextDidReload()
+        updateChangeCount(.changeDone)
+    }
+
+    /// Keep the current text; write it in `encoding` on the next save.
+    public func convert(to encoding: String.Encoding) {
+        guard encoding != fileEncoding else { return }
+        self.fileEncoding = encoding
+        updateChangeCount(.changeDone)
+    }
+
+    /// Set the save line ending and normalize the in-memory text to match.
+    public func setLineEnding(_ ending: LineEnding) {
+        guard ending != lineEnding else { return }
+        self.lineEnding = ending
+        let normalized = LineEndings.normalize(text, to: ending)
+        if normalized != text {
+            self.text = normalized
+            editorWindowController?.documentTextDidReload()
+            updateChangeCount(.changeDone)
+        }
     }
 
     /// Auto-detected language: file extension first, then a shebang on the first
