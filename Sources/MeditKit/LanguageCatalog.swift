@@ -109,16 +109,10 @@ public enum LanguageCatalog {
     }()
 
     /// A tidy display name for a highlight.js id (used by the status bar and
-    /// menus). Falls back to title-casing the id.
+    /// menus). Known ids resolve via `all`; anything else is title-cased.
     public static func displayName(for id: String) -> String {
         if let entry = all.first(where: { $0.id == id }) { return entry.displayName }
-        switch id {
-        case "cpp": return "C++"
-        case "objectivec": return "Objective-C"
-        case "xml": return "HTML/XML"
-        case "javascript": return "JavaScript"
-        case "typescript": return "TypeScript"
-        default: return id.prefix(1).uppercased() + id.dropFirst()
-        }
+        guard let first = id.first else { return id }
+        return first.uppercased() + id.dropFirst()
     }
 }

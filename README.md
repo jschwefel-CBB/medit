@@ -185,7 +185,7 @@ medit/
 │   ├── medit.entitlements     App Sandbox + user-selected file access
 │   └── Assets.xcassets        App icon
 ├── Tools/IconGen/             Core Graphics icon generator (iconmaker.swift)
-└── docs/superpowers/          Design specs + implementation plans
+└── docs/                       Design specs (docs/specs/) + plans (docs/plans/)
 ```
 
 The design deliberately keeps the GUI-free logic — encoding detection, language
@@ -245,8 +245,9 @@ Contributions are welcome. A few ground rules that keep the codebase healthy:
 - **Match the existing style.** Look at neighboring files (`TextSearch.swift`,
   `Preferences.swift`) for the house patterns.
 
-Design specs and implementation plans live under `docs/superpowers/` if you want
-to see how a feature was reasoned about before it was built.
+Design specs live under `docs/specs/` and implementation plans under
+`docs/plans/` if you want to see how a feature was reasoned about before it was
+built.
 
 ## License
 
