@@ -377,6 +377,22 @@ final class EditorSmokeTests: XCTestCase {
         } else { XCTFail("no text view") }
     }
 
+    func testSidebarActivateBuildsTreeAndDeactivateClears() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("medit-sb-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        try Data("x".utf8).write(to: tmp.appendingPathComponent("a.txt"))
+
+        let sb = SidebarViewController(preferences: Preferences(defaults: UserDefaults(suiteName: "medit.sb.\(UUID().uuidString)")!))
+        sb.loadViewIfNeeded()
+        // Seed a root directly and activate.
+        sb.setRootForTesting(tmp)
+        sb.activate()
+        XCTAssertGreaterThan(sb.outlineView.numberOfRows, 0, "tree should have rows after activate")
+        sb.deactivate()
+        XCTAssertEqual(sb.outlineView.numberOfRows, 0, "deactivate should clear the tree (zero overhead)")
+    }
+
     func testEditorUsesEditorTextViewAndRenders() {
         let controller = makeWindowController(text: "line one\nline two\nline three")
         guard let window = controller.window else { return XCTFail("no window") }

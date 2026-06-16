@@ -135,6 +135,10 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// Live editor text, read by the document when saving.
     var currentEditorText: String? { editor?.currentText }
 
+    /// The active document's file URL (nil for untitled). Used by the sidebar's
+    /// default root.
+    var currentDocumentFileURL: URL? { textDocument.fileURL }
+
     /// The editor's text view, used by cross-tab search to focus a match.
     var focusedTextView: NSTextView? { editor?.textView }
 
