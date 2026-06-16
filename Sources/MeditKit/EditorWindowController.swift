@@ -9,6 +9,9 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     private let textDocument: TextDocument
     private let prefs: Preferences
     private var editor: EditorViewController!
+    private var sidebar: SidebarViewController!
+    private var splitViewController: NSSplitViewController!
+    private var sidebarItem: NSSplitViewItem!
 
     /// Default size for a window with no remembered frame.
     static let defaultWindowSize = NSSize(width: 1100, height: 750)
@@ -39,7 +42,30 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         let editor = EditorViewController(document: document, preferences: preferences)
         self.editor = editor
         editor.newTabActionTarget = self
-        window.contentViewController = editor
+
+        let sidebar = SidebarViewController(preferences: preferences)
+        self.sidebar = sidebar
+
+        let split = NSSplitViewController()
+        let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebar)
+        sidebarItem.canCollapse = true
+        sidebarItem.minimumThickness = 180
+        let editorItem = NSSplitViewItem(viewController: editor)
+        // Sidebar on the left by default; sidebarOnRight swaps the order.
+        if preferences.sidebarOnRight {
+            split.addSplitViewItem(editorItem)
+            split.addSplitViewItem(sidebarItem)
+        } else {
+            split.addSplitViewItem(sidebarItem)
+            split.addSplitViewItem(editorItem)
+        }
+        split.splitView.autosaveName = "medit.sidebar.split"
+        self.splitViewController = split
+        self.sidebarItem = sidebarItem
+        sidebar.windowController = self
+        window.contentViewController = split
+        // Apply initial visibility (default collapsed/off).
+        sidebarItem.isCollapsed = !preferences.showSidebar
         shouldCascadeWindows = true
     }
 
@@ -164,6 +190,17 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
 
     // MARK: View menu actions
 
+    @IBAction public func toggleSidebar(_ sender: Any?) {
+        prefs.showSidebar.toggle()
+        applySidebarVisibility()
+    }
+
+    private func applySidebarVisibility() {
+        let show = prefs.showSidebar
+        sidebarItem?.isCollapsed = !show
+        if show { sidebar?.activate() } else { sidebar?.deactivate() }
+    }
+
     @IBAction public func toggleLineNumbers(_ sender: Any?) {
         prefs.showLineNumbers.toggle()
         // Preference change notification refreshes all editors; ensure ours too.
@@ -188,6 +225,8 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// Keep the View-menu check marks in sync with current state.
     public func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
+        case #selector(toggleSidebar(_:)):
+            menuItem.state = prefs.showSidebar ? .on : .off
         case #selector(toggleLineNumbers(_:)):
             menuItem.state = prefs.showLineNumbers ? .on : .off
         case #selector(toggleWordWrap(_:)):

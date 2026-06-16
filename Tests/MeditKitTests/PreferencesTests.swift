@@ -112,4 +112,25 @@ final class PreferencesTests: XCTestCase {
         prefs.externalChangePolicy = .autoIfClean
         XCTAssertEqual(Preferences(defaults: defaults).externalChangePolicy, .autoIfClean)
     }
+
+    func testSidebarPrefsDefaults() {
+        XCTAssertFalse(prefs.showSidebar)
+        XCTAssertFalse(prefs.showHiddenFiles)
+        XCTAssertTrue(prefs.syncSidebarWithActiveTab)
+        XCTAssertTrue(prefs.sidebarSortFoldersFirst)
+        XCTAssertTrue(prefs.sidebarSortAscending)
+        XCTAssertFalse(prefs.sidebarOpenOnSingleClick)
+        XCTAssertFalse(prefs.sidebarOnRight)
+        XCTAssertTrue(prefs.confirmBeforeDelete)
+    }
+
+    func testShowSidebarPersists() {
+        prefs.showSidebar = true
+        XCTAssertTrue(Preferences(defaults: defaults).showSidebar)
+    }
+
+    func testSidebarRootPathsPersist() {
+        prefs.sidebarRootPaths = ["/tmp/a", "/tmp/b"]
+        XCTAssertEqual(Preferences(defaults: defaults).sidebarRootPaths, ["/tmp/a", "/tmp/b"])
+    }
 }

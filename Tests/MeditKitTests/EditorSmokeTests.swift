@@ -361,6 +361,22 @@ final class EditorSmokeTests: XCTestCase {
         forceRulerDraw(controller)
     }
 
+    func testEditorStillRendersWithSplitViewHostingSidebar() {
+        let controller = makeWindowController(text: "line one\nline two\nline three")
+        guard let window = controller.window else { return XCTFail("no window") }
+        window.setFrame(NSRect(x: 0, y: 0, width: 1000, height: 700), display: true)
+        controller.showWindow(nil)
+        window.layoutIfNeeded()
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+        // The window's contentViewController is now a split view; the editor must
+        // still be present and rendering.
+        XCTAssertTrue(window.contentViewController is NSSplitViewController)
+        if let tv = controller.focusedTextView {
+            XCTAssertGreaterThan(tv.frame.width, 100, "editor collapsed under the split view")
+            XCTAssertEqual(tv.string, "line one\nline two\nline three")
+        } else { XCTFail("no text view") }
+    }
+
     func testEditorUsesEditorTextViewAndRenders() {
         let controller = makeWindowController(text: "line one\nline two\nline three")
         guard let window = controller.window else { return XCTFail("no window") }

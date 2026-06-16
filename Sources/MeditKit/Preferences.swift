@@ -45,6 +45,15 @@ public final class Preferences {
         static let lightThemeName = "lightThemeName"
         static let darkThemeName = "darkThemeName"
         static let externalChangePolicy = "externalChangePolicy"
+        static let showSidebar = "showSidebar"
+        static let showHiddenFiles = "showHiddenFiles"
+        static let syncSidebarWithActiveTab = "syncSidebarWithActiveTab"
+        static let sidebarSortFoldersFirst = "sidebarSortFoldersFirst"
+        static let sidebarSortAscending = "sidebarSortAscending"
+        static let sidebarOpenOnSingleClick = "sidebarOpenOnSingleClick"
+        static let sidebarOnRight = "sidebarOnRight"
+        static let confirmBeforeDelete = "confirmBeforeDelete"
+        static let sidebarRootPaths = "sidebarRootPaths"
     }
 
     private func registerDefaults() {
@@ -64,7 +73,16 @@ public final class Preferences {
             Key.showInvisibles: false,
             Key.lightThemeName: "atom-one-light",
             Key.darkThemeName: "atom-one-dark",
-            Key.externalChangePolicy: ExternalChangePolicy.notify.rawValue
+            Key.externalChangePolicy: ExternalChangePolicy.notify.rawValue,
+            Key.showSidebar: false,
+            Key.showHiddenFiles: false,
+            Key.syncSidebarWithActiveTab: true,
+            Key.sidebarSortFoldersFirst: true,
+            Key.sidebarSortAscending: true,
+            Key.sidebarOpenOnSingleClick: false,
+            Key.sidebarOnRight: false,
+            Key.confirmBeforeDelete: true,
+            Key.sidebarRootPaths: [String]()
         ])
     }
 
@@ -157,6 +175,45 @@ public final class Preferences {
     public var externalChangePolicy: ExternalChangePolicy {
         get { ExternalChangePolicy(rawValue: defaults.string(forKey: Key.externalChangePolicy) ?? "") ?? .notify }
         set { defaults.set(newValue.rawValue, forKey: Key.externalChangePolicy); didChange() }
+    }
+
+    // MARK: Sidebar
+
+    public var showSidebar: Bool {
+        get { defaults.bool(forKey: Key.showSidebar) }
+        set { defaults.set(newValue, forKey: Key.showSidebar); didChange() }
+    }
+    public var showHiddenFiles: Bool {
+        get { defaults.bool(forKey: Key.showHiddenFiles) }
+        set { defaults.set(newValue, forKey: Key.showHiddenFiles); didChange() }
+    }
+    public var syncSidebarWithActiveTab: Bool {
+        get { defaults.bool(forKey: Key.syncSidebarWithActiveTab) }
+        set { defaults.set(newValue, forKey: Key.syncSidebarWithActiveTab); didChange() }
+    }
+    public var sidebarSortFoldersFirst: Bool {
+        get { defaults.bool(forKey: Key.sidebarSortFoldersFirst) }
+        set { defaults.set(newValue, forKey: Key.sidebarSortFoldersFirst); didChange() }
+    }
+    public var sidebarSortAscending: Bool {
+        get { defaults.bool(forKey: Key.sidebarSortAscending) }
+        set { defaults.set(newValue, forKey: Key.sidebarSortAscending); didChange() }
+    }
+    public var sidebarOpenOnSingleClick: Bool {
+        get { defaults.bool(forKey: Key.sidebarOpenOnSingleClick) }
+        set { defaults.set(newValue, forKey: Key.sidebarOpenOnSingleClick); didChange() }
+    }
+    public var sidebarOnRight: Bool {
+        get { defaults.bool(forKey: Key.sidebarOnRight) }
+        set { defaults.set(newValue, forKey: Key.sidebarOnRight); didChange() }
+    }
+    public var confirmBeforeDelete: Bool {
+        get { defaults.bool(forKey: Key.confirmBeforeDelete) }
+        set { defaults.set(newValue, forKey: Key.confirmBeforeDelete); didChange() }
+    }
+    public var sidebarRootPaths: [String] {
+        get { defaults.stringArray(forKey: Key.sidebarRootPaths) ?? [] }
+        set { defaults.set(newValue, forKey: Key.sidebarRootPaths); didChange() }
     }
 
     /// The highlight.js theme name to use for the given effective appearance.

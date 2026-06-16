@@ -25,7 +25,7 @@ public final class FileTreeDataSource: NSObject, NSOutlineViewDataSource {
         return childList(of: node)[index]
     }
 
-    public func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any?) -> Bool {
+    public func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
         (item as? FileTreeNode)?.isDirectory ?? false
     }
 }

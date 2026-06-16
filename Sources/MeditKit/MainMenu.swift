@@ -192,6 +192,12 @@ public enum MainMenu {
         let item = NSMenuItem()
         let menu = NSMenu(title: "View")
 
+        let sidebar = NSMenuItem(title: "Show Sidebar",
+                                 action: #selector(EditorWindowController.toggleSidebar(_:)), keyEquivalent: "0")
+        sidebar.keyEquivalentModifierMask = [.command, .control]
+        menu.addItem(sidebar)
+        menu.addItem(.separator())
+
         let lineNumbers = NSMenuItem(title: "Show Line Numbers",
                                      action: #selector(EditorWindowController.toggleLineNumbers(_:)), keyEquivalent: "l")
         lineNumbers.keyEquivalentModifierMask = [.command, .shift]
