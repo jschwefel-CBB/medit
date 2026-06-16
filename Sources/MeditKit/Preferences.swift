@@ -7,6 +7,13 @@ public enum AppAppearance: String, CaseIterable {
     case dark
 }
 
+/// How the caret's enclosing bracket pair is emphasized (rainbow brackets).
+public enum EnclosingPairEmphasisStyle: String, CaseIterable {
+    case bold
+    case underline
+    case background
+}
+
 /// Typed wrapper over `UserDefaults` for medit's settings. A single shared
 /// instance (`Preferences.shared`) backs the live app; tests inject an
 /// ephemeral `UserDefaults` suite. Any setter posts `Preferences.didChange`
