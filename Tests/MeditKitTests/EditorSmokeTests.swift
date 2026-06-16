@@ -393,6 +393,19 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertEqual(sb.outlineView.numberOfRows, 0, "deactivate should clear the tree (zero overhead)")
     }
 
+    func testSidebarDeactivateStopsWatchers() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("medit-sbw-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let sb = SidebarViewController(preferences: Preferences(defaults: UserDefaults(suiteName: "medit.sbw.\(UUID().uuidString)")!))
+        sb.loadViewIfNeeded()
+        sb.setRootForTesting(tmp)
+        sb.activate()
+        XCTAssertGreaterThan(sb.watcherCountForTesting, 0, "active sidebar should watch its roots")
+        sb.deactivate()
+        XCTAssertEqual(sb.watcherCountForTesting, 0, "deactivate must stop all watchers (zero overhead)")
+    }
+
     func testEditorUsesEditorTextViewAndRenders() {
         let controller = makeWindowController(text: "line one\nline two\nline three")
         guard let window = controller.window else { return XCTFail("no window") }

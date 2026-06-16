@@ -13,6 +13,7 @@ public final class SidebarViewController: NSViewController {
     private(set) var outlineView: NSOutlineView!
     private let dataSource = FileTreeDataSource()
     private var active = false
+    private var watchers: [DirectoryWatcher] = []
 
     public init(preferences: Preferences = .shared) {
         self.prefs = preferences
@@ -75,13 +76,87 @@ public final class SidebarViewController: NSViewController {
             dataSource.roots = [FileTreeNode(url: dir)]
         }
         outlineView.reloadData()
+        startWatchers()
     }
 
     public func deactivate() {
         guard active else { return }
         active = false
+        stopWatchers()
         dataSource.roots = []
         outlineView.reloadData()
+    }
+
+    // MARK: Watching + refresh
+
+    private func startWatchers() {
+        stopWatchers()
+        for root in dataSource.roots {
+            if let w = DirectoryWatcher(url: root.url, onChange: { [weak self] in
+                self?.refreshTree()
+            }) {
+                watchers.append(w)
+            }
+        }
+    }
+
+    private func stopWatchers() {
+        watchers.forEach { $0.stop() }
+        watchers.removeAll()
+    }
+
+    /// Invalidate cached children and reload, preserving expansion where possible.
+    public func refreshTree() {
+        guard active else { return }
+        let expanded = expandedURLs()
+        for root in dataSource.roots { root.invalidateChildren() }
+        outlineView.reloadData()
+        reexpand(expanded)
+    }
+
+    private func expandedURLs() -> Set<String> {
+        var set = Set<String>()
+        for row in 0..<outlineView.numberOfRows {
+            if let node = outlineView.item(atRow: row) as? FileTreeNode, outlineView.isItemExpanded(node) {
+                set.insert(node.url.path)
+            }
+        }
+        return set
+    }
+
+    private func reexpand(_ paths: Set<String>) {
+        var row = 0
+        while row < outlineView.numberOfRows {
+            if let node = outlineView.item(atRow: row) as? FileTreeNode,
+               node.isDirectory, paths.contains(node.url.path) {
+                outlineView.expandItem(node)
+            }
+            row += 1
+        }
+    }
+
+    /// Expand to and select the active document's file in the tree, if it's under
+    /// a root and the preference is on.
+    public func revealActiveFile() {
+        guard active, prefs.syncSidebarWithActiveTab,
+              let url = windowController?.currentDocumentFileURL else { return }
+        guard let root = dataSource.roots.first(where: { url.path.hasPrefix($0.url.path + "/") }) else { return }
+        let relative = url.path.dropFirst(root.url.path.count + 1)
+        var current = root
+        outlineView.expandItem(current)
+        for comp in relative.split(separator: "/").dropLast() {
+            if let next = dataSource.outlineChild(of: current, named: String(comp)) {
+                outlineView.expandItem(next)
+                current = next
+            }
+        }
+        if let fileNode = dataSource.outlineChild(of: current, named: url.lastPathComponent) {
+            let row = outlineView.row(forItem: fileNode)
+            if row >= 0 {
+                outlineView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+                outlineView.scrollRowToVisible(row)
+            }
+        }
     }
 
     /// Parent folder of the active document's file (nil for untitled).
@@ -133,6 +208,8 @@ public final class SidebarViewController: NSViewController {
         dataSource.roots = [FileTreeNode(url: url)]
         applyPrefsToDataSource()
     }
+
+    var watcherCountForTesting: Int { watchers.count }
 }
 
 extension SidebarViewController: NSOutlineViewDelegate {

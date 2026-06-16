@@ -109,6 +109,7 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// re-assert tab-bar visibility.
     public func windowDidBecomeKey(_ notification: Notification) {
         ensureTabBarVisible()
+        sidebar?.revealActiveFile()
     }
 
     public func windowDidBecomeMain(_ notification: Notification) {

@@ -15,6 +15,11 @@ public final class FileTreeDataSource: NSObject, NSOutlineViewDataSource {
         node.children(foldersFirst: foldersFirst, ascending: ascending, showHidden: showHidden)
     }
 
+    /// Find a child node of `node` by file name (using current sort/filter).
+    func outlineChild(of node: FileTreeNode, named name: String) -> FileTreeNode? {
+        childList(of: node).first { $0.url.lastPathComponent == name }
+    }
+
     public func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
         guard let node = item as? FileTreeNode else { return roots.count }
         return childList(of: node).count
