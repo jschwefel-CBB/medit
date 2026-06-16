@@ -53,7 +53,7 @@ public final class Preferences {
         static let sidebarOpenOnSingleClick = "sidebarOpenOnSingleClick"
         static let sidebarOnRight = "sidebarOnRight"
         static let confirmBeforeDelete = "confirmBeforeDelete"
-        static let sidebarRootPaths = "sidebarRootPaths"
+        static let sidebarRootBookmarks = "sidebarRootBookmarks"
     }
 
     private func registerDefaults() {
@@ -82,7 +82,7 @@ public final class Preferences {
             Key.sidebarOpenOnSingleClick: false,
             Key.sidebarOnRight: false,
             Key.confirmBeforeDelete: true,
-            Key.sidebarRootPaths: [String]()
+            Key.sidebarRootBookmarks: [Data]()
         ])
     }
 
@@ -211,9 +211,11 @@ public final class Preferences {
         get { defaults.bool(forKey: Key.confirmBeforeDelete) }
         set { defaults.set(newValue, forKey: Key.confirmBeforeDelete); didChange() }
     }
-    public var sidebarRootPaths: [String] {
-        get { defaults.stringArray(forKey: Key.sidebarRootPaths) ?? [] }
-        set { defaults.set(newValue, forKey: Key.sidebarRootPaths); didChange() }
+    /// Security-scoped bookmarks for the sidebar's pinned root folders. Bookmarks
+    /// (not plain paths) are what survive the app sandbox across launches.
+    public var sidebarRootBookmarks: [Data] {
+        get { (defaults.array(forKey: Key.sidebarRootBookmarks) as? [Data]) ?? [] }
+        set { defaults.set(newValue, forKey: Key.sidebarRootBookmarks); didChange() }
     }
 
     /// The highlight.js theme name to use for the given effective appearance.

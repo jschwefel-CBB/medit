@@ -14,6 +14,8 @@ public final class SidebarViewController: NSViewController {
     private let dataSource = FileTreeDataSource()
     private var active = false
     private var watchers: [DirectoryWatcher] = []
+    /// Root URLs we're currently holding security-scoped access to (sandbox).
+    private var accessedRootURLs: Set<URL> = []
 
     public init(preferences: Preferences = .shared) {
         self.prefs = preferences
@@ -87,7 +89,10 @@ public final class SidebarViewController: NSViewController {
         refreshFromPreferences()
     }
 
-    deinit { NotificationCenter.default.removeObserver(self) }
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        stopAllRootAccess()
+    }
 
     // MARK: Activation (zero-overhead when off)
 
@@ -96,41 +101,99 @@ public final class SidebarViewController: NSViewController {
         active = true
         applyPrefsToDataSource()
         if dataSource.roots.isEmpty {
-            let saved = prefs.sidebarRootPaths.map { URL(fileURLWithPath: $0) }
-                .filter { FileManager.default.fileExists(atPath: $0.path) }
-            if !saved.isEmpty {
-                dataSource.roots = saved.map { FileTreeNode(url: $0) }
-            } else if let dir = defaultRootDirectory() {
-                dataSource.roots = [FileTreeNode(url: dir)]
-            }
+            restoreRootsFromBookmarks()
         }
         outlineView.reloadData()
         startWatchers()
+        // App sandbox: with no granted folders, the tree is necessarily empty —
+        // prompt the user to choose one (the open panel IS the grant). Deferred so
+        // it doesn't block the toggle / launch.
+        if dataSource.roots.isEmpty {
+            DispatchQueue.main.async { [weak self] in self?.promptForRootIfEmpty() }
+        }
+    }
+
+    /// Resolve saved security-scoped bookmarks into accessible roots.
+    private func restoreRootsFromBookmarks() {
+        var restored: [FileTreeNode] = []
+        var keptBookmarks: [Data] = []
+        for data in prefs.sidebarRootBookmarks {
+            var stale = false
+            guard let url = try? URL(resolvingBookmarkData: data,
+                                     options: [.withSecurityScope],
+                                     relativeTo: nil,
+                                     bookmarkDataIsStale: &stale) else { continue }
+            guard url.startAccessingSecurityScopedResource() else { continue }
+            accessedRootURLs.insert(url)
+            restored.append(FileTreeNode(url: url))
+            // Refresh a stale bookmark so it keeps resolving next launch.
+            if stale, let fresh = try? url.bookmarkData(options: [.withSecurityScope]) {
+                keptBookmarks.append(fresh)
+            } else {
+                keptBookmarks.append(data)
+            }
+        }
+        dataSource.roots = restored
+        if keptBookmarks != prefs.sidebarRootBookmarks {
+            prefs.sidebarRootBookmarks = keptBookmarks
+        }
+    }
+
+    /// Show an open panel to choose a folder when the sidebar is empty.
+    private func promptForRootIfEmpty() {
+        guard active, dataSource.roots.isEmpty, let window = view.window else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose Folder"
+        panel.message = "Choose a folder to show in the sidebar."
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            self?.addRoot(url)
+        }
     }
 
     // MARK: Root management (multi-root)
 
     public func addRoot(_ url: URL) {
         guard !dataSource.roots.contains(where: { $0.url.path == url.path }) else { return }
+        // The open panel granted access; hold it and bookmark it for next launch.
+        if url.startAccessingSecurityScopedResource() {
+            accessedRootURLs.insert(url)
+        }
         dataSource.roots.append(FileTreeNode(url: url))
         persistRoots()
         if active { startWatchers(); outlineView.reloadData() }
     }
 
     public func removeRoot(_ node: FileTreeNode) {
+        if accessedRootURLs.contains(node.url) {
+            node.url.stopAccessingSecurityScopedResource()
+            accessedRootURLs.remove(node.url)
+        }
         dataSource.roots.removeAll { $0 === node }
         persistRoots()
         if active { startWatchers(); outlineView.reloadData() }
     }
 
+    /// Store a security-scoped bookmark per root so they reopen with access.
     private func persistRoots() {
-        prefs.sidebarRootPaths = dataSource.roots.map { $0.url.path }
+        prefs.sidebarRootBookmarks = dataSource.roots.compactMap {
+            try? $0.url.bookmarkData(options: [.withSecurityScope])
+        }
+    }
+
+    private func stopAllRootAccess() {
+        for url in accessedRootURLs { url.stopAccessingSecurityScopedResource() }
+        accessedRootURLs.removeAll()
     }
 
     public func deactivate() {
         guard active else { return }
         active = false
         stopWatchers()
+        stopAllRootAccess()
         dataSource.roots = []
         outlineView.reloadData()
     }
@@ -205,20 +268,6 @@ public final class SidebarViewController: NSViewController {
                 outlineView.scrollRowToVisible(row)
             }
         }
-    }
-
-    /// The folder to root the sidebar at when nothing is pinned: the active
-    /// document's parent folder, else the current working directory, else Home —
-    /// so the sidebar is never blank when shown.
-    private func defaultRootDirectory() -> URL? {
-        if let fileDir = windowController?.currentDocumentFileURL?.deletingLastPathComponent() {
-            return fileDir
-        }
-        let cwd = FileManager.default.currentDirectoryPath
-        if !cwd.isEmpty, cwd != "/" {
-            return URL(fileURLWithPath: cwd, isDirectory: true)
-        }
-        return FileManager.default.homeDirectoryForCurrentUser
     }
 
     private func applyPrefsToDataSource() {

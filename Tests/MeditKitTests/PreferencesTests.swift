@@ -129,8 +129,9 @@ final class PreferencesTests: XCTestCase {
         XCTAssertTrue(Preferences(defaults: defaults).showSidebar)
     }
 
-    func testSidebarRootPathsPersist() {
-        prefs.sidebarRootPaths = ["/tmp/a", "/tmp/b"]
-        XCTAssertEqual(Preferences(defaults: defaults).sidebarRootPaths, ["/tmp/a", "/tmp/b"])
+    func testSidebarRootBookmarksPersist() {
+        let a = Data([1, 2, 3]); let b = Data([4, 5, 6])
+        prefs.sidebarRootBookmarks = [a, b]
+        XCTAssertEqual(Preferences(defaults: defaults).sidebarRootBookmarks, [a, b])
     }
 }
