@@ -294,6 +294,13 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         editor?.applyShowInvisibles(prefs.showInvisibles)
     }
 
+    // Distinct name (NOT a generic `toggleBrackets`) to avoid any AppKit selector
+    // collision — the lesson from the toggleSidebar/NSSplitViewController clash.
+    @IBAction public func toggleRainbowBrackets(_ sender: Any?) {
+        prefs.rainbowBrackets.toggle()
+        // The pref-change notification reconfigures the colorizer in each editor.
+    }
+
     /// Keep the View-menu check marks in sync with current state.
     public func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
@@ -311,6 +318,8 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
             menuItem.state = prefs.showStatusBar ? .on : .off
         case #selector(toggleInvisibles(_:)):
             menuItem.state = prefs.showInvisibles ? .on : .off
+        case #selector(toggleRainbowBrackets(_:)):
+            menuItem.state = prefs.rainbowBrackets ? .on : .off
         default:
             break
         }

@@ -219,6 +219,10 @@ public enum MainMenu {
                                     action: #selector(EditorWindowController.toggleInvisibles(_:)), keyEquivalent: "")
         menu.addItem(invisibles)
 
+        let rainbow = NSMenuItem(title: "Rainbow Brackets",
+                                 action: #selector(EditorWindowController.toggleRainbowBrackets(_:)), keyEquivalent: "")
+        menu.addItem(rainbow)
+
         let hiddenFiles = NSMenuItem(title: "Show Hidden Files",
                                      action: #selector(EditorWindowController.toggleHiddenFiles(_:)), keyEquivalent: "")
         menu.addItem(hiddenFiles)
