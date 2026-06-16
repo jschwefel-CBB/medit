@@ -218,6 +218,13 @@ public enum MainMenu {
         let invisibles = NSMenuItem(title: "Show Invisibles",
                                     action: #selector(EditorWindowController.toggleInvisibles(_:)), keyEquivalent: "")
         menu.addItem(invisibles)
+
+        let hiddenFiles = NSMenuItem(title: "Show Hidden Files",
+                                     action: #selector(EditorWindowController.toggleHiddenFiles(_:)), keyEquivalent: "")
+        menu.addItem(hiddenFiles)
+        let revealActive = NSMenuItem(title: "Reveal Active File in Sidebar",
+                                      action: #selector(EditorWindowController.toggleRevealActiveFile(_:)), keyEquivalent: "")
+        menu.addItem(revealActive)
         menu.addItem(.separator())
 
         // Standard full-screen toggle (⌃⌘F).

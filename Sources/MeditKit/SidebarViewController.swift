@@ -78,7 +78,16 @@ public final class SidebarViewController: NSViewController {
     public override func viewDidLoad() {
         super.viewDidLoad()
         if prefs.showSidebar { activate() }
+        NotificationCenter.default.addObserver(self, selector: #selector(prefsChanged),
+                                               name: Preferences.didChangeNotification, object: nil)
     }
+
+    @objc private func prefsChanged() {
+        guard active else { return }
+        refreshFromPreferences()
+    }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
 
     // MARK: Activation (zero-overhead when off)
 

@@ -67,6 +67,20 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         // Apply initial visibility (default collapsed/off).
         sidebarItem.isCollapsed = !preferences.showSidebar
         shouldCascadeWindows = true
+
+        NotificationCenter.default.addObserver(self, selector: #selector(applySidebarSideIfChanged),
+                                               name: Preferences.didChangeNotification, object: nil)
+    }
+
+    @objc private func applySidebarSideIfChanged() {
+        guard let split = splitViewController, let sidebarItem = sidebarItem else { return }
+        let wantRight = prefs.sidebarOnRight
+        let isRight = split.splitViewItems.last === sidebarItem
+        if wantRight != isRight {
+            split.removeSplitViewItem(sidebarItem)
+            if wantRight { split.addSplitViewItem(sidebarItem) }
+            else { split.insertSplitViewItem(sidebarItem, at: 0) }
+        }
     }
 
     public override func windowDidLoad() {
@@ -218,6 +232,16 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         sidebar?.addRoot(url)
     }
 
+    @IBAction public func toggleHiddenFiles(_ sender: Any?) {
+        prefs.showHiddenFiles.toggle()
+        sidebar?.refreshFromPreferences()
+    }
+
+    @IBAction public func toggleRevealActiveFile(_ sender: Any?) {
+        prefs.syncSidebarWithActiveTab.toggle()
+        if prefs.syncSidebarWithActiveTab { sidebar?.revealActiveFile() }
+    }
+
     @IBAction public func toggleLineNumbers(_ sender: Any?) {
         prefs.showLineNumbers.toggle()
         // Preference change notification refreshes all editors; ensure ours too.
@@ -244,6 +268,10 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         switch menuItem.action {
         case #selector(toggleSidebar(_:)):
             menuItem.state = prefs.showSidebar ? .on : .off
+        case #selector(toggleHiddenFiles(_:)):
+            menuItem.state = prefs.showHiddenFiles ? .on : .off
+        case #selector(toggleRevealActiveFile(_:)):
+            menuItem.state = prefs.syncSidebarWithActiveTab ? .on : .off
         case #selector(toggleLineNumbers(_:)):
             menuItem.state = prefs.showLineNumbers ? .on : .off
         case #selector(toggleWordWrap(_:)):
