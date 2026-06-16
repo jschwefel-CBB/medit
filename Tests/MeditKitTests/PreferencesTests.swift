@@ -158,4 +158,24 @@ final class PreferencesTests: XCTestCase {
         prefs.editorPadding = 12
         XCTAssertEqual(Preferences(defaults: defaults).editorPadding, 12)
     }
+
+    func testRainbowBracketDefaultsAndPersist() {
+        XCTAssertTrue(prefs.rainbowBrackets)
+        XCTAssertTrue(prefs.emphasizeEnclosingPair)
+        XCTAssertEqual(prefs.enclosingPairEmphasisStyle, .bold)
+        prefs.rainbowBrackets = false
+        prefs.emphasizeEnclosingPair = false
+        prefs.enclosingPairEmphasisStyle = .underline
+        let r = Preferences(defaults: defaults)
+        XCTAssertFalse(r.rainbowBrackets)
+        XCTAssertFalse(r.emphasizeEnclosingPair)
+        XCTAssertEqual(r.enclosingPairEmphasisStyle, .underline)
+    }
+
+    func testEmphasisStyleRoundTripsAllCases() {
+        for style in EnclosingPairEmphasisStyle.allCases {
+            prefs.enclosingPairEmphasisStyle = style
+            XCTAssertEqual(Preferences(defaults: defaults).enclosingPairEmphasisStyle, style)
+        }
+    }
 }

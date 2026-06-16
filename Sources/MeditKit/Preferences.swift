@@ -68,6 +68,9 @@ public final class Preferences {
         static let smartInsertDelete = "smartInsertDelete"
         static let continuousSpellChecking = "continuousSpellChecking"
         static let editorPadding = "editorPadding"
+        static let rainbowBrackets = "rainbowBrackets"
+        static let emphasizeEnclosingPair = "emphasizeEnclosingPair"
+        static let enclosingPairEmphasisStyle = "enclosingPairEmphasisStyle"
     }
 
     private func registerDefaults() {
@@ -103,7 +106,10 @@ public final class Preferences {
             Key.automaticSpellingCorrection: false,
             Key.smartInsertDelete: false,
             Key.continuousSpellChecking: false,
-            Key.editorPadding: 4
+            Key.editorPadding: 4,
+            Key.rainbowBrackets: true,
+            Key.emphasizeEnclosingPair: true,
+            Key.enclosingPairEmphasisStyle: EnclosingPairEmphasisStyle.bold.rawValue
         ])
     }
 
@@ -271,6 +277,24 @@ public final class Preferences {
     public var editorPadding: Int {
         get { defaults.integer(forKey: Key.editorPadding) }
         set { defaults.set(min(40, max(0, newValue)), forKey: Key.editorPadding); didChange() }
+    }
+
+    // MARK: Rainbow brackets
+
+    /// Master toggle for always-on depth coloring of brackets.
+    public var rainbowBrackets: Bool {
+        get { defaults.bool(forKey: Key.rainbowBrackets) }
+        set { defaults.set(newValue, forKey: Key.rainbowBrackets); didChange() }
+    }
+    /// Emphasize the innermost pair enclosing the caret (on top of depth color).
+    public var emphasizeEnclosingPair: Bool {
+        get { defaults.bool(forKey: Key.emphasizeEnclosingPair) }
+        set { defaults.set(newValue, forKey: Key.emphasizeEnclosingPair); didChange() }
+    }
+    /// How the enclosing pair is emphasized.
+    public var enclosingPairEmphasisStyle: EnclosingPairEmphasisStyle {
+        get { EnclosingPairEmphasisStyle(rawValue: defaults.string(forKey: Key.enclosingPairEmphasisStyle) ?? "") ?? .bold }
+        set { defaults.set(newValue.rawValue, forKey: Key.enclosingPairEmphasisStyle); didChange() }
     }
 
     /// The highlight.js theme name to use for the given effective appearance.
