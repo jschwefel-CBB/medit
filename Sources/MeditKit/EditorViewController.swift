@@ -186,6 +186,12 @@ public final class EditorViewController: NSViewController {
             self?.document?.setLineEnding(ending)
             self?.updateStatusBar()
         }
+        statusBar.onWrapToggle = { [weak self] in
+            guard let self else { return }
+            self.prefs.wrapLines.toggle()
+            self.applyWrapMode(self.prefs.wrapLines)
+            self.updateStatusBar()
+        }
         self.statusBar = statusBar
         container.addSubview(statusBar)
 
@@ -448,7 +454,7 @@ public final class EditorViewController: NSViewController {
         let encoding = TextEncodingDetector.displayName(for: document?.fileEncoding ?? .utf8)
         let overwrite = (textView as? EditorTextView)?.isOverwriteMode ?? false
         statusBar.update(line: pos.line, column: pos.column, language: language, encoding: encoding,
-                         lineEnding: document?.lineEnding ?? .lf, overwrite: overwrite)
+                         lineEnding: document?.lineEnding ?? .lf, overwrite: overwrite, wrap: prefs.wrapLines)
     }
 
     /// Apply a manual language override (nil = auto-detect), re-highlight, and
@@ -609,6 +615,10 @@ public final class EditorViewController: NSViewController {
     var rulersVisibleForTesting: Bool { scrollView.rulersVisible }
     /// Test hook: the current showLineNumbers preference.
     var showLineNumbersForTesting: Bool { prefs.showLineNumbers }
+    /// Test hook: the current wrapLines preference.
+    var wrapLinesForTesting: Bool { prefs.wrapLines }
+    /// Test hook: invoke the status bar's wrap toggle as if clicked.
+    func simulateStatusBarWrapClickForTesting() { statusBar?.simulateWrapClickForTesting() }
 
     private func updateMatchStatus(for query: SearchQuery) {
         guard let bar = findReplaceBar else { return }

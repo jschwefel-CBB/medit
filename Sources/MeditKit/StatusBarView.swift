@@ -14,11 +14,14 @@ public final class StatusBarView: NSView {
     public var onConvert: ((String.Encoding) -> Void)?
     /// Called when the user picks a line ending (LF / CRLF).
     public var onLineEndingPick: ((LineEnding) -> Void)?
+    /// Called when the user clicks the wrap segment to toggle word wrap.
+    public var onWrapToggle: (() -> Void)?
 
     private let positionLabel = StatusBarView.makeLabel(align: .left)
     private let languageButton = StatusBarView.makeInlineButton()
     private let encodingButton = StatusBarView.makeInlineButton()
     private let lineEndingButton = StatusBarView.makeInlineButton()
+    private let wrapButton = StatusBarView.makeInlineButton()
     private let modeLabel = StatusBarView.makeLabel(align: .right)
 
     public override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: 22) }
@@ -34,8 +37,10 @@ public final class StatusBarView: NSView {
         encodingButton.action = #selector(encodingButtonClicked)
         lineEndingButton.target = self
         lineEndingButton.action = #selector(lineEndingButtonClicked)
+        wrapButton.target = self
+        wrapButton.action = #selector(wrapButtonClicked)
 
-        let stack = NSStackView(views: [positionLabel, NSView(), languageButton, sep(), encodingButton, sep(), lineEndingButton, sep(), modeLabel])
+        let stack = NSStackView(views: [positionLabel, NSView(), languageButton, sep(), encodingButton, sep(), lineEndingButton, sep(), wrapButton, sep(), modeLabel])
         stack.orientation = .horizontal
         stack.spacing = 8
         stack.alignment = .centerY
@@ -62,11 +67,12 @@ public final class StatusBarView: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     public func update(line: Int, column: Int, language: String, encoding: String,
-                       lineEnding: LineEnding, overwrite: Bool) {
+                       lineEnding: LineEnding, overwrite: Bool, wrap: Bool) {
         positionLabel.stringValue = "Ln \(line), Col \(column)"
         languageButton.title = language
         encodingButton.title = encoding
         lineEndingButton.title = StatusBarView.lineEndingLabel(lineEnding)
+        wrapButton.title = wrap ? "Wrap: On" : "Wrap: Off"
         applyMode(overwrite: overwrite)
     }
 
@@ -164,6 +170,13 @@ public final class StatusBarView: NSView {
     @objc private func lineEndingPicked(_ s: NSMenuItem) {
         if let raw = s.representedObject as? String, let e = LineEnding(rawValue: raw) { onLineEndingPick?(e) }
     }
+
+    @objc private func wrapButtonClicked() { onWrapToggle?() }
+
+    /// Test hook: invoke the wrap action as if the segment were clicked.
+    func simulateWrapClickForTesting() { onWrapToggle?() }
+    /// Test hook: the wrap segment's current title.
+    var wrapTitleForTesting: String { wrapButton.title }
 
     private func sep() -> NSView {
         let v = NSBox(); v.boxType = .separator; v.translatesAutoresizingMaskIntoConstraints = false
