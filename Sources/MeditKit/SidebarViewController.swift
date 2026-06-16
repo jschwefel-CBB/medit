@@ -207,9 +207,18 @@ public final class SidebarViewController: NSViewController {
         }
     }
 
-    /// Parent folder of the active document's file (nil for untitled).
+    /// The folder to root the sidebar at when nothing is pinned: the active
+    /// document's parent folder, else the current working directory, else Home —
+    /// so the sidebar is never blank when shown.
     private func defaultRootDirectory() -> URL? {
-        windowController?.currentDocumentFileURL?.deletingLastPathComponent()
+        if let fileDir = windowController?.currentDocumentFileURL?.deletingLastPathComponent() {
+            return fileDir
+        }
+        let cwd = FileManager.default.currentDirectoryPath
+        if !cwd.isEmpty, cwd != "/" {
+            return URL(fileURLWithPath: cwd, isDirectory: true)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
     }
 
     private func applyPrefsToDataSource() {
@@ -247,7 +256,9 @@ public final class SidebarViewController: NSViewController {
     private func openSelected() {
         let row = outlineView.clickedRow >= 0 ? outlineView.clickedRow : outlineView.selectedRow
         guard row >= 0, let node = outlineView.item(atRow: row) as? FileTreeNode, !node.isDirectory else { return }
-        NSDocumentController.shared.openDocument(withContentsOf: node.url, display: true) { _, _, _ in }
+        // Open in a tab in this window (keeps the sidebar in place) rather than
+        // spawning a separate window via NSDocumentController.openDocument.
+        windowController?.openFile(at: node.url)
     }
 
     // MARK: Test hooks

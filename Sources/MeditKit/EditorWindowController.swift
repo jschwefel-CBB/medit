@@ -187,6 +187,27 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         openNewTab()
     }
 
+    /// Open `url` as a tab in THIS window (so the sidebar stays put), or focus the
+    /// tab if the file is already open. Called by the sidebar.
+    public func openFile(at url: URL) {
+        guard let window else { return }
+        // Already open? Focus its window/tab.
+        if let existing = NSDocumentController.shared.document(for: url),
+           let w = existing.windowControllers.first?.window {
+            w.makeKeyAndOrderFront(nil)
+            return
+        }
+        NSDocumentController.shared.openDocument(withContentsOf: url, display: false) { doc, _, error in
+            if let error { NSApp.presentError(error); return }
+            guard let doc else { return }
+            if doc.windowControllers.isEmpty { doc.makeWindowControllers() }
+            guard let newWindow = doc.windowControllers.first?.window else { return }
+            // Tab it onto this window so we stay in the same window (sidebar intact).
+            window.addTabbedWindow(newWindow, ordered: .above)
+            newWindow.makeKeyAndOrderFront(nil)
+        }
+    }
+
     private func openNewTab() {
         guard let window else { return }
         do {

@@ -393,6 +393,16 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertEqual(sb.outlineView.numberOfRows, 0, "deactivate should clear the tree (zero overhead)")
     }
 
+    func testSidebarFallsBackToADirectoryWhenNoRootPinned() {
+        // With no active-file folder and no saved roots, the sidebar must still
+        // root somewhere (cwd / Home) so it isn't blank when shown.
+        let sb = SidebarViewController(preferences: Preferences(defaults: UserDefaults(suiteName: "medit.sbfb.\(UUID().uuidString)")!))
+        sb.loadViewIfNeeded()
+        sb.activate()  // no setRootForTesting — must use the fallback
+        XCTAssertGreaterThan(sb.outlineView.numberOfRows, 0,
+                             "sidebar must fall back to a directory when nothing is pinned")
+    }
+
     func testSidebarDeactivateStopsWatchers() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("medit-sbw-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
