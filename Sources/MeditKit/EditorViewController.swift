@@ -220,6 +220,11 @@ public final class EditorViewController: NSViewController {
         configureHighlighter()
         configureBracketColorizer()
         (textView as? EditorTextView)?.onOverwriteModeChange = { [weak self] _ in self?.updateStatusBar() }
+        // Dragged files open (in tabs, preserving order) instead of pasting paths.
+        (textView as? EditorTextView)?.onOpenFiles = { [weak self] urls in
+            guard let wc = self?.newTabActionTarget as? EditorWindowController else { return }
+            wc.openFiles(at: urls)
+        }
         applyStatusBarVisibility(prefs.showStatusBar)
         updateStatusBar()
         observePreferences()

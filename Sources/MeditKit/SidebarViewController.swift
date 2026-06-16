@@ -220,7 +220,9 @@ public final class SidebarViewController: NSViewController {
     public func refreshTree() {
         guard active else { return }
         let expanded = expandedURLs()
-        for root in dataSource.roots { root.invalidateChildren() }
+        // Invalidate the WHOLE tree, not just roots — a file/folder created or
+        // moved inside any subdirectory must be picked up, not only top-level ones.
+        for root in dataSource.roots { root.invalidateChildrenRecursively() }
         outlineView.reloadData()
         reexpand(expanded)
     }
@@ -266,6 +268,31 @@ public final class SidebarViewController: NSViewController {
             if row >= 0 {
                 outlineView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
                 outlineView.scrollRowToVisible(row)
+            }
+        }
+    }
+
+    /// Expand ancestors down to `url` and select it (used after creating a
+    /// file/folder, so it's visible and ready to rename).
+    private func revealAndSelect(_ url: URL) {
+        guard active else { return }
+        guard let root = dataSource.roots.first(where: { url.path == $0.url.path || url.path.hasPrefix($0.url.path + "/") }) else { return }
+        var current = root
+        outlineView.expandItem(current)
+        if url.path != root.url.path {
+            let relative = url.path.dropFirst(root.url.path.count + 1)
+            for comp in relative.split(separator: "/").dropLast() {
+                if let next = dataSource.outlineChild(of: current, named: String(comp)) {
+                    outlineView.expandItem(next)
+                    current = next
+                }
+            }
+            if let node = dataSource.outlineChild(of: current, named: url.lastPathComponent) {
+                let row = outlineView.row(forItem: node)
+                if row >= 0 {
+                    outlineView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+                    outlineView.scrollRowToVisible(row)
+                }
             }
         }
     }
@@ -399,13 +426,21 @@ extension SidebarViewController {
 
     @objc fileprivate func ctxNewFile() {
         guard let dir = targetDirectory() else { return }
-        do { _ = try FileSystemOperations.newFile(in: dir); refreshTree() }
+        do {
+            let url = try FileSystemOperations.newFile(in: dir)
+            refreshTree()
+            revealAndSelect(url)
+        }
         catch { NSApp.presentError(error) }
     }
 
     @objc fileprivate func ctxNewFolder() {
         guard let dir = targetDirectory() else { return }
-        do { _ = try FileSystemOperations.newFolder(in: dir); refreshTree() }
+        do {
+            let url = try FileSystemOperations.newFolder(in: dir)
+            refreshTree()
+            revealAndSelect(url)
+        }
         catch { NSApp.presentError(error) }
     }
 

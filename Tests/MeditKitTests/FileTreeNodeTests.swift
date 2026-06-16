@@ -86,4 +86,30 @@ final class FileTreeNodeTests: XCTestCase {
         let file = FileTreeNode(url: root.appendingPathComponent("alpha.txt"))
         XCTAssertTrue(file.children(foldersFirst: true, ascending: true, showHidden: false).isEmpty)
     }
+
+    func testRecursiveInvalidationClearsDeepCache() {
+        // Build root/sub and cache both levels, holding the SAME node references
+        // the sidebar keeps across refreshes.
+        let sub = root.appendingPathComponent("sub", isDirectory: true)
+        try? FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+        let node = FileTreeNode(url: root)
+        guard let subNode = node.children(foldersFirst: true, ascending: true, showHidden: false)
+            .first(where: { $0.url.lastPathComponent == "sub" }) else { return XCTFail("no sub") }
+        // Cache sub's (currently empty) children.
+        XCTAssertTrue(subNode.children(foldersFirst: true, ascending: true, showHidden: false).isEmpty)
+
+        // Create a folder inside sub on disk.
+        try? FileManager.default.createDirectory(at: sub.appendingPathComponent("deep"), withIntermediateDirectories: false)
+
+        // The retained subNode still serves its stale (empty) cache...
+        XCTAssertTrue(subNode.children(foldersFirst: true, ascending: true, showHidden: false).isEmpty,
+                      "stale cache should not yet show the new folder")
+
+        // ...until a recursive invalidation from the root clears the whole subtree.
+        node.invalidateChildrenRecursively()
+        let deep = subNode.children(foldersFirst: true, ascending: true, showHidden: false)
+            .map { $0.url.lastPathComponent }
+        XCTAssertTrue(deep.contains("deep"),
+                      "recursive invalidation should clear the deep cache so the new folder appears")
+    }
 }

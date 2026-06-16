@@ -128,6 +128,18 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertNil(cleared, "overlay should be cleared when rainbow brackets is off")
     }
 
+    func testDraggedFileOpensInsteadOfPastingPath() {
+        let controller = makeWindowController(text: "hello")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("no text view") }
+        var opened: [URL] = []
+        tv.onOpenFiles = { opened = $0 }
+        let dropped = [URL(fileURLWithPath: "/tmp/example.txt")]
+        tv.performFileDropForTesting(dropped)
+        // The file-open hook fired; the path was NOT inserted into the text.
+        XCTAssertEqual(opened, dropped)
+        XCTAssertEqual(tv.string, "hello", "dragged file path must not be pasted into the editor")
+    }
+
     func testEditorViewHasNonZeroSizeWhenShown() {
         // Regression: the contentViewController's scroll view collapsed to {0,0},
         // making text and the caret invisible. The editor view and its text view

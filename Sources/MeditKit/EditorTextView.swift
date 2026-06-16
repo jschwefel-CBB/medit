@@ -23,6 +23,11 @@ public final class EditorTextView: NSTextView {
     /// Called whenever overwrite mode changes (so the status bar can update).
     public var onOverwriteModeChange: ((Bool) -> Void)?
 
+    /// Called when files are DRAGGED onto the editor. The editor opens them
+    /// (in tabs) instead of letting NSTextView paste their paths as text.
+    /// Copy/paste of a path still inserts text — only drags are intercepted.
+    public var onOpenFiles: (([URL]) -> Void)?
+
     /// Per-window overwrite ("type-over") mode. Not persisted; resets each launch.
     public private(set) var isOverwriteMode: Bool = false {
         didSet { needsDisplay = true; onOverwriteModeChange?(isOverwriteMode) }
@@ -227,4 +232,42 @@ public final class EditorTextView: NSTextView {
 
     /// Test hook: flip overwrite mode.
     func toggleOverwriteForTesting() { isOverwriteMode.toggle() }
+
+    // MARK: Drag & drop — open dragged files, don't paste their paths
+
+    /// File URLs on a dragging pasteboard (empty for a plain-text drag).
+    private static func fileURLs(on pasteboard: NSPasteboard) -> [URL] {
+        let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: opts) as? [URL] ?? []
+        return urls.filter { $0.isFileURL }
+    }
+
+    public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        if !EditorTextView.fileURLs(on: sender.draggingPasteboard).isEmpty { return .generic }
+        return super.draggingEntered(sender)
+    }
+
+    public override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        if !EditorTextView.fileURLs(on: sender.draggingPasteboard).isEmpty { return .generic }
+        return super.draggingUpdated(sender)
+    }
+
+    public override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        if !EditorTextView.fileURLs(on: sender.draggingPasteboard).isEmpty { return true }
+        return super.prepareForDragOperation(sender)
+    }
+
+    public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        // A dragged file OPENS (in a tab) rather than pasting its path as text.
+        // Copy/paste still inserts text — only drags are intercepted here.
+        let urls = EditorTextView.fileURLs(on: sender.draggingPasteboard)
+        if !urls.isEmpty {
+            onOpenFiles?(urls)
+            return true
+        }
+        return super.performDragOperation(sender)
+    }
+
+    /// Test hook: simulate dropping file URLs onto the editor.
+    func performFileDropForTesting(_ urls: [URL]) { onOpenFiles?(urls) }
 }

@@ -22,6 +22,14 @@ public final class FileTreeNode {
         cachedChildren = nil
     }
 
+    /// Drop cached children for this node and all currently-cached descendants,
+    /// so a change anywhere in the subtree is re-read. Uncached descendants need
+    /// no work — they re-read on next access.
+    public func invalidateChildrenRecursively() {
+        cachedChildren?.forEach { $0.invalidateChildrenRecursively() }
+        cachedChildren = nil
+    }
+
     /// Sorted, filtered child nodes. Non-directories return []. Children are read
     /// from disk once and cached until `invalidateChildren()`.
     public func children(foldersFirst: Bool, ascending: Bool, showHidden: Bool) -> [FileTreeNode] {

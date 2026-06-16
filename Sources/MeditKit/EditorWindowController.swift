@@ -195,21 +195,48 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// Open `url` as a tab in THIS window (so the sidebar stays put), or focus the
     /// tab if the file is already open. Called by the sidebar.
     public func openFile(at url: URL) {
+        openFiles(at: [url])
+    }
+
+    /// Open one or more files as tabs in THIS window, preserving the given order.
+    /// Opens sequentially (openDocument is async, so a plain loop would race and
+    /// tab them in nondeterministic / reverse order) and chains each new tab
+    /// after the previously inserted one so left-to-right order matches `urls`.
+    public func openFiles(at urls: [URL]) {
+        guard window != nil else { return }
+        var remaining = urls
+        openNext(&remaining, after: nil)
+    }
+
+    private func openNext(_ urls: inout [URL], after previous: NSWindow?) {
         guard let window else { return }
-        // Already open? Focus its window/tab.
+        guard !urls.isEmpty else { return }
+        let url = urls.removeFirst()
+        var rest = urls
+
+        // Already open? Focus it, then continue with the rest (anchored after it).
         if let existing = NSDocumentController.shared.document(for: url),
            let w = existing.windowControllers.first?.window {
             w.makeKeyAndOrderFront(nil)
+            openNext(&rest, after: w)
             return
         }
-        NSDocumentController.shared.openDocument(withContentsOf: url, display: false) { doc, _, error in
-            if let error { NSApp.presentError(error); return }
-            guard let doc else { return }
-            if doc.windowControllers.isEmpty { doc.makeWindowControllers() }
-            guard let newWindow = doc.windowControllers.first?.window else { return }
-            // Tab it onto this window so we stay in the same window (sidebar intact).
-            window.addTabbedWindow(newWindow, ordered: .above)
-            newWindow.makeKeyAndOrderFront(nil)
+        NSDocumentController.shared.openDocument(withContentsOf: url, display: false) { [weak self] doc, _, error in
+            if let error { NSApp.presentError(error) }
+            var anchor = previous
+            if let doc {
+                if doc.windowControllers.isEmpty { doc.makeWindowControllers() }
+                if let newWindow = doc.windowControllers.first?.window {
+                    // Place after the previously inserted tab (or the original
+                    // window for the first file) so drop order is preserved.
+                    let target = previous ?? window
+                    target.addTabbedWindow(newWindow, ordered: .above)
+                    newWindow.makeKeyAndOrderFront(nil)
+                    anchor = newWindow
+                }
+            }
+            var restCopy = rest
+            self?.openNext(&restCopy, after: anchor)
         }
     }
 
