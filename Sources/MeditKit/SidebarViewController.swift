@@ -371,6 +371,12 @@ extension SidebarViewController: NSMenuDelegate {
             mi.target = self
             return mi
         }
+        // "Open" for a clicked FILE (folders open/collapse by clicking the
+        // disclosure triangle, so an Open item only makes sense for files).
+        if let node, !node.isDirectory {
+            menu.addItem(item("Open", #selector(ctxOpen)))
+            menu.addItem(.separator())
+        }
         menu.addItem(item("New File", #selector(ctxNewFile)))
         menu.addItem(item("New Folder", #selector(ctxNewFolder)))
         if node != nil {
@@ -389,12 +395,16 @@ extension SidebarViewController: NSMenuDelegate {
 
 extension SidebarViewController {
 
-    /// Target directory for new items: the clicked folder, the clicked file's
-    /// parent, or the first root.
+    /// Target directory for new items. New items are created BESIDE the clicked
+    /// item (in its parent), so right-clicking a folder makes a sibling, not a
+    /// child. A root is the exception — its real parent is outside the sidebar
+    /// (and likely outside the sandbox grant), so a new item goes INSIDE the root.
+    /// With nothing clicked, fall back to the first root.
     private func targetDirectory() -> URL? {
         let row = outlineView.clickedRow
         if row >= 0, let node = outlineView.item(atRow: row) as? FileTreeNode {
-            return node.isDirectory ? node.url : node.url.deletingLastPathComponent()
+            let isRoot = dataSource.roots.contains { $0 === node }
+            return isRoot ? node.url : node.url.deletingLastPathComponent()
         }
         return dataSource.roots.first?.url
     }
@@ -439,6 +449,10 @@ extension SidebarViewController {
         }
         do { try FileSystemOperations.moveToTrash(node.url); refreshTree() }
         catch { NSApp.presentError(error) }
+    }
+
+    @objc fileprivate func ctxOpen() {
+        openSelected()
     }
 
     @objc fileprivate func ctxReveal() {
