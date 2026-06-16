@@ -371,22 +371,29 @@ extension SidebarViewController: NSMenuDelegate {
             mi.target = self
             return mi
         }
-        // "Open" for a clicked FILE (folders open/collapse by clicking the
-        // disclosure triangle, so an Open item only makes sense for files).
-        if let node, !node.isDirectory {
+        guard let node else {
+            // Empty space (no item clicked): the only file action is opening a
+            // folder to add as a root.
+            menu.addItem(item("Open Folder…", #selector(ctxOpenFolder)))
+            return
+        }
+
+        // "Open" for a clicked FILE (folders open/collapse via the disclosure
+        // triangle, so an Open item only makes sense for files).
+        if !node.isDirectory {
             menu.addItem(item("Open", #selector(ctxOpen)))
             menu.addItem(.separator())
         }
+        // New items are created inside the clicked folder (or the clicked file's
+        // parent), per targetDirectory().
         menu.addItem(item("New File", #selector(ctxNewFile)))
         menu.addItem(item("New Folder", #selector(ctxNewFolder)))
-        if node != nil {
-            menu.addItem(.separator())
-            menu.addItem(item("Rename…", #selector(ctxRename)))
-            menu.addItem(item("Move to Trash", #selector(ctxDelete)))
-            menu.addItem(.separator())
-            menu.addItem(item("Reveal in Finder", #selector(ctxReveal)))
-        }
-        if let node, dataSource.roots.contains(where: { $0 === node }) {
+        menu.addItem(.separator())
+        menu.addItem(item("Rename…", #selector(ctxRename)))
+        menu.addItem(item("Move to Trash", #selector(ctxDelete)))
+        menu.addItem(.separator())
+        menu.addItem(item("Reveal in Finder", #selector(ctxReveal)))
+        if dataSource.roots.contains(where: { $0 === node }) {
             menu.addItem(.separator())
             menu.addItem(item("Remove Folder from Sidebar", #selector(ctxRemoveRoot)))
         }
@@ -395,30 +402,57 @@ extension SidebarViewController: NSMenuDelegate {
 
 extension SidebarViewController {
 
-    /// Target directory for new items. New items are created BESIDE the clicked
-    /// item (in its parent), so right-clicking a folder makes a sibling, not a
-    /// child. A root is the exception — its real parent is outside the sidebar
-    /// (and likely outside the sandbox grant), so a new item goes INSIDE the root.
-    /// With nothing clicked, fall back to the first root.
+    /// Target directory for new items: INSIDE the clicked folder, or the clicked
+    /// file's parent folder. Returns nil when nothing is clicked (the empty-space
+    /// context menu offers only "Open Folder…", so New File/Folder never run
+    /// without a clicked item).
     private func targetDirectory() -> URL? {
         let row = outlineView.clickedRow
-        if row >= 0, let node = outlineView.item(atRow: row) as? FileTreeNode {
-            let isRoot = dataSource.roots.contains { $0 === node }
-            return isRoot ? node.url : node.url.deletingLastPathComponent()
-        }
-        return dataSource.roots.first?.url
+        guard row >= 0, let node = outlineView.item(atRow: row) as? FileTreeNode else { return nil }
+        return node.isDirectory ? node.url : node.url.deletingLastPathComponent()
     }
 
     @objc fileprivate func ctxNewFile() {
         guard let dir = targetDirectory() else { return }
-        do { _ = try FileSystemOperations.newFile(in: dir); refreshTree() }
+        do {
+            let url = try FileSystemOperations.newFile(in: dir)
+            refreshTree()
+            selectByPath(url)
+        }
         catch { NSApp.presentError(error) }
     }
 
     @objc fileprivate func ctxNewFolder() {
         guard let dir = targetDirectory() else { return }
-        do { _ = try FileSystemOperations.newFolder(in: dir); refreshTree() }
+        do {
+            let url = try FileSystemOperations.newFolder(in: dir)
+            refreshTree()
+            selectByPath(url)
+        }
         catch { NSApp.presentError(error) }
+    }
+
+    /// Select the row whose node matches `url` by PATH (identity-independent, so
+    /// it works after reloadData churns node instances). Expands the clicked
+    /// folder if needed to bring the new child into view, but does not force-
+    /// expand unrelated collapsed parents.
+    private func selectByPath(_ url: URL) {
+        // Ensure the parent directory is expanded so the new child has a row.
+        let parent = url.deletingLastPathComponent()
+        for row in 0..<outlineView.numberOfRows {
+            if let node = outlineView.item(atRow: row) as? FileTreeNode,
+               node.isDirectory, node.url.path == parent.path {
+                outlineView.expandItem(node)
+                break
+            }
+        }
+        for row in 0..<outlineView.numberOfRows {
+            if let node = outlineView.item(atRow: row) as? FileTreeNode, node.url.path == url.path {
+                outlineView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+                outlineView.scrollRowToVisible(row)
+                return
+            }
+        }
     }
 
     @objc fileprivate func ctxRename() {
@@ -453,6 +487,10 @@ extension SidebarViewController {
 
     @objc fileprivate func ctxOpen() {
         openSelected()
+    }
+
+    @objc fileprivate func ctxOpenFolder() {
+        windowController?.openFolder(nil)
     }
 
     @objc fileprivate func ctxReveal() {
