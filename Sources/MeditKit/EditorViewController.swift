@@ -242,6 +242,7 @@ public final class EditorViewController: NSViewController {
     func reloadFromDocument() {
         loadDocumentText()
         highlighter?.setLanguage(document?.highlightLanguage)
+        configureRuler(visible: prefs.showLineNumbers)
         ruler?.needsDisplay = true
     }
 
@@ -323,7 +324,11 @@ public final class EditorViewController: NSViewController {
     // MARK: Ruler
 
     public func configureRuler(visible: Bool) {
-        if visible {
+        // Only show the gutter when line numbers are enabled AND there is text:
+        // an empty document otherwise shows a wide, contentless gutter (most
+        // glaring with the sidebar open and nothing loaded).
+        let effective = visible && !textView.string.isEmpty
+        if effective {
             if ruler == nil {
                 let r = LineNumberRulerView(textView: textView, scrollView: scrollView)
                 scrollView.verticalRulerView = r
@@ -600,6 +605,10 @@ public final class EditorViewController: NSViewController {
     /// Test hook: simulate a resize-driven reflow and report the wrap container width.
     func syncWrapWidthForTesting() { syncWrapWidth() }
     var wrapContainerWidthForTesting: CGFloat { textView.textContainer?.size.width ?? -1 }
+    /// Test hook: whether the scroll view's line-number ruler is visible.
+    var rulersVisibleForTesting: Bool { scrollView.rulersVisible }
+    /// Test hook: the current showLineNumbers preference.
+    var showLineNumbersForTesting: Bool { prefs.showLineNumbers }
 
     private func updateMatchStatus(for query: SearchQuery) {
         guard let bar = findReplaceBar else { return }
@@ -638,6 +647,8 @@ extension EditorViewController: NSTextViewDelegate {
     public func textDidChange(_ notification: Notification) {
         document?.updateText(textView.string)
         highlighter?.scheduleHighlight()
+        // Empty↔non-empty transitions flip the gutter (hidden when empty).
+        configureRuler(visible: prefs.showLineNumbers)
         ruler?.needsDisplay = true
         updateStatusBar()
     }
