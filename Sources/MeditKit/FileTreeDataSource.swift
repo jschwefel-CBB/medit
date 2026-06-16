@@ -31,7 +31,10 @@ public final class FileTreeDataSource: NSObject, NSOutlineViewDataSource {
     }
 
     public func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
-        (item as? FileTreeNode)?.isDirectory ?? false
+        guard let node = item as? FileTreeNode, node.isDirectory else { return false }
+        // An empty directory (after hidden-file filtering) is not expandable — no
+        // disclosure triangle for a folder with nothing to show.
+        return !childList(of: node).isEmpty
     }
 
     // MARK: Drag & drop (internal moves)

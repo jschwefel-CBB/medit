@@ -418,6 +418,7 @@ extension SidebarViewController {
             let url = try FileSystemOperations.newFile(in: dir)
             refreshTree()
             selectByPath(url)
+            beginRename(url)   // drop straight into naming the new file
         }
         catch { NSApp.presentError(error) }
     }
@@ -428,6 +429,7 @@ extension SidebarViewController {
             let url = try FileSystemOperations.newFolder(in: dir)
             refreshTree()
             selectByPath(url)
+            beginRename(url)   // drop straight into naming the new folder
         }
         catch { NSApp.presentError(error) }
     }
@@ -458,15 +460,29 @@ extension SidebarViewController {
     @objc fileprivate func ctxRename() {
         let row = outlineView.clickedRow
         guard row >= 0, let node = outlineView.item(atRow: row) as? FileTreeNode else { return }
+        beginRename(node.url)
+    }
+
+    /// Present the rename dialog for the item at `url`, pre-filled with its name
+    /// (text selected so the user can type a replacement immediately). On success
+    /// the tree refreshes and the renamed item is reselected.
+    func beginRename(_ url: URL) {
         let alert = NSAlert()
         alert.messageText = "Rename"
         alert.addButton(withTitle: "Rename")
         alert.addButton(withTitle: "Cancel")
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
-        field.stringValue = node.url.lastPathComponent
+        field.stringValue = url.lastPathComponent
         alert.accessoryView = field
+        // Focus the field and select all so typing replaces the placeholder name.
+        alert.window.initialFirstResponder = field
+        field.selectText(nil)
         if alert.runModal() == .alertFirstButtonReturn {
-            do { _ = try FileSystemOperations.rename(node.url, to: field.stringValue); refreshTree() }
+            do {
+                let renamed = try FileSystemOperations.rename(url, to: field.stringValue)
+                refreshTree()
+                selectByPath(renamed)
+            }
             catch { NSApp.presentError(error) }
         }
     }
