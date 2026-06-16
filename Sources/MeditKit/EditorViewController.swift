@@ -92,15 +92,17 @@ public final class EditorViewController: NSViewController {
         scrollView.documentView = textView
         textView.isRichText = false                 // plain-text editor
         textView.allowsUndo = true
-        textView.isAutomaticQuoteSubstitutionEnabled = false
-        textView.isAutomaticDashSubstitutionEnabled = false
-        textView.isAutomaticTextReplacementEnabled = false
-        textView.isAutomaticSpellingCorrectionEnabled = false
-        textView.smartInsertDeleteEnabled = false
+        textView.isAutomaticQuoteSubstitutionEnabled = prefs.smartQuotes
+        textView.isAutomaticDashSubstitutionEnabled = prefs.smartDashes
+        textView.isAutomaticTextReplacementEnabled = prefs.automaticTextReplacement
+        textView.isAutomaticSpellingCorrectionEnabled = prefs.automaticSpellingCorrection
+        textView.smartInsertDeleteEnabled = prefs.smartInsertDelete
+        textView.isContinuousSpellCheckingEnabled = prefs.continuousSpellChecking
         // We provide our own Find & Replace bar (with regex), so disable Apple's
         // native find bar (its UI can't do regex).
         textView.usesFindBar = false
-        textView.textContainerInset = NSSize(width: 4, height: 4)
+        let pad = CGFloat(prefs.editorPadding)
+        textView.textContainerInset = NSSize(width: pad, height: pad)
         textView.drawsBackground = true
         textView.backgroundColor = .textBackgroundColor
         textView.textColor = EditorColors.foreground
@@ -384,6 +386,16 @@ public final class EditorViewController: NSViewController {
             editorTextView.indentTabWidth = prefs.tabWidth
             editorTextView.indentUseSpaces = prefs.insertSpacesForTab
         }
+        // Smart behaviors + editor padding (live).
+        textView.isAutomaticQuoteSubstitutionEnabled = prefs.smartQuotes
+        textView.isAutomaticDashSubstitutionEnabled = prefs.smartDashes
+        textView.isAutomaticTextReplacementEnabled = prefs.automaticTextReplacement
+        textView.isAutomaticSpellingCorrectionEnabled = prefs.automaticSpellingCorrection
+        textView.smartInsertDeleteEnabled = prefs.smartInsertDelete
+        textView.isContinuousSpellCheckingEnabled = prefs.continuousSpellChecking
+        let pad = CGFloat(prefs.editorPadding)
+        textView.textContainerInset = NSSize(width: pad, height: pad)
+        textView.needsDisplay = true
         applyStatusBarVisibility(prefs.showStatusBar)
         applyShowInvisibles(prefs.showInvisibles)
     }
