@@ -19,8 +19,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -switch /Applications/Xcode.app
+      - name: Select newest Xcode (need Swift tools >= 6.0)
+        run: |
+          # The macos-14 image ships several Xcodes; the default symlink can be
+          # an older one (Swift 5.10), but the package requires tools 6.0. Pick
+          # the highest-versioned Xcode that's actually installed.
+          newest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$newest" ]; then newest=/Applications/Xcode.app; fi
+          echo "Selecting $newest"
+          sudo xcode-select -switch "$newest"
 
       - name: Swift version
         run: swift --version
