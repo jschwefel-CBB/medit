@@ -26,7 +26,7 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.appearance, .system)
         XCTAssertEqual(prefs.fontSize, 13, accuracy: 0.001)
         XCTAssertFalse(prefs.fontName.isEmpty)
-        XCTAssertEqual(prefs.tabWidth, 4)
+        XCTAssertEqual(prefs.tabWidth, 2)
         XCTAssertTrue(prefs.insertSpacesForTab)
     }
 
@@ -46,11 +46,14 @@ final class PreferencesTests: XCTestCase {
     func testEditingAssistDefaultsOnAndPersist() {
         XCTAssertTrue(prefs.autoIndent)
         XCTAssertTrue(prefs.autoCloseBrackets)
+        XCTAssertTrue(prefs.indentBetweenBrackets)
         prefs.autoIndent = false
         prefs.autoCloseBrackets = false
+        prefs.indentBetweenBrackets = false
         let r = Preferences(defaults: defaults)
         XCTAssertFalse(r.autoIndent)
         XCTAssertFalse(r.autoCloseBrackets)
+        XCTAssertFalse(r.indentBetweenBrackets)
     }
 
     func testStripOnSaveDefaultsOnAndPersists() {

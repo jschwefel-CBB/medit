@@ -20,27 +20,29 @@ public enum EditorColors {
         }
     }
 
-    /// Rainbow-bracket depth palette (cycled %6), appearance-aware. Tuned for
-    /// mutual contrast and legibility against both light and dark backgrounds.
+    /// Build an opaque sRGB color from a 0xRRGGBB literal.
+    static func hex(_ rgb: UInt32) -> NSColor {
+        NSColor(srgbRed: CGFloat((rgb >> 16) & 0xFF) / 255.0,
+                green: CGFloat((rgb >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(rgb & 0xFF) / 255.0,
+                alpha: 1.0)
+    }
+
+    /// Rainbow-bracket depth palette (cycled %6), appearance-aware. "Editor-classic"
+    /// gold/blue/magenta/teal/orange/violet cycle — saturated for clear level-to-
+    /// level separation on both light and dark backgrounds.
     public static let bracketDepthColors: [NSColor] = [
-        dynamic(light: NSColor(srgbRed: 0.72, green: 0.52, blue: 0.04, alpha: 1),   // gold
-                dark:  NSColor(srgbRed: 0.95, green: 0.80, blue: 0.35, alpha: 1)),
-        dynamic(light: NSColor(srgbRed: 0.52, green: 0.25, blue: 0.70, alpha: 1),   // violet
-                dark:  NSColor(srgbRed: 0.78, green: 0.62, blue: 0.95, alpha: 1)),
-        dynamic(light: NSColor(srgbRed: 0.13, green: 0.43, blue: 0.85, alpha: 1),   // blue
-                dark:  NSColor(srgbRed: 0.45, green: 0.72, blue: 0.99, alpha: 1)),
-        dynamic(light: NSColor(srgbRed: 0.12, green: 0.55, blue: 0.24, alpha: 1),   // green
-                dark:  NSColor(srgbRed: 0.50, green: 0.85, blue: 0.55, alpha: 1)),
-        dynamic(light: NSColor(srgbRed: 0.80, green: 0.45, blue: 0.10, alpha: 1),   // orange
-                dark:  NSColor(srgbRed: 0.98, green: 0.70, blue: 0.40, alpha: 1)),
-        dynamic(light: NSColor(srgbRed: 0.05, green: 0.55, blue: 0.55, alpha: 1),   // teal
-                dark:  NSColor(srgbRed: 0.40, green: 0.85, blue: 0.85, alpha: 1)),
+        dynamic(light: hex(0xC99A00), dark: hex(0xE8C547)),   // 0 gold
+        dynamic(light: hex(0x1E6FE0), dark: hex(0x5AA6FF)),   // 1 blue
+        dynamic(light: hex(0xC42BA6), dark: hex(0xEE6FD0)),   // 2 magenta
+        dynamic(light: hex(0x009688), dark: hex(0x3FD0C0)),   // 3 teal
+        dynamic(light: hex(0xD9601A), dark: hex(0xFF9D4D)),   // 4 orange
+        dynamic(light: hex(0x7A4FE0), dark: hex(0xB48CFF)),   // 5 violet
     ]
 
     /// Color for a stray / mismatched bracket.
     public static let bracketUnmatchedColor: NSColor =
-        dynamic(light: NSColor(srgbRed: 0.70, green: 0.30, blue: 0.30, alpha: 1),
-                dark:  NSColor(srgbRed: 0.85, green: 0.45, blue: 0.45, alpha: 1))
+        dynamic(light: hex(0xB33A3A), dark: hex(0xD97070))
 
     /// Color for a bracket at the given nesting depth (cycles through the palette).
     public static func bracketColor(forDepth depth: Int) -> NSColor {

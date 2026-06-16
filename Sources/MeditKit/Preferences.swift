@@ -46,6 +46,7 @@ public final class Preferences {
         static let tabWidth = "tabWidth"
         static let insertSpacesForTab = "insertSpacesForTab"
         static let autoIndent = "autoIndent"
+        static let indentBetweenBrackets = "indentBetweenBrackets"
         static let autoCloseBrackets = "autoCloseBrackets"
         static let stripTrailingWhitespaceOnSave = "stripTrailingWhitespaceOnSave"
         static let showInvisibles = "showInvisibles"
@@ -82,9 +83,10 @@ public final class Preferences {
             Key.appearance: AppAppearance.system.rawValue,
             Key.fontName: "Menlo",
             Key.fontSize: 13.0,
-            Key.tabWidth: 4,
+            Key.tabWidth: 2,
             Key.insertSpacesForTab: true,
             Key.autoIndent: true,
+            Key.indentBetweenBrackets: true,
             Key.autoCloseBrackets: true,
             Key.stripTrailingWhitespaceOnSave: true,
             Key.showInvisibles: false,
@@ -171,6 +173,12 @@ public final class Preferences {
     public var autoIndent: Bool {
         get { defaults.bool(forKey: Key.autoIndent) }
         set { defaults.set(newValue, forKey: Key.autoIndent); didChange() }
+    }
+    /// Split a bracket pair onto three lines when Return is pressed between an
+    /// opener and its matching closer (caret indented, closer pushed out).
+    public var indentBetweenBrackets: Bool {
+        get { defaults.bool(forKey: Key.indentBetweenBrackets) }
+        set { defaults.set(newValue, forKey: Key.indentBetweenBrackets); didChange() }
     }
 
     public var autoCloseBrackets: Bool {

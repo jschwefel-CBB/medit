@@ -87,6 +87,7 @@ public final class EditorViewController: NSViewController {
         textView.autoresizingMask = [.width]
         textView.pcStyleNavigationKeys = prefs.pcStyleNavigationKeys
         textView.autoIndentEnabled = prefs.autoIndent
+        textView.indentBetweenBracketsEnabled = prefs.indentBetweenBrackets
         textView.autoCloseBracketsEnabled = prefs.autoCloseBrackets
         textView.indentTabWidth = prefs.tabWidth
         textView.indentUseSpaces = prefs.insertSpacesForTab
@@ -412,6 +413,7 @@ public final class EditorViewController: NSViewController {
             editorTextView.pcStyleNavigationKeys = prefs.pcStyleNavigationKeys
             if !prefs.pcStyleNavigationKeys { editorTextView.resetOverwriteMode() }
             editorTextView.autoIndentEnabled = prefs.autoIndent
+            editorTextView.indentBetweenBracketsEnabled = prefs.indentBetweenBrackets
             editorTextView.autoCloseBracketsEnabled = prefs.autoCloseBrackets
             editorTextView.indentTabWidth = prefs.tabWidth
             editorTextView.indentUseSpaces = prefs.insertSpacesForTab

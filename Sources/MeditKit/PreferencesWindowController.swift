@@ -26,6 +26,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var tabWidthField: NSTextField!
     private var pcKeysCheck: NSButton!
     private var autoIndentCheck: NSButton!
+    private var indentBetweenBracketsCheck: NSButton!
     private var autoCloseCheck: NSButton!
     private var stripWSCheck: NSButton!
     private var externalChangePopup: NSPopUpButton!
@@ -179,6 +180,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         tabWidthField.action = #selector(tabWidthChanged)
         pcKeysCheck = check("PC-style Home/End/Insert keys", #selector(checkChanged))
         autoIndentCheck = check("Auto-indent new lines", #selector(checkChanged))
+        indentBetweenBracketsCheck = check("Indent between brackets on Return", #selector(checkChanged))
         autoCloseCheck = check("Auto-close brackets", #selector(checkChanged))
         stripWSCheck = check("Strip trailing whitespace on save", #selector(checkChanged))
 
@@ -234,6 +236,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         stack.addRow(label: tabTitle, control: tabWidthField, controlWidth: 60)
         stack.add(pcKeysCheck, indent: checkIndent)
         stack.add(autoIndentCheck, indent: checkIndent)
+        stack.add(indentBetweenBracketsCheck, indent: checkIndent)
         stack.add(autoCloseCheck, indent: checkIndent)
         stack.add(stripWSCheck, indent: checkIndent)
 
@@ -319,6 +322,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         tabWidthField.integerValue = prefs.tabWidth
         pcKeysCheck.state = prefs.pcStyleNavigationKeys ? .on : .off
         autoIndentCheck.state = prefs.autoIndent ? .on : .off
+        indentBetweenBracketsCheck.state = prefs.indentBetweenBrackets ? .on : .off
         autoCloseCheck.state = prefs.autoCloseBrackets ? .on : .off
         stripWSCheck.state = prefs.stripTrailingWhitespaceOnSave ? .on : .off
         switch prefs.externalChangePolicy {
@@ -377,6 +381,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         prefs.insertSpacesForTab = spacesCheck.state == .on
         prefs.pcStyleNavigationKeys = pcKeysCheck.state == .on
         prefs.autoIndent = autoIndentCheck.state == .on
+        prefs.indentBetweenBrackets = indentBetweenBracketsCheck.state == .on
         prefs.autoCloseBrackets = autoCloseCheck.state == .on
         prefs.stripTrailingWhitespaceOnSave = stripWSCheck.state == .on
     }

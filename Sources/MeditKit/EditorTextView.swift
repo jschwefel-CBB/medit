@@ -10,6 +10,9 @@ public final class EditorTextView: NSTextView {
 
     /// Keep indentation (and add a level after an opener) on Return.
     public var autoIndentEnabled: Bool = true
+    /// When Return is pressed with the caret between an opener and its matching
+    /// closer (`{|}`), split the pair across three lines with the caret indented.
+    public var indentBetweenBracketsEnabled: Bool = true
     /// Auto-insert closing brackets and skip over them; brackets only (no quotes).
     public var autoCloseBracketsEnabled: Bool = true
 
@@ -111,6 +114,28 @@ public final class EditorTextView: NSTextView {
         // The text of the current line up to (not past) its newline.
         var lineText = ns.substring(with: lineRange)
         if lineText.hasSuffix("\n") { lineText.removeLast() }
+        let leadingIndent = String(lineText.prefix { $0 == " " || $0 == "\t" })
+
+        // Split a bracket pair when the caret sits between an opener and its
+        // matching closer (e.g. `{|}`): opener line / indented blank / closer line.
+        if indentBetweenBracketsEnabled, selectedRange().length == 0,
+           caret > 0, caret < ns.length {
+            let before = Character(ns.substring(with: NSRange(location: caret - 1, length: 1)))
+            let after = Character(ns.substring(with: NSRange(location: caret, length: 1)))
+            if Indenter.shouldSplitPair(before: before, after: after) {
+                let split = Indenter.splitPairInsertion(currentIndent: leadingIndent,
+                                                        tabWidth: indentTabWidth, useSpaces: indentUseSpaces)
+                let sel = selectedRange()
+                if shouldChangeText(in: sel, replacementString: split.text) {
+                    replaceCharacters(in: sel, with: split.text)
+                    didChangeText()
+                    // Place the caret on the indented middle line.
+                    setSelectedRange(NSRange(location: sel.location + split.caretOffset, length: 0))
+                }
+                return
+            }
+        }
+
         let indent = Indenter.indent(forNewLineAfter: lineText, tabWidth: indentTabWidth, useSpaces: indentUseSpaces)
         let insertion = "\n" + indent
         let sel = selectedRange()
