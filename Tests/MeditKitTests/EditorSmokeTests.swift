@@ -60,6 +60,52 @@ final class EditorSmokeTests: XCTestCase {
         forceRulerDraw(controller)
     }
 
+    func testGutterHiddenWhenDocumentEmptyShownWhenNot() {
+        // Line numbers ON, but an empty document should not show the gutter
+        // (otherwise a wide, contentless gutter appears, especially with the
+        // sidebar open). Typing content brings it back.
+        let controller = makeWindowController(text: "")
+        guard let editor = controller.editorForTesting,
+              let tv = controller.focusedTextView else { return XCTFail("no editor") }
+        XCTAssertTrue(editor.showLineNumbersForTesting, "precondition: line numbers default on")
+
+        XCTAssertFalse(editor.rulersVisibleForTesting, "gutter should hide for empty text")
+
+        tv.string = "hello\nworld"
+        tv.didChangeText()
+        XCTAssertTrue(editor.rulersVisibleForTesting, "gutter should show once there's text")
+
+        tv.string = ""
+        tv.didChangeText()
+        XCTAssertFalse(editor.rulersVisibleForTesting, "gutter should hide again when emptied")
+    }
+
+    func testStatusBarWrapSegmentReflectsAndToggles() {
+        let bar = StatusBarView(frame: NSRect(x: 0, y: 0, width: 600, height: 22))
+        var toggled = false
+        bar.onWrapToggle = { toggled = true }
+
+        bar.update(line: 1, column: 1, language: "Plain Text", encoding: "UTF-8",
+                   lineEnding: .lf, overwrite: false, wrap: true)
+        XCTAssertEqual(bar.wrapTitleForTesting, "Wrap: On")
+
+        bar.update(line: 1, column: 1, language: "Plain Text", encoding: "UTF-8",
+                   lineEnding: .lf, overwrite: false, wrap: false)
+        XCTAssertEqual(bar.wrapTitleForTesting, "Wrap: Off")
+
+        bar.simulateWrapClickForTesting()
+        XCTAssertTrue(toggled, "clicking the wrap segment should fire onWrapToggle")
+    }
+
+    func testStatusBarWrapTogglesWrapPreferenceLive() {
+        // End-to-end: clicking the segment via the editor's wiring flips the pref.
+        let controller = makeWindowController(text: "abc")
+        guard let editor = controller.editorForTesting else { return XCTFail("no editor") }
+        let before = editor.wrapLinesForTesting
+        editor.simulateStatusBarWrapClickForTesting()
+        XCTAssertNotEqual(before, editor.wrapLinesForTesting, "wrap pref should flip")
+    }
+
     func testEditorViewHasNonZeroSizeWhenShown() {
         // Regression: the contentViewController's scroll view collapsed to {0,0},
         // making text and the caret invisible. The editor view and its text view

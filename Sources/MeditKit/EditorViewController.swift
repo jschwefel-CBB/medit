@@ -92,15 +92,17 @@ public final class EditorViewController: NSViewController {
         scrollView.documentView = textView
         textView.isRichText = false                 // plain-text editor
         textView.allowsUndo = true
-        textView.isAutomaticQuoteSubstitutionEnabled = false
-        textView.isAutomaticDashSubstitutionEnabled = false
-        textView.isAutomaticTextReplacementEnabled = false
-        textView.isAutomaticSpellingCorrectionEnabled = false
-        textView.smartInsertDeleteEnabled = false
+        textView.isAutomaticQuoteSubstitutionEnabled = prefs.smartQuotes
+        textView.isAutomaticDashSubstitutionEnabled = prefs.smartDashes
+        textView.isAutomaticTextReplacementEnabled = prefs.automaticTextReplacement
+        textView.isAutomaticSpellingCorrectionEnabled = prefs.automaticSpellingCorrection
+        textView.smartInsertDeleteEnabled = prefs.smartInsertDelete
+        textView.isContinuousSpellCheckingEnabled = prefs.continuousSpellChecking
         // We provide our own Find & Replace bar (with regex), so disable Apple's
         // native find bar (its UI can't do regex).
         textView.usesFindBar = false
-        textView.textContainerInset = NSSize(width: 4, height: 4)
+        let pad = CGFloat(prefs.editorPadding)
+        textView.textContainerInset = NSSize(width: pad, height: pad)
         textView.drawsBackground = true
         textView.backgroundColor = .textBackgroundColor
         textView.textColor = EditorColors.foreground
@@ -184,6 +186,12 @@ public final class EditorViewController: NSViewController {
             self?.document?.setLineEnding(ending)
             self?.updateStatusBar()
         }
+        statusBar.onWrapToggle = { [weak self] in
+            guard let self else { return }
+            self.prefs.wrapLines.toggle()
+            self.applyWrapMode(self.prefs.wrapLines)
+            self.updateStatusBar()
+        }
         self.statusBar = statusBar
         container.addSubview(statusBar)
 
@@ -240,6 +248,7 @@ public final class EditorViewController: NSViewController {
     func reloadFromDocument() {
         loadDocumentText()
         highlighter?.setLanguage(document?.highlightLanguage)
+        configureRuler(visible: prefs.showLineNumbers)
         ruler?.needsDisplay = true
     }
 
@@ -321,7 +330,11 @@ public final class EditorViewController: NSViewController {
     // MARK: Ruler
 
     public func configureRuler(visible: Bool) {
-        if visible {
+        // Only show the gutter when line numbers are enabled AND there is text:
+        // an empty document otherwise shows a wide, contentless gutter (most
+        // glaring with the sidebar open and nothing loaded).
+        let effective = visible && !textView.string.isEmpty
+        if effective {
             if ruler == nil {
                 let r = LineNumberRulerView(textView: textView, scrollView: scrollView)
                 scrollView.verticalRulerView = r
@@ -384,6 +397,16 @@ public final class EditorViewController: NSViewController {
             editorTextView.indentTabWidth = prefs.tabWidth
             editorTextView.indentUseSpaces = prefs.insertSpacesForTab
         }
+        // Smart behaviors + editor padding (live).
+        textView.isAutomaticQuoteSubstitutionEnabled = prefs.smartQuotes
+        textView.isAutomaticDashSubstitutionEnabled = prefs.smartDashes
+        textView.isAutomaticTextReplacementEnabled = prefs.automaticTextReplacement
+        textView.isAutomaticSpellingCorrectionEnabled = prefs.automaticSpellingCorrection
+        textView.smartInsertDeleteEnabled = prefs.smartInsertDelete
+        textView.isContinuousSpellCheckingEnabled = prefs.continuousSpellChecking
+        let pad = CGFloat(prefs.editorPadding)
+        textView.textContainerInset = NSSize(width: pad, height: pad)
+        textView.needsDisplay = true
         applyStatusBarVisibility(prefs.showStatusBar)
         applyShowInvisibles(prefs.showInvisibles)
     }
@@ -431,7 +454,7 @@ public final class EditorViewController: NSViewController {
         let encoding = TextEncodingDetector.displayName(for: document?.fileEncoding ?? .utf8)
         let overwrite = (textView as? EditorTextView)?.isOverwriteMode ?? false
         statusBar.update(line: pos.line, column: pos.column, language: language, encoding: encoding,
-                         lineEnding: document?.lineEnding ?? .lf, overwrite: overwrite)
+                         lineEnding: document?.lineEnding ?? .lf, overwrite: overwrite, wrap: prefs.wrapLines)
     }
 
     /// Apply a manual language override (nil = auto-detect), re-highlight, and
@@ -588,6 +611,14 @@ public final class EditorViewController: NSViewController {
     /// Test hook: simulate a resize-driven reflow and report the wrap container width.
     func syncWrapWidthForTesting() { syncWrapWidth() }
     var wrapContainerWidthForTesting: CGFloat { textView.textContainer?.size.width ?? -1 }
+    /// Test hook: whether the scroll view's line-number ruler is visible.
+    var rulersVisibleForTesting: Bool { scrollView.rulersVisible }
+    /// Test hook: the current showLineNumbers preference.
+    var showLineNumbersForTesting: Bool { prefs.showLineNumbers }
+    /// Test hook: the current wrapLines preference.
+    var wrapLinesForTesting: Bool { prefs.wrapLines }
+    /// Test hook: invoke the status bar's wrap toggle as if clicked.
+    func simulateStatusBarWrapClickForTesting() { statusBar?.simulateWrapClickForTesting() }
 
     private func updateMatchStatus(for query: SearchQuery) {
         guard let bar = findReplaceBar else { return }
@@ -626,6 +657,8 @@ extension EditorViewController: NSTextViewDelegate {
     public func textDidChange(_ notification: Notification) {
         document?.updateText(textView.string)
         highlighter?.scheduleHighlight()
+        // Empty↔non-empty transitions flip the gutter (hidden when empty).
+        configureRuler(visible: prefs.showLineNumbers)
         ruler?.needsDisplay = true
         updateStatusBar()
     }

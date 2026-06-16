@@ -2,7 +2,7 @@ import AppKit
 
 /// The Settings window. Edits the shared `Preferences`; changes propagate to all
 /// open editors via `Preferences.didChangeNotification`. Built programmatically
-/// with a simple stack layout (no nib).
+/// with a simple top-down stacked layout (no nib).
 public final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
 
     private let prefs: Preferences
@@ -10,27 +10,37 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var appearancePopup: NSPopUpButton!
     private var lineNumbersCheck: NSButton!
     private var wrapCheck: NSButton!
+    private var showStatusBarCheck: NSButton!
+    private var showInvisiblesCheck: NSButton!
+    private var paddingField: NSTextField!
+    private var smartQuotesCheck: NSButton!
+    private var smartDashesCheck: NSButton!
+    private var textReplacementCheck: NSButton!
+    private var spellingCorrectionCheck: NSButton!
+    private var smartInsertDeleteCheck: NSButton!
+    private var continuousSpellCheck: NSButton!
     private var spacesCheck: NSButton!
+    private var tabWidthField: NSTextField!
     private var pcKeysCheck: NSButton!
     private var autoIndentCheck: NSButton!
     private var autoCloseCheck: NSButton!
     private var stripWSCheck: NSButton!
-    private var tabWidthField: NSTextField!
     private var externalChangePopup: NSPopUpButton!
     private var sortFoldersFirstCheck: NSButton!
     private var sortAscendingCheck: NSButton!
     private var openOnSingleClickCheck: NSButton!
     private var sidebarOnRightCheck: NSButton!
     private var confirmDeleteCheck: NSButton!
+    private var revealActiveFileCheck: NSButton!
 
     public init(preferences: Preferences = .shared) {
         self.prefs = preferences
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 400),
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 560),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered, defer: false)
         window.title = "Settings"
-        window.minSize = NSSize(width: 420, height: 240)
+        window.minSize = NSSize(width: 460, height: 300)
         super.init(window: window)
         window.delegate = self
         window.center()
@@ -48,10 +58,62 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         override var isFlipped: Bool { true }
     }
 
+    /// Vertical row stacker: each appended view is pinned below the previous one
+    /// at the left margin, so adding/reordering rows needs no anchor surgery.
+    private final class RowStacker {
+        let container: NSView
+        private let leftInset: CGFloat
+        private let topInset: CGFloat
+        private var last: NSLayoutAnchor<NSLayoutYAxisAnchor>
+        private(set) var lastView: NSView?
+        init(container: NSView, topInset: CGFloat, leftInset: CGFloat) {
+            self.container = container
+            self.leftInset = leftInset
+            self.topInset = topInset
+            self.last = container.topAnchor
+            self.lastView = nil
+        }
+        /// Pin `view` below the previous row. `indent` shifts the leading edge
+        /// (e.g. checkboxes under a header). `gap` is the vertical spacing.
+        func add(_ view: NSView, gap: CGFloat = 10, indent: CGFloat = 0) {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(view)
+            let topConstant = (lastView == nil) ? topInset : gap
+            NSLayoutConstraint.activate([
+                view.topAnchor.constraint(equalTo: last, constant: topConstant),
+                view.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: leftInset + indent),
+            ])
+            last = view.bottomAnchor
+            lastView = view
+        }
+        /// Pin a label+control pair on one row (control to the right of the label).
+        func addRow(label: NSView, control: NSView, gap: CGFloat = 14,
+                    controlLeading: CGFloat = 8, controlWidth: CGFloat? = nil, indent: CGFloat = 0) {
+            label.translatesAutoresizingMaskIntoConstraints = false
+            control.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(label)
+            container.addSubview(control)
+            let topConstant = (lastView == nil) ? topInset : gap
+            var cons: [NSLayoutConstraint] = [
+                label.topAnchor.constraint(equalTo: last, constant: topConstant),
+                label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: leftInset + indent),
+                control.centerYAnchor.constraint(equalTo: label.centerYAnchor),
+                control.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: controlLeading),
+            ]
+            if let w = controlWidth { cons.append(control.widthAnchor.constraint(equalToConstant: w)) }
+            NSLayoutConstraint.activate(cons)
+            last = label.bottomAnchor
+            lastView = label
+        }
+        /// Close the document view's height at the last row.
+        func finish(bottomInset: CGFloat) {
+            guard let lastView else { return }
+            lastView.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: bottomInset).isActive = true
+        }
+    }
+
     private func buildUI() {
         guard let windowContent = window?.contentView else { return }
-        // All controls live on this document view inside a scroll view, so the
-        // settings scroll if they don't fit the window.
         let content = FlippedView()
         content.translatesAutoresizingMaskIntoConstraints = false
 
@@ -61,140 +123,119 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             f.translatesAutoresizingMaskIntoConstraints = false
             return f
         }
+        func header(_ s: String) -> NSTextField {
+            let f = NSTextField(labelWithString: s)
+            f.font = .boldSystemFont(ofSize: 12)
+            f.textColor = .secondaryLabelColor
+            f.translatesAutoresizingMaskIntoConstraints = false
+            return f
+        }
+        func check(_ title: String, _ action: Selector) -> NSButton {
+            NSButton(checkboxWithTitle: title, target: self, action: action)
+        }
 
-        // Font row
-        let fontTitle = label("Font:")
+        // Build all controls.
         fontLabel = NSTextField(labelWithString: "")
-        fontLabel.translatesAutoresizingMaskIntoConstraints = false
         let fontButton = NSButton(title: "Change…", target: self, action: #selector(chooseFont))
         fontButton.bezelStyle = .rounded
-        fontButton.translatesAutoresizingMaskIntoConstraints = false
 
-        // Appearance row
-        let appearanceTitle = label("Appearance:")
         appearancePopup = NSPopUpButton(frame: .zero, pullsDown: false)
-        appearancePopup.translatesAutoresizingMaskIntoConstraints = false
         appearancePopup.addItems(withTitles: ["System", "Light", "Dark"])
         appearancePopup.target = self
         appearancePopup.action = #selector(appearanceChanged)
 
-        // Checkboxes
-        lineNumbersCheck = NSButton(checkboxWithTitle: "Show line numbers", target: self, action: #selector(checkChanged))
-        wrapCheck = NSButton(checkboxWithTitle: "Wrap long lines", target: self, action: #selector(checkChanged))
-        spacesCheck = NSButton(checkboxWithTitle: "Insert spaces instead of tabs", target: self, action: #selector(checkChanged))
-        pcKeysCheck = NSButton(checkboxWithTitle: "PC-style Home/End/Insert keys",
-                               target: self, action: #selector(checkChanged))
-        pcKeysCheck.translatesAutoresizingMaskIntoConstraints = false
-        autoIndentCheck = NSButton(checkboxWithTitle: "Auto-indent new lines",
-                                   target: self, action: #selector(checkChanged))
-        autoIndentCheck.translatesAutoresizingMaskIntoConstraints = false
-        autoCloseCheck = NSButton(checkboxWithTitle: "Auto-close brackets",
-                                  target: self, action: #selector(checkChanged))
-        autoCloseCheck.translatesAutoresizingMaskIntoConstraints = false
-        stripWSCheck = NSButton(checkboxWithTitle: "Strip trailing whitespace on save",
-                                target: self, action: #selector(checkChanged))
-        stripWSCheck.translatesAutoresizingMaskIntoConstraints = false
-        [lineNumbersCheck, wrapCheck, spacesCheck].forEach { $0?.translatesAutoresizingMaskIntoConstraints = false }
+        lineNumbersCheck = check("Show line numbers", #selector(checkChanged))
+        wrapCheck = check("Wrap long lines", #selector(checkChanged))
+        showStatusBarCheck = check("Show status bar", #selector(checkChanged))
+        showInvisiblesCheck = check("Show invisibles", #selector(checkChanged))
 
-        // Tab width
+        let paddingTitle = label("Text padding:")
+        paddingField = NSTextField()
+        paddingField.formatter = paddingFormatter()
+        paddingField.target = self
+        paddingField.action = #selector(paddingChanged)
+
+        smartQuotesCheck = check("Smart quotes", #selector(smartSubstChanged))
+        smartDashesCheck = check("Smart dashes", #selector(smartSubstChanged))
+        textReplacementCheck = check("Automatic text replacement", #selector(smartSubstChanged))
+        spellingCorrectionCheck = check("Correct spelling automatically", #selector(smartSubstChanged))
+        smartInsertDeleteCheck = check("Smart copy/paste spacing", #selector(smartSubstChanged))
+        continuousSpellCheck = check("Check spelling while typing", #selector(smartSubstChanged))
+
+        spacesCheck = check("Insert spaces instead of tabs", #selector(checkChanged))
         let tabTitle = label("Tab width:")
         tabWidthField = NSTextField()
-        tabWidthField.translatesAutoresizingMaskIntoConstraints = false
         tabWidthField.formatter = integerFormatter()
         tabWidthField.target = self
         tabWidthField.action = #selector(tabWidthChanged)
+        pcKeysCheck = check("PC-style Home/End/Insert keys", #selector(checkChanged))
+        autoIndentCheck = check("Auto-indent new lines", #selector(checkChanged))
+        autoCloseCheck = check("Auto-close brackets", #selector(checkChanged))
+        stripWSCheck = check("Strip trailing whitespace on save", #selector(checkChanged))
 
-        // External-change policy row
-        let externalChangeTitle = label("On external change:")
         externalChangePopup = NSPopUpButton(frame: .zero, pullsDown: false)
-        externalChangePopup.translatesAutoresizingMaskIntoConstraints = false
         externalChangePopup.addItems(withTitles: ["Notify", "Prompt", "Auto-reload if clean"])
         externalChangePopup.target = self
         externalChangePopup.action = #selector(externalChangePolicyChanged)
 
-        // Sidebar checkboxes (everything that can reasonably be a toggle).
-        sortFoldersFirstCheck = NSButton(checkboxWithTitle: "Sidebar: sort folders first",
-                                         target: self, action: #selector(sidebarCheckChanged))
-        sortAscendingCheck = NSButton(checkboxWithTitle: "Sidebar: sort A→Z (off = Z→A)",
-                                      target: self, action: #selector(sidebarCheckChanged))
-        openOnSingleClickCheck = NSButton(checkboxWithTitle: "Sidebar: open on single click",
-                                          target: self, action: #selector(sidebarCheckChanged))
-        sidebarOnRightCheck = NSButton(checkboxWithTitle: "Sidebar on the right",
-                                       target: self, action: #selector(sidebarCheckChanged))
-        confirmDeleteCheck = NSButton(checkboxWithTitle: "Sidebar: confirm before deleting",
-                                      target: self, action: #selector(sidebarCheckChanged))
-        [sortFoldersFirstCheck, sortAscendingCheck, openOnSingleClickCheck,
-         sidebarOnRightCheck, confirmDeleteCheck].forEach { $0?.translatesAutoresizingMaskIntoConstraints = false }
+        sortFoldersFirstCheck = check("Sort folders first", #selector(sidebarCheckChanged))
+        sortAscendingCheck = check("Sort A→Z (off = Z→A)", #selector(sidebarCheckChanged))
+        openOnSingleClickCheck = check("Open on single click", #selector(sidebarCheckChanged))
+        sidebarOnRightCheck = check("Sidebar on the right", #selector(sidebarCheckChanged))
+        confirmDeleteCheck = check("Confirm before deleting", #selector(sidebarCheckChanged))
+        revealActiveFileCheck = check("Reveal the active file", #selector(sidebarCheckChanged))
 
-        [fontTitle, fontLabel, fontButton, appearanceTitle, appearancePopup,
-         lineNumbersCheck, wrapCheck, spacesCheck, pcKeysCheck, autoIndentCheck, autoCloseCheck,
-         stripWSCheck, tabTitle, tabWidthField, externalChangeTitle, externalChangePopup,
-         sortFoldersFirstCheck, sortAscendingCheck, openOnSingleClickCheck,
-         sidebarOnRightCheck, confirmDeleteCheck]
-            .forEach { content.addSubview($0!) }
+        // Stack everything top-down with section headers.
+        let leftMargin: CGFloat = 20
+        let checkIndent: CGFloat = 90      // align checkboxes under a label column
+        let stack = RowStacker(container: content, topInset: 24, leftInset: leftMargin)
 
-        let leftCol: CGFloat = 110
+        stack.addRow(label: label("Font:"), control: fontLabel, controlWidth: nil)
+        // Put the Change… button on the same baseline as the font label.
+        content.addSubview(fontButton)
+        fontButton.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            fontTitle.topAnchor.constraint(equalTo: content.topAnchor, constant: 24),
-            fontTitle.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-            fontTitle.widthAnchor.constraint(equalToConstant: leftCol - 20),
-            fontLabel.centerYAnchor.constraint(equalTo: fontTitle.centerYAnchor),
-            fontLabel.leadingAnchor.constraint(equalTo: fontTitle.trailingAnchor, constant: 8),
-            fontButton.centerYAnchor.constraint(equalTo: fontTitle.centerYAnchor),
-            fontButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
-
-            appearanceTitle.topAnchor.constraint(equalTo: fontTitle.bottomAnchor, constant: 20),
-            appearanceTitle.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-            appearanceTitle.widthAnchor.constraint(equalToConstant: leftCol - 20),
-            appearancePopup.centerYAnchor.constraint(equalTo: appearanceTitle.centerYAnchor),
-            appearancePopup.leadingAnchor.constraint(equalTo: appearanceTitle.trailingAnchor, constant: 8),
-            appearancePopup.widthAnchor.constraint(equalToConstant: 140),
-
-            lineNumbersCheck.topAnchor.constraint(equalTo: appearanceTitle.bottomAnchor, constant: 20),
-            lineNumbersCheck.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: leftCol),
-            wrapCheck.topAnchor.constraint(equalTo: lineNumbersCheck.bottomAnchor, constant: 10),
-            wrapCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
-            spacesCheck.topAnchor.constraint(equalTo: wrapCheck.bottomAnchor, constant: 10),
-            spacesCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
-            pcKeysCheck.topAnchor.constraint(equalTo: spacesCheck.bottomAnchor, constant: 10),
-            pcKeysCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
-            autoIndentCheck.topAnchor.constraint(equalTo: pcKeysCheck.bottomAnchor, constant: 10),
-            autoIndentCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
-            autoCloseCheck.topAnchor.constraint(equalTo: autoIndentCheck.bottomAnchor, constant: 10),
-            autoCloseCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
-            stripWSCheck.topAnchor.constraint(equalTo: autoCloseCheck.bottomAnchor, constant: 10),
-            stripWSCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
-
-            tabTitle.topAnchor.constraint(equalTo: stripWSCheck.bottomAnchor, constant: 20),
-            tabTitle.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-            tabTitle.widthAnchor.constraint(equalToConstant: leftCol - 20),
-            tabWidthField.centerYAnchor.constraint(equalTo: tabTitle.centerYAnchor),
-            tabWidthField.leadingAnchor.constraint(equalTo: tabTitle.trailingAnchor, constant: 8),
-            tabWidthField.widthAnchor.constraint(equalToConstant: 60),
-
-            externalChangeTitle.topAnchor.constraint(equalTo: tabTitle.bottomAnchor, constant: 20),
-            externalChangeTitle.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-            externalChangeTitle.widthAnchor.constraint(equalToConstant: 130),
-            externalChangePopup.centerYAnchor.constraint(equalTo: externalChangeTitle.centerYAnchor),
-            externalChangePopup.leadingAnchor.constraint(equalTo: externalChangeTitle.trailingAnchor, constant: 8),
-            externalChangePopup.widthAnchor.constraint(equalToConstant: 180),
-
-            sortFoldersFirstCheck.topAnchor.constraint(equalTo: externalChangeTitle.bottomAnchor, constant: 18),
-            sortFoldersFirstCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
-            sortAscendingCheck.topAnchor.constraint(equalTo: sortFoldersFirstCheck.bottomAnchor, constant: 10),
-            sortAscendingCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
-            openOnSingleClickCheck.topAnchor.constraint(equalTo: sortAscendingCheck.bottomAnchor, constant: 10),
-            openOnSingleClickCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
-            sidebarOnRightCheck.topAnchor.constraint(equalTo: openOnSingleClickCheck.bottomAnchor, constant: 10),
-            sidebarOnRightCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
-            confirmDeleteCheck.topAnchor.constraint(equalTo: sidebarOnRightCheck.bottomAnchor, constant: 10),
-            confirmDeleteCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
-
-            // Define the document view's size: fixed width, and a bottom anchored
-            // below the last row so the scroll view knows the content height.
-            content.widthAnchor.constraint(equalToConstant: 420),
-            confirmDeleteCheck.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
+            fontButton.centerYAnchor.constraint(equalTo: fontLabel.centerYAnchor),
+            fontButton.leadingAnchor.constraint(equalTo: fontLabel.trailingAnchor, constant: 8),
         ])
+        stack.addRow(label: label("Appearance:"), control: appearancePopup, controlWidth: 140)
+
+        stack.add(header("Editor"), gap: 18)
+        stack.add(lineNumbersCheck, indent: checkIndent)
+        stack.add(wrapCheck, indent: checkIndent)
+        stack.add(showStatusBarCheck, indent: checkIndent)
+        stack.add(showInvisiblesCheck, indent: checkIndent)
+        stack.addRow(label: paddingTitle, control: paddingField, controlWidth: 60)
+
+        stack.add(header("Smart Substitutions"), gap: 18)
+        stack.add(smartQuotesCheck, indent: checkIndent)
+        stack.add(smartDashesCheck, indent: checkIndent)
+        stack.add(textReplacementCheck, indent: checkIndent)
+        stack.add(spellingCorrectionCheck, indent: checkIndent)
+        stack.add(smartInsertDeleteCheck, indent: checkIndent)
+        stack.add(continuousSpellCheck, indent: checkIndent)
+
+        stack.add(header("Indentation"), gap: 18)
+        stack.add(spacesCheck, indent: checkIndent)
+        stack.addRow(label: tabTitle, control: tabWidthField, controlWidth: 60)
+        stack.add(pcKeysCheck, indent: checkIndent)
+        stack.add(autoIndentCheck, indent: checkIndent)
+        stack.add(autoCloseCheck, indent: checkIndent)
+        stack.add(stripWSCheck, indent: checkIndent)
+
+        stack.add(header("Files"), gap: 18)
+        stack.addRow(label: label("On external change:"), control: externalChangePopup, controlWidth: 180)
+
+        stack.add(header("Sidebar"), gap: 18)
+        stack.add(sortFoldersFirstCheck, indent: checkIndent)
+        stack.add(sortAscendingCheck, indent: checkIndent)
+        stack.add(openOnSingleClickCheck, indent: checkIndent)
+        stack.add(sidebarOnRightCheck, indent: checkIndent)
+        stack.add(confirmDeleteCheck, indent: checkIndent)
+        stack.add(revealActiveFileCheck, indent: checkIndent)
+
+        stack.finish(bottomInset: -20)
+        content.widthAnchor.constraint(equalToConstant: 460).isActive = true
 
         // Host the content in a scroll view so Settings scroll if they don't fit.
         let scrollView = NSScrollView()
@@ -210,7 +251,6 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             scrollView.trailingAnchor.constraint(equalTo: windowContent.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: windowContent.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: windowContent.bottomAnchor),
-            // The document view's width tracks the scroll view (no horizontal scroll).
             content.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
             content.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
         ])
@@ -221,6 +261,15 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         f.numberStyle = .none
         f.minimum = 1
         f.maximum = 16
+        f.allowsFloats = false
+        return f
+    }
+
+    private func paddingFormatter() -> NumberFormatter {
+        let f = NumberFormatter()
+        f.numberStyle = .none
+        f.minimum = 0
+        f.maximum = 40
         f.allowsFloats = false
         return f
     }
@@ -236,12 +285,21 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         }
         lineNumbersCheck.state = prefs.showLineNumbers ? .on : .off
         wrapCheck.state = prefs.wrapLines ? .on : .off
+        showStatusBarCheck.state = prefs.showStatusBar ? .on : .off
+        showInvisiblesCheck.state = prefs.showInvisibles ? .on : .off
+        paddingField.integerValue = prefs.editorPadding
+        smartQuotesCheck.state = prefs.smartQuotes ? .on : .off
+        smartDashesCheck.state = prefs.smartDashes ? .on : .off
+        textReplacementCheck.state = prefs.automaticTextReplacement ? .on : .off
+        spellingCorrectionCheck.state = prefs.automaticSpellingCorrection ? .on : .off
+        smartInsertDeleteCheck.state = prefs.smartInsertDelete ? .on : .off
+        continuousSpellCheck.state = prefs.continuousSpellChecking ? .on : .off
         spacesCheck.state = prefs.insertSpacesForTab ? .on : .off
+        tabWidthField.integerValue = prefs.tabWidth
         pcKeysCheck.state = prefs.pcStyleNavigationKeys ? .on : .off
         autoIndentCheck.state = prefs.autoIndent ? .on : .off
         autoCloseCheck.state = prefs.autoCloseBrackets ? .on : .off
         stripWSCheck.state = prefs.stripTrailingWhitespaceOnSave ? .on : .off
-        tabWidthField.integerValue = prefs.tabWidth
         switch prefs.externalChangePolicy {
         case .notify: externalChangePopup.selectItem(at: 0)
         case .prompt: externalChangePopup.selectItem(at: 1)
@@ -252,6 +310,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         openOnSingleClickCheck.state = prefs.sidebarOpenOnSingleClick ? .on : .off
         sidebarOnRightCheck.state = prefs.sidebarOnRight ? .on : .off
         confirmDeleteCheck.state = prefs.confirmBeforeDelete ? .on : .off
+        revealActiveFileCheck.state = prefs.syncSidebarWithActiveTab ? .on : .off
         applyAppAppearance()
     }
 
@@ -290,6 +349,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     @objc private func checkChanged(_ sender: NSButton) {
         prefs.showLineNumbers = lineNumbersCheck.state == .on
         prefs.wrapLines = wrapCheck.state == .on
+        prefs.showStatusBar = showStatusBarCheck.state == .on
+        prefs.showInvisibles = showInvisiblesCheck.state == .on
         prefs.insertSpacesForTab = spacesCheck.state == .on
         prefs.pcStyleNavigationKeys = pcKeysCheck.state == .on
         prefs.autoIndent = autoIndentCheck.state == .on
@@ -297,8 +358,21 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         prefs.stripTrailingWhitespaceOnSave = stripWSCheck.state == .on
     }
 
+    @objc private func smartSubstChanged(_ sender: NSButton) {
+        prefs.smartQuotes = smartQuotesCheck.state == .on
+        prefs.smartDashes = smartDashesCheck.state == .on
+        prefs.automaticTextReplacement = textReplacementCheck.state == .on
+        prefs.automaticSpellingCorrection = spellingCorrectionCheck.state == .on
+        prefs.smartInsertDelete = smartInsertDeleteCheck.state == .on
+        prefs.continuousSpellChecking = continuousSpellCheck.state == .on
+    }
+
     @objc private func tabWidthChanged(_ sender: Any?) {
         prefs.tabWidth = max(1, tabWidthField.integerValue)
+    }
+
+    @objc private func paddingChanged(_ sender: Any?) {
+        prefs.editorPadding = paddingField.integerValue
     }
 
     @objc private func externalChangePolicyChanged(_ sender: Any?) {
@@ -315,6 +389,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         prefs.sidebarOpenOnSingleClick = openOnSingleClickCheck.state == .on
         prefs.sidebarOnRight = sidebarOnRightCheck.state == .on
         prefs.confirmBeforeDelete = confirmDeleteCheck.state == .on
+        prefs.syncSidebarWithActiveTab = revealActiveFileCheck.state == .on
     }
 
     /// Apply the chosen appearance to the whole app.
