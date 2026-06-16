@@ -12,9 +12,10 @@ Mac.
 ![Swift](https://img.shields.io/badge/Swift-AppKit-orange)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
-**Status:** working, v1.1.0. Open, edit, and save text files with tabs, syntax
-highlighting, line numbers, word wrap, find/replace (with regex), and
-PC-style navigation keys.
+**Status:** working, v1.4.0. A native tabbed editor with syntax highlighting,
+regex find/replace, find-in-all-tabs, Go to Line, a status bar, auto-indent,
+whitespace hygiene, manual language/encoding control, reload-on-external-change,
+PC-style navigation keys, and an optional multi-root sidebar file browser.
 
 Targets **macOS 14 (Sonoma)** and later. Apple Silicon and Intel.
 
@@ -80,6 +81,12 @@ Targets **macOS 14 (Sonoma)** and later. Apple Silicon and Intel.
 - **Reload on external change** — medit notices when an open file changes on disk
   and offers to reload (a banner by default; Prompt / Auto-reload-if-clean in
   Settings). A deleted file keeps your buffer so you can re-save it.
+- **Sidebar file browser** (optional, off by default — ⌘⌃0) — a multi-root file
+  tree: **Open Folder…** (⇧⌘O) to add roots, navigate, and manage files (New
+  File/Folder, Rename, Move to Trash, Reveal in Finder, drag-to-move). Double-click
+  to open a file in a tab. Lots of toggles: folders-first sort, sort direction,
+  single-click open, sidebar side (left/right), confirm-before-delete, show hidden
+  files, reveal the active file. Zero overhead when hidden (no watchers, no reads).
 
 ## Install
 
@@ -113,7 +120,7 @@ Press **Run** (⌘R). Xcode resolves HighlighterSwift on the first build.
 
 ```sh
 swift build
-swift test          # 116 tests: pure logic + headless editor smoke tests
+swift test          # 196 tests: pure logic + headless editor smoke tests
 ```
 
 ### Build the app bundle without opening Xcode
@@ -148,6 +155,8 @@ xattr -dr com.apple.quarantine /Applications/medit.app
 | ⌘G / ⇧⌘G | Find next / previous |
 | ⇧⌘F | Find in all tabs |
 | ⌘L / ⌃G | Go to Line |
+| ⌘⌃0 | Toggle sidebar |
+| ⇧⌘O | Open Folder… |
 | ⇧⌘L | Toggle line numbers |
 | Home / End | Line start / end |
 | Shift+Home / Shift+End | Extend selection to line start / end |
@@ -173,11 +182,16 @@ medit/
 │   ├── Editor pieces          LineNumberRulerView, SyntaxHighlightingController,
 │   │                          FindReplaceBar, StatusBarView, GoToLineSheet,
 │   │                          InvisiblesLayoutManager, EditorColors
+│   ├── Sidebar                SidebarViewController, FileTreeDataSource,
+│   │                          DirectoryWatcher
 │   ├── Pure logic (tested)    TextEncodingDetector, LanguageMap, TextSearch,
 │   │                          KeyboardNavigator, TextLocator, TextPosition,
-│   │                          Indenter, BracketMatcher, TextHygiene, Preferences
+│   │                          Indenter, BracketMatcher, TextHygiene,
+│   │                          LanguageCatalog, ShebangDetector, LineEndings,
+│   │                          EncodingCatalog, ExternalChangeResolver,
+│   │                          FileTreeNode, FileSystemOperations, Preferences
 │   └── Cross-tab search       FindInTabsCoordinator
-├── Tests/MeditKitTests/       116 tests (logic + headless editor smoke tests)
+├── Tests/MeditKitTests/       196 tests (logic + headless editor smoke tests)
 ├── App/                       Thin Xcode app target
 │   ├── medit.xcodeproj        Depends on the local ../  package
 │   ├── main.swift             Entry point — boots NSApplication

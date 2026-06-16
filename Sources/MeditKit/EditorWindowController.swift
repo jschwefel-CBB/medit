@@ -9,6 +9,9 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     private let textDocument: TextDocument
     private let prefs: Preferences
     private var editor: EditorViewController!
+    private var sidebar: SidebarViewController!
+    private var splitViewController: NSSplitViewController!
+    private var sidebarItem: NSSplitViewItem!
 
     /// Default size for a window with no remembered frame.
     static let defaultWindowSize = NSSize(width: 1100, height: 750)
@@ -39,14 +42,56 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         let editor = EditorViewController(document: document, preferences: preferences)
         self.editor = editor
         editor.newTabActionTarget = self
-        window.contentViewController = editor
+
+        let sidebar = SidebarViewController(preferences: preferences)
+        self.sidebar = sidebar
+
+        let split = NSSplitViewController()
+        let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebar)
+        sidebarItem.canCollapse = true
+        sidebarItem.minimumThickness = 180
+        let editorItem = NSSplitViewItem(viewController: editor)
+        // Sidebar on the left by default; sidebarOnRight swaps the order.
+        if preferences.sidebarOnRight {
+            split.addSplitViewItem(editorItem)
+            split.addSplitViewItem(sidebarItem)
+        } else {
+            split.addSplitViewItem(sidebarItem)
+            split.addSplitViewItem(editorItem)
+        }
+        split.splitView.autosaveName = "medit.sidebar.split"
+        self.splitViewController = split
+        self.sidebarItem = sidebarItem
+        sidebar.windowController = self
+        window.contentViewController = split
+        // Apply initial visibility (default collapsed/off).
+        sidebarItem.isCollapsed = !preferences.showSidebar
         shouldCascadeWindows = true
+
+        NotificationCenter.default.addObserver(self, selector: #selector(applySidebarSideIfChanged),
+                                               name: Preferences.didChangeNotification, object: nil)
+    }
+
+    @objc private func applySidebarSideIfChanged() {
+        guard let split = splitViewController, let sidebarItem = sidebarItem else { return }
+        let wantRight = prefs.sidebarOnRight
+        let isRight = split.splitViewItems.last === sidebarItem
+        if wantRight != isRight {
+            split.removeSplitViewItem(sidebarItem)
+            if wantRight { split.addSplitViewItem(sidebarItem) }
+            else { split.insertSplitViewItem(sidebarItem, at: 0) }
+        }
     }
 
     public override func windowDidLoad() {
         super.windowDidLoad()
         NSWindow.allowsAutomaticWindowTabbing = true
         enforceMinimumSize()
+        // If the sidebar pref persisted ON from a prior session, the pane is
+        // already visible — but it must also be activated (restore roots / prompt
+        // for a folder), which the toggle path would otherwise be the only thing
+        // to do. Without this, a persisted-on sidebar shows up empty and silent.
+        if prefs.showSidebar { sidebar?.activate() }
     }
 
     /// If a restored/autosaved frame came back smaller than the floor (e.g. an
@@ -83,6 +128,7 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// re-assert tab-bar visibility.
     public func windowDidBecomeKey(_ notification: Notification) {
         ensureTabBarVisible()
+        sidebar?.revealActiveFile()
     }
 
     public func windowDidBecomeMain(_ notification: Notification) {
@@ -108,6 +154,10 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
 
     /// Live editor text, read by the document when saving.
     var currentEditorText: String? { editor?.currentText }
+
+    /// The active document's file URL (nil for untitled). Used by the sidebar's
+    /// default root.
+    var currentDocumentFileURL: URL? { textDocument.fileURL }
 
     /// The editor's text view, used by cross-tab search to focus a match.
     var focusedTextView: NSTextView? { editor?.textView }
@@ -142,6 +192,27 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         openNewTab()
     }
 
+    /// Open `url` as a tab in THIS window (so the sidebar stays put), or focus the
+    /// tab if the file is already open. Called by the sidebar.
+    public func openFile(at url: URL) {
+        guard let window else { return }
+        // Already open? Focus its window/tab.
+        if let existing = NSDocumentController.shared.document(for: url),
+           let w = existing.windowControllers.first?.window {
+            w.makeKeyAndOrderFront(nil)
+            return
+        }
+        NSDocumentController.shared.openDocument(withContentsOf: url, display: false) { doc, _, error in
+            if let error { NSApp.presentError(error); return }
+            guard let doc else { return }
+            if doc.windowControllers.isEmpty { doc.makeWindowControllers() }
+            guard let newWindow = doc.windowControllers.first?.window else { return }
+            // Tab it onto this window so we stay in the same window (sidebar intact).
+            window.addTabbedWindow(newWindow, ordered: .above)
+            newWindow.makeKeyAndOrderFront(nil)
+        }
+    }
+
     private func openNewTab() {
         guard let window else { return }
         do {
@@ -163,6 +234,44 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     }
 
     // MARK: View menu actions
+
+    // NOTE: named `toggleSidebarVisible`, NOT `toggleSidebar` — AppKit's
+    // NSSplitViewController defines a built-in `toggleSidebar(_:)` that sits
+    // deeper in the responder chain (it's the window's contentViewController) and
+    // would intercept the menu action, collapsing the pane WITHOUT updating our
+    // pref or calling activate(). The distinct name routes the action to us.
+    @IBAction public func toggleSidebarVisible(_ sender: Any?) {
+        prefs.showSidebar.toggle()
+        applySidebarVisibility()
+    }
+
+    private func applySidebarVisibility() {
+        let show = prefs.showSidebar
+        sidebarItem?.isCollapsed = !show
+        if show { sidebar?.activate() } else { sidebar?.deactivate() }
+    }
+
+    @IBAction public func openFolder(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Open Folder"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if !prefs.showSidebar { prefs.showSidebar = true; applySidebarVisibility() }
+        sidebar?.activate()
+        sidebar?.addRoot(url)
+    }
+
+    @IBAction public func toggleHiddenFiles(_ sender: Any?) {
+        prefs.showHiddenFiles.toggle()
+        sidebar?.refreshFromPreferences()
+    }
+
+    @IBAction public func toggleRevealActiveFile(_ sender: Any?) {
+        prefs.syncSidebarWithActiveTab.toggle()
+        if prefs.syncSidebarWithActiveTab { sidebar?.revealActiveFile() }
+    }
 
     @IBAction public func toggleLineNumbers(_ sender: Any?) {
         prefs.showLineNumbers.toggle()
@@ -188,6 +297,12 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// Keep the View-menu check marks in sync with current state.
     public func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
+        case #selector(toggleSidebarVisible(_:)):
+            menuItem.state = prefs.showSidebar ? .on : .off
+        case #selector(toggleHiddenFiles(_:)):
+            menuItem.state = prefs.showHiddenFiles ? .on : .off
+        case #selector(toggleRevealActiveFile(_:)):
+            menuItem.state = prefs.syncSidebarWithActiveTab ? .on : .off
         case #selector(toggleLineNumbers(_:)):
             menuItem.state = prefs.showLineNumbers ? .on : .off
         case #selector(toggleWordWrap(_:)):

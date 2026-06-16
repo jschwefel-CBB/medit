@@ -17,6 +17,11 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var stripWSCheck: NSButton!
     private var tabWidthField: NSTextField!
     private var externalChangePopup: NSPopUpButton!
+    private var sortFoldersFirstCheck: NSButton!
+    private var sortAscendingCheck: NSButton!
+    private var openOnSingleClickCheck: NSButton!
+    private var sidebarOnRightCheck: NSButton!
+    private var confirmDeleteCheck: NSButton!
 
     public init(preferences: Preferences = .shared) {
         self.prefs = preferences
@@ -107,9 +112,25 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         externalChangePopup.target = self
         externalChangePopup.action = #selector(externalChangePolicyChanged)
 
+        // Sidebar checkboxes (everything that can reasonably be a toggle).
+        sortFoldersFirstCheck = NSButton(checkboxWithTitle: "Sidebar: sort folders first",
+                                         target: self, action: #selector(sidebarCheckChanged))
+        sortAscendingCheck = NSButton(checkboxWithTitle: "Sidebar: sort A→Z (off = Z→A)",
+                                      target: self, action: #selector(sidebarCheckChanged))
+        openOnSingleClickCheck = NSButton(checkboxWithTitle: "Sidebar: open on single click",
+                                          target: self, action: #selector(sidebarCheckChanged))
+        sidebarOnRightCheck = NSButton(checkboxWithTitle: "Sidebar on the right",
+                                       target: self, action: #selector(sidebarCheckChanged))
+        confirmDeleteCheck = NSButton(checkboxWithTitle: "Sidebar: confirm before deleting",
+                                      target: self, action: #selector(sidebarCheckChanged))
+        [sortFoldersFirstCheck, sortAscendingCheck, openOnSingleClickCheck,
+         sidebarOnRightCheck, confirmDeleteCheck].forEach { $0?.translatesAutoresizingMaskIntoConstraints = false }
+
         [fontTitle, fontLabel, fontButton, appearanceTitle, appearancePopup,
          lineNumbersCheck, wrapCheck, spacesCheck, pcKeysCheck, autoIndentCheck, autoCloseCheck,
-         stripWSCheck, tabTitle, tabWidthField, externalChangeTitle, externalChangePopup]
+         stripWSCheck, tabTitle, tabWidthField, externalChangeTitle, externalChangePopup,
+         sortFoldersFirstCheck, sortAscendingCheck, openOnSingleClickCheck,
+         sidebarOnRightCheck, confirmDeleteCheck]
             .forEach { content.addSubview($0!) }
 
         let leftCol: CGFloat = 110
@@ -158,10 +179,21 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             externalChangePopup.leadingAnchor.constraint(equalTo: externalChangeTitle.trailingAnchor, constant: 8),
             externalChangePopup.widthAnchor.constraint(equalToConstant: 180),
 
+            sortFoldersFirstCheck.topAnchor.constraint(equalTo: externalChangeTitle.bottomAnchor, constant: 18),
+            sortFoldersFirstCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
+            sortAscendingCheck.topAnchor.constraint(equalTo: sortFoldersFirstCheck.bottomAnchor, constant: 10),
+            sortAscendingCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
+            openOnSingleClickCheck.topAnchor.constraint(equalTo: sortAscendingCheck.bottomAnchor, constant: 10),
+            openOnSingleClickCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
+            sidebarOnRightCheck.topAnchor.constraint(equalTo: openOnSingleClickCheck.bottomAnchor, constant: 10),
+            sidebarOnRightCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
+            confirmDeleteCheck.topAnchor.constraint(equalTo: sidebarOnRightCheck.bottomAnchor, constant: 10),
+            confirmDeleteCheck.leadingAnchor.constraint(equalTo: lineNumbersCheck.leadingAnchor),
+
             // Define the document view's size: fixed width, and a bottom anchored
             // below the last row so the scroll view knows the content height.
             content.widthAnchor.constraint(equalToConstant: 420),
-            externalChangePopup.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
+            confirmDeleteCheck.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
         ])
 
         // Host the content in a scroll view so Settings scroll if they don't fit.
@@ -215,6 +247,11 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         case .prompt: externalChangePopup.selectItem(at: 1)
         case .autoIfClean: externalChangePopup.selectItem(at: 2)
         }
+        sortFoldersFirstCheck.state = prefs.sidebarSortFoldersFirst ? .on : .off
+        sortAscendingCheck.state = prefs.sidebarSortAscending ? .on : .off
+        openOnSingleClickCheck.state = prefs.sidebarOpenOnSingleClick ? .on : .off
+        sidebarOnRightCheck.state = prefs.sidebarOnRight ? .on : .off
+        confirmDeleteCheck.state = prefs.confirmBeforeDelete ? .on : .off
         applyAppAppearance()
     }
 
@@ -270,6 +307,14 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         case 2: prefs.externalChangePolicy = .autoIfClean
         default: prefs.externalChangePolicy = .notify
         }
+    }
+
+    @objc private func sidebarCheckChanged(_ sender: NSButton) {
+        prefs.sidebarSortFoldersFirst = sortFoldersFirstCheck.state == .on
+        prefs.sidebarSortAscending = sortAscendingCheck.state == .on
+        prefs.sidebarOpenOnSingleClick = openOnSingleClickCheck.state == .on
+        prefs.sidebarOnRight = sidebarOnRightCheck.state == .on
+        prefs.confirmBeforeDelete = confirmDeleteCheck.state == .on
     }
 
     /// Apply the chosen appearance to the whole app.

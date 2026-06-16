@@ -70,6 +70,10 @@ public enum MainMenu {
                      action: #selector(EditorWindowController.newWindowForTab(_:)), keyEquivalent: "t")
         menu.addItem(withTitle: "Open…",
                      action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
+        let openFolder = NSMenuItem(title: "Open Folder…",
+                                    action: #selector(EditorWindowController.openFolder(_:)), keyEquivalent: "o")
+        openFolder.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(openFolder)
 
         let openRecent = NSMenuItem(title: "Open Recent", action: nil, keyEquivalent: "")
         let recentMenu = NSMenu(title: "Open Recent")
@@ -192,6 +196,12 @@ public enum MainMenu {
         let item = NSMenuItem()
         let menu = NSMenu(title: "View")
 
+        let sidebar = NSMenuItem(title: "Show Sidebar",
+                                 action: #selector(EditorWindowController.toggleSidebarVisible(_:)), keyEquivalent: "0")
+        sidebar.keyEquivalentModifierMask = [.command, .control]
+        menu.addItem(sidebar)
+        menu.addItem(.separator())
+
         let lineNumbers = NSMenuItem(title: "Show Line Numbers",
                                      action: #selector(EditorWindowController.toggleLineNumbers(_:)), keyEquivalent: "l")
         lineNumbers.keyEquivalentModifierMask = [.command, .shift]
@@ -208,6 +218,13 @@ public enum MainMenu {
         let invisibles = NSMenuItem(title: "Show Invisibles",
                                     action: #selector(EditorWindowController.toggleInvisibles(_:)), keyEquivalent: "")
         menu.addItem(invisibles)
+
+        let hiddenFiles = NSMenuItem(title: "Show Hidden Files",
+                                     action: #selector(EditorWindowController.toggleHiddenFiles(_:)), keyEquivalent: "")
+        menu.addItem(hiddenFiles)
+        let revealActive = NSMenuItem(title: "Reveal Active File in Sidebar",
+                                      action: #selector(EditorWindowController.toggleRevealActiveFile(_:)), keyEquivalent: "")
+        menu.addItem(revealActive)
         menu.addItem(.separator())
 
         // Standard full-screen toggle (⌃⌘F).

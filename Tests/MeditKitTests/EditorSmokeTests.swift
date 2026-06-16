@@ -361,6 +361,51 @@ final class EditorSmokeTests: XCTestCase {
         forceRulerDraw(controller)
     }
 
+    func testEditorStillRendersWithSplitViewHostingSidebar() {
+        let controller = makeWindowController(text: "line one\nline two\nline three")
+        guard let window = controller.window else { return XCTFail("no window") }
+        window.setFrame(NSRect(x: 0, y: 0, width: 1000, height: 700), display: true)
+        controller.showWindow(nil)
+        window.layoutIfNeeded()
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+        // The window's contentViewController is now a split view; the editor must
+        // still be present and rendering.
+        XCTAssertTrue(window.contentViewController is NSSplitViewController)
+        if let tv = controller.focusedTextView {
+            XCTAssertGreaterThan(tv.frame.width, 100, "editor collapsed under the split view")
+            XCTAssertEqual(tv.string, "line one\nline two\nline three")
+        } else { XCTFail("no text view") }
+    }
+
+    func testSidebarActivateBuildsTreeAndDeactivateClears() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("medit-sb-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        try Data("x".utf8).write(to: tmp.appendingPathComponent("a.txt"))
+
+        let sb = SidebarViewController(preferences: Preferences(defaults: UserDefaults(suiteName: "medit.sb.\(UUID().uuidString)")!))
+        sb.loadViewIfNeeded()
+        // Seed a root directly and activate.
+        sb.setRootForTesting(tmp)
+        sb.activate()
+        XCTAssertGreaterThan(sb.outlineView.numberOfRows, 0, "tree should have rows after activate")
+        sb.deactivate()
+        XCTAssertEqual(sb.outlineView.numberOfRows, 0, "deactivate should clear the tree (zero overhead)")
+    }
+
+    func testSidebarDeactivateStopsWatchers() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("medit-sbw-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let sb = SidebarViewController(preferences: Preferences(defaults: UserDefaults(suiteName: "medit.sbw.\(UUID().uuidString)")!))
+        sb.loadViewIfNeeded()
+        sb.setRootForTesting(tmp)
+        sb.activate()
+        XCTAssertGreaterThan(sb.watcherCountForTesting, 0, "active sidebar should watch its roots")
+        sb.deactivate()
+        XCTAssertEqual(sb.watcherCountForTesting, 0, "deactivate must stop all watchers (zero overhead)")
+    }
+
     func testEditorUsesEditorTextViewAndRenders() {
         let controller = makeWindowController(text: "line one\nline two\nline three")
         guard let window = controller.window else { return XCTFail("no window") }
