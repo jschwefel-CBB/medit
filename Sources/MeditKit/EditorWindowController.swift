@@ -87,6 +87,11 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         super.windowDidLoad()
         NSWindow.allowsAutomaticWindowTabbing = true
         enforceMinimumSize()
+        // If the sidebar pref persisted ON from a prior session, the pane is
+        // already visible — but it must also be activated (restore roots / prompt
+        // for a folder), which the toggle path would otherwise be the only thing
+        // to do. Without this, a persisted-on sidebar shows up empty and silent.
+        if prefs.showSidebar { sidebar?.activate() }
     }
 
     /// If a restored/autosaved frame came back smaller than the floor (e.g. an
@@ -230,7 +235,12 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
 
     // MARK: View menu actions
 
-    @IBAction public func toggleSidebar(_ sender: Any?) {
+    // NOTE: named `toggleSidebarVisible`, NOT `toggleSidebar` — AppKit's
+    // NSSplitViewController defines a built-in `toggleSidebar(_:)` that sits
+    // deeper in the responder chain (it's the window's contentViewController) and
+    // would intercept the menu action, collapsing the pane WITHOUT updating our
+    // pref or calling activate(). The distinct name routes the action to us.
+    @IBAction public func toggleSidebarVisible(_ sender: Any?) {
         prefs.showSidebar.toggle()
         applySidebarVisibility()
     }
@@ -287,7 +297,7 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// Keep the View-menu check marks in sync with current state.
     public func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
-        case #selector(toggleSidebar(_:)):
+        case #selector(toggleSidebarVisible(_:)):
             menuItem.state = prefs.showSidebar ? .on : .off
         case #selector(toggleHiddenFiles(_:)):
             menuItem.state = prefs.showHiddenFiles ? .on : .off

@@ -197,7 +197,7 @@ public enum MainMenu {
         let menu = NSMenu(title: "View")
 
         let sidebar = NSMenuItem(title: "Show Sidebar",
-                                 action: #selector(EditorWindowController.toggleSidebar(_:)), keyEquivalent: "0")
+                                 action: #selector(EditorWindowController.toggleSidebarVisible(_:)), keyEquivalent: "0")
         sidebar.keyEquivalentModifierMask = [.command, .control]
         menu.addItem(sidebar)
         menu.addItem(.separator())

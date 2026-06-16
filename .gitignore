@@ -26,6 +26,7 @@ DerivedData/
 # Swift Package Manager
 .swiftpm/
 .build/
+.build-xcode/
 Packages/
 # Package.resolved is intentionally committed (this is an app, not a library)
 # so the exact resolved Highlightr version is reproducible.
