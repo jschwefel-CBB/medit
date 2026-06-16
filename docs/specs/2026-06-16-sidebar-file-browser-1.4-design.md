@@ -27,17 +27,21 @@ several independently-committable pieces; version bump + tag when complete.
   (computed, not persisted). **File → Open Folder…** pins a chosen directory as a
   root; additional folders can be added (one at a time), each becoming a top-level
   root. **Remove Folder from Sidebar** (root context menu) removes a root.
-- **Open behavior:** **single-click selects** (highlights in the sidebar, opens
-  nothing); **double-click opens** the file in a normal permanent tab, or focuses
-  the tab if it's already open. (No preview tabs — see "Decisions".)
+- **Open behavior:** by default **single-click selects** (highlights in the
+  sidebar, opens nothing) and **double-click opens** the file in a normal permanent
+  tab (or focuses the tab if already open). A `sidebarOpenOnSingleClick` toggle
+  makes single-click open instead. (No preview tabs — see "Decisions".)
 - **File management** (right-click): New File, New Folder, Rename, Delete (to
-  Trash, with confirmation), Reveal in Finder, and **drag-to-move** within the
-  tree. Internal moves only (no Finder drag-in for 1.4).
-- **Hidden files:** excluded by default; **View → Show Hidden Files** (default
-  off) reveals dotfiles.
-- **Sizing:** resizable split via `NSSplitViewController`; draggable divider; the
-  width is remembered (NSSplitView autosave). Sorting: folders first, then files,
-  case-insensitive alphabetical (Finder/gedit convention).
+  Trash; confirmation gated by `confirmBeforeDelete`), Reveal in Finder, and
+  **drag-to-move** within the tree. Internal moves only (no Finder drag-in for 1.4).
+- **Hidden files:** excluded by default; **View → Show Hidden Files**
+  (`showHiddenFiles`, default off) reveals dotfiles.
+- **Sizing & placement:** resizable split via `NSSplitViewController`; draggable
+  divider; width remembered (NSSplitView autosave). The sidebar is on the left by
+  default; `sidebarOnRight` moves it to the right.
+- **Sorting:** folders-first then case-insensitive alphabetical by default;
+  `sidebarSortFoldersFirst` and `sidebarSortAscending` make this configurable
+  (mixed list / Z→A).
 - **Sync:** changes made through the sidebar refresh the affected subtree;
   external changes (Finder/other apps) are caught by each root's `DirectoryWatcher`
   and refresh the same way. A file open in a tab that gets deleted is already
@@ -145,19 +149,58 @@ be revisited later.)
 
 ## State, persistence, optionality
 
-Per-window, session-scoped, stored in `Preferences`/session:
+Per the project principle **"anything that can reasonably be a toggle should be a
+toggle,"** every sidebar behavior that users might want differently is exposed as a
+preference (with a sensible default). View-ish toggles go in the **View menu**
+(quick access, like Show Line Numbers); the rest go in **Settings**. All are stored
+in `Preferences`/session.
 
 | Key | Default | Surfaced |
 |-----|---------|----------|
 | `showSidebar` | **false** | View → Show Sidebar (⌘⌃0) |
 | `sidebarWidth` | (autosaved) | split divider, remembered |
 | `showHiddenFiles` | false | View → Show Hidden Files |
+| `syncSidebarWithActiveTab` | true | View → Reveal Active File in Sidebar |
+| `sidebarSortFoldersFirst` | true | Settings — Sidebar |
+| `sidebarSortAscending` | true | Settings — Sidebar |
+| `sidebarOpenOnSingleClick` | false | Settings — Sidebar |
+| `sidebarOnRight` | false | Settings — Sidebar |
+| `confirmBeforeDelete` | true | Settings — Sidebar |
 | sidebar root paths | (active file's parent until pinned) | Open Folder… / Remove Folder |
 | expansion set | best-effort restore (expanded paths per root) | — |
 
+### What each toggle controls
+
+- **`showHiddenFiles`** — include dotfiles in the tree (re-filters + reloads).
+- **`syncSidebarWithActiveTab`** — when you switch tabs, auto-expand and scroll the
+  tree to reveal/select the active file (if it's under a root).
+- **`sidebarSortFoldersFirst`** — folders before files vs. a single
+  case-insensitive list mixing files and folders.
+- **`sidebarSortAscending`** — A→Z vs. Z→A within the sort.
+- **`sidebarOpenOnSingleClick`** — open the file on single-click instead of the
+  default double-click. (Default keeps single-click = select, double-click = open.)
+- **`sidebarOnRight`** — place the sidebar pane on the right of the editor instead
+  of the left (just swaps the split items / divider side).
+- **`confirmBeforeDelete`** — show the Trash confirmation prompt; off = trash
+  immediately (still to Trash, never a hard delete).
+
+Each of the sort/click toggles, when changed, re-applies to the live outline view
+(re-sort + reload, or rebind the click behavior). `sidebarOnRight` swaps the split
+view item order. These are plumbed through `Preferences.didChangeNotification`
+(which the sidebar observes), exactly like the editor observes pref changes today.
+
 View toggles follow the existing `toggleLineNumbers`/`toggleStatusBar` pattern
-(action + checkmark validation in `EditorWindowController`). `File → Open Folder…`
-uses an `NSOpenPanel` restricted to directories.
+(action + checkmark validation in `EditorWindowController`). Settings toggles
+follow the `PreferencesWindowController` checkbox pattern (now in a scrollable
+window, so the added rows are fine). `File → Open Folder…` uses an `NSOpenPanel`
+restricted to directories.
+
+### Hardcoded (deliberately NOT toggles)
+
+A footgun or a single-correct-answer behavior stays fixed: deletion always goes to
+**Trash** (never a "permanently delete" option); moving a folder into its own
+descendant is always **rejected** (correctness, not preference); lazy loading and
+file-watching are implementation details with no user-facing choice.
 
 ## Testing strategy
 
@@ -191,22 +234,32 @@ uses an `NSOpenPanel` restricted to directories.
 
 ## Commit breakdown (independently-committable)
 
-1. `FileTreeNode` (lazy children, sort, hidden filter) + tests.
+1. `FileTreeNode` (lazy children; configurable sort via `foldersFirst` +
+   `ascending`; hidden filter) + tests covering all sort/filter combinations.
 2. `FileSystemOperations` (create/rename/move/trash + conflict logic) + tests.
 3. `FileTreeDataSource` (outline data source incl. multi-root level) + tests.
 4. Window restructuring: `NSSplitViewController` hosting editor + an (empty,
    collapsed) `SidebarViewController`; `showSidebar` pref + View → Show Sidebar
-   (⌘⌃0); render-regression smoke test that the editor still renders.
-5. `SidebarViewController` outline view: render the roots tree, single-click
-   select / double-click open via NSDocumentController; default root = active
-   file's parent; `showHiddenFiles` toggle.
-6. `DirectoryWatcher` + wire external-change refresh; teardown on hide (zero
-   overhead) + sidebar smoke test asserting teardown.
-7. File ops UI: context menu (New File/Folder, Rename, Delete→Trash, Reveal in
-   Finder) routed through `FileSystemOperations`, with tree refresh.
+   (⌘⌃0); `sidebarOnRight` placement; render-regression smoke test that the editor
+   still renders with the split view in place.
+5. `SidebarViewController` outline view: render the roots tree; click-to-open
+   behavior gated by `sidebarOpenOnSingleClick` (default: single=select,
+   double=open) via NSDocumentController; default root = active file's parent;
+   `showHiddenFiles` + the sort toggles re-apply live.
+6. `DirectoryWatcher` + wire external-change refresh; `syncSidebarWithActiveTab`
+   (reveal active file on tab switch); teardown on hide (zero overhead) + sidebar
+   smoke test asserting teardown.
+7. File ops UI: context menu (New File/Folder, Rename, Delete→Trash with
+   `confirmBeforeDelete`, Reveal in Finder) routed through `FileSystemOperations`,
+   with tree refresh.
 8. Drag-to-move within the tree (validateDrop/acceptDrop) + Open Folder… / Remove
    Folder (multi-root management) + root-path persistence.
-9. Version bump to 1.4.0 + README + tag (tag gated on user).
+9. Settings "Sidebar" section: the non-view toggles (`sidebarSortFoldersFirst`,
+   `sidebarSortAscending`, `sidebarOpenOnSingleClick`, `sidebarOnRight`,
+   `confirmBeforeDelete`) + the View-menu toggles (Show Hidden Files, Reveal Active
+   File in Sidebar) with checkmark validation. (Preference plumbing for each lands
+   alongside the commit that first uses it; this commit completes the UI surface.)
+10. Version bump to 1.4.0 + README + tag (tag gated on user).
 
 ## Out of scope (→ later)
 
