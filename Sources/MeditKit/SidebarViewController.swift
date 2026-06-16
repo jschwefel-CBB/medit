@@ -272,31 +272,6 @@ public final class SidebarViewController: NSViewController {
         }
     }
 
-    /// Expand ancestors down to `url` and select it (used after creating a
-    /// file/folder, so it's visible and ready to rename).
-    private func revealAndSelect(_ url: URL) {
-        guard active else { return }
-        guard let root = dataSource.roots.first(where: { url.path == $0.url.path || url.path.hasPrefix($0.url.path + "/") }) else { return }
-        var current = root
-        outlineView.expandItem(current)
-        if url.path != root.url.path {
-            let relative = url.path.dropFirst(root.url.path.count + 1)
-            for comp in relative.split(separator: "/").dropLast() {
-                if let next = dataSource.outlineChild(of: current, named: String(comp)) {
-                    outlineView.expandItem(next)
-                    current = next
-                }
-            }
-            if let node = dataSource.outlineChild(of: current, named: url.lastPathComponent) {
-                let row = outlineView.row(forItem: node)
-                if row >= 0 {
-                    outlineView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-                    outlineView.scrollRowToVisible(row)
-                }
-            }
-        }
-    }
-
     private func applyPrefsToDataSource() {
         dataSource.foldersFirst = prefs.sidebarSortFoldersFirst
         dataSource.ascending = prefs.sidebarSortAscending
@@ -426,21 +401,13 @@ extension SidebarViewController {
 
     @objc fileprivate func ctxNewFile() {
         guard let dir = targetDirectory() else { return }
-        do {
-            let url = try FileSystemOperations.newFile(in: dir)
-            refreshTree()
-            revealAndSelect(url)
-        }
+        do { _ = try FileSystemOperations.newFile(in: dir); refreshTree() }
         catch { NSApp.presentError(error) }
     }
 
     @objc fileprivate func ctxNewFolder() {
         guard let dir = targetDirectory() else { return }
-        do {
-            let url = try FileSystemOperations.newFolder(in: dir)
-            refreshTree()
-            revealAndSelect(url)
-        }
+        do { _ = try FileSystemOperations.newFolder(in: dir); refreshTree() }
         catch { NSApp.presentError(error) }
     }
 
