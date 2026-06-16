@@ -54,6 +54,13 @@ public final class Preferences {
         static let sidebarOnRight = "sidebarOnRight"
         static let confirmBeforeDelete = "confirmBeforeDelete"
         static let sidebarRootBookmarks = "sidebarRootBookmarks"
+        static let smartQuotes = "smartQuotes"
+        static let smartDashes = "smartDashes"
+        static let automaticTextReplacement = "automaticTextReplacement"
+        static let automaticSpellingCorrection = "automaticSpellingCorrection"
+        static let smartInsertDelete = "smartInsertDelete"
+        static let continuousSpellChecking = "continuousSpellChecking"
+        static let editorPadding = "editorPadding"
     }
 
     private func registerDefaults() {
@@ -82,7 +89,14 @@ public final class Preferences {
             Key.sidebarOpenOnSingleClick: false,
             Key.sidebarOnRight: false,
             Key.confirmBeforeDelete: true,
-            Key.sidebarRootBookmarks: [Data]()
+            Key.sidebarRootBookmarks: [Data](),
+            Key.smartQuotes: false,
+            Key.smartDashes: false,
+            Key.automaticTextReplacement: false,
+            Key.automaticSpellingCorrection: false,
+            Key.smartInsertDelete: false,
+            Key.continuousSpellChecking: false,
+            Key.editorPadding: 4
         ])
     }
 
@@ -216,6 +230,40 @@ public final class Preferences {
     public var sidebarRootBookmarks: [Data] {
         get { (defaults.array(forKey: Key.sidebarRootBookmarks) as? [Data]) ?? [] }
         set { defaults.set(newValue, forKey: Key.sidebarRootBookmarks); didChange() }
+    }
+
+    // MARK: Editor smart behaviors
+    // All default OFF — gedit-like plain-text behavior. Mirror NSTextView's
+    // smart-substitution flags plus continuous spell-check (the red squiggles).
+
+    public var smartQuotes: Bool {
+        get { defaults.bool(forKey: Key.smartQuotes) }
+        set { defaults.set(newValue, forKey: Key.smartQuotes); didChange() }
+    }
+    public var smartDashes: Bool {
+        get { defaults.bool(forKey: Key.smartDashes) }
+        set { defaults.set(newValue, forKey: Key.smartDashes); didChange() }
+    }
+    public var automaticTextReplacement: Bool {
+        get { defaults.bool(forKey: Key.automaticTextReplacement) }
+        set { defaults.set(newValue, forKey: Key.automaticTextReplacement); didChange() }
+    }
+    public var automaticSpellingCorrection: Bool {
+        get { defaults.bool(forKey: Key.automaticSpellingCorrection) }
+        set { defaults.set(newValue, forKey: Key.automaticSpellingCorrection); didChange() }
+    }
+    public var smartInsertDelete: Bool {
+        get { defaults.bool(forKey: Key.smartInsertDelete) }
+        set { defaults.set(newValue, forKey: Key.smartInsertDelete); didChange() }
+    }
+    public var continuousSpellChecking: Bool {
+        get { defaults.bool(forKey: Key.continuousSpellChecking) }
+        set { defaults.set(newValue, forKey: Key.continuousSpellChecking); didChange() }
+    }
+    /// Editor text-container inset (points), applied symmetrically. Clamped 0...40.
+    public var editorPadding: Int {
+        get { defaults.integer(forKey: Key.editorPadding) }
+        set { defaults.set(min(40, max(0, newValue)), forKey: Key.editorPadding); didChange() }
     }
 
     /// The highlight.js theme name to use for the given effective appearance.

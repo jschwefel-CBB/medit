@@ -134,4 +134,28 @@ final class PreferencesTests: XCTestCase {
         prefs.sidebarRootBookmarks = [a, b]
         XCTAssertEqual(Preferences(defaults: defaults).sidebarRootBookmarks, [a, b])
     }
+
+    func testSmartBehaviorDefaultsOffAndPersist() {
+        XCTAssertFalse(prefs.smartQuotes)
+        XCTAssertFalse(prefs.smartDashes)
+        XCTAssertFalse(prefs.automaticTextReplacement)
+        XCTAssertFalse(prefs.automaticSpellingCorrection)
+        XCTAssertFalse(prefs.smartInsertDelete)
+        XCTAssertFalse(prefs.continuousSpellChecking)
+        prefs.smartQuotes = true
+        prefs.continuousSpellChecking = true
+        let r = Preferences(defaults: defaults)
+        XCTAssertTrue(r.smartQuotes)
+        XCTAssertTrue(r.continuousSpellChecking)
+    }
+
+    func testEditorPaddingDefaultsAndClamps() {
+        XCTAssertEqual(prefs.editorPadding, 4)
+        prefs.editorPadding = -5
+        XCTAssertGreaterThanOrEqual(prefs.editorPadding, 0)
+        prefs.editorPadding = 999
+        XCTAssertLessThanOrEqual(prefs.editorPadding, 40)
+        prefs.editorPadding = 12
+        XCTAssertEqual(Preferences(defaults: defaults).editorPadding, 12)
+    }
 }
