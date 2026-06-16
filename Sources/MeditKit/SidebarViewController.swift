@@ -44,6 +44,10 @@ public final class SidebarViewController: NSViewController {
         outline.action = #selector(outlineSingleClick)
         outline.doubleAction = #selector(outlineDoubleClick)
 
+        let menu = NSMenu()
+        menu.delegate = self
+        outline.menu = menu
+
         scroll.documentView = outline
         self.scrollView = scroll
         self.outlineView = outline
@@ -245,5 +249,91 @@ extension SidebarViewController: NSOutlineViewDelegate {
         ])
         cell.identifier = id
         return cell
+    }
+}
+
+// MARK: - Context menu
+
+extension SidebarViewController: NSMenuDelegate {
+    public func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let row = outlineView.clickedRow
+        let node = (row >= 0) ? outlineView.item(atRow: row) as? FileTreeNode : nil
+
+        func item(_ title: String, _ sel: Selector) -> NSMenuItem {
+            let mi = NSMenuItem(title: title, action: sel, keyEquivalent: "")
+            mi.target = self
+            return mi
+        }
+        menu.addItem(item("New File", #selector(ctxNewFile)))
+        menu.addItem(item("New Folder", #selector(ctxNewFolder)))
+        if node != nil {
+            menu.addItem(.separator())
+            menu.addItem(item("Rename…", #selector(ctxRename)))
+            menu.addItem(item("Move to Trash", #selector(ctxDelete)))
+            menu.addItem(.separator())
+            menu.addItem(item("Reveal in Finder", #selector(ctxReveal)))
+        }
+    }
+}
+
+extension SidebarViewController {
+
+    /// Target directory for new items: the clicked folder, the clicked file's
+    /// parent, or the first root.
+    private func targetDirectory() -> URL? {
+        let row = outlineView.clickedRow
+        if row >= 0, let node = outlineView.item(atRow: row) as? FileTreeNode {
+            return node.isDirectory ? node.url : node.url.deletingLastPathComponent()
+        }
+        return dataSource.roots.first?.url
+    }
+
+    @objc fileprivate func ctxNewFile() {
+        guard let dir = targetDirectory() else { return }
+        do { _ = try FileSystemOperations.newFile(in: dir); refreshTree() }
+        catch { NSApp.presentError(error) }
+    }
+
+    @objc fileprivate func ctxNewFolder() {
+        guard let dir = targetDirectory() else { return }
+        do { _ = try FileSystemOperations.newFolder(in: dir); refreshTree() }
+        catch { NSApp.presentError(error) }
+    }
+
+    @objc fileprivate func ctxRename() {
+        let row = outlineView.clickedRow
+        guard row >= 0, let node = outlineView.item(atRow: row) as? FileTreeNode else { return }
+        let alert = NSAlert()
+        alert.messageText = "Rename"
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
+        field.stringValue = node.url.lastPathComponent
+        alert.accessoryView = field
+        if alert.runModal() == .alertFirstButtonReturn {
+            do { _ = try FileSystemOperations.rename(node.url, to: field.stringValue); refreshTree() }
+            catch { NSApp.presentError(error) }
+        }
+    }
+
+    @objc fileprivate func ctxDelete() {
+        let row = outlineView.clickedRow
+        guard row >= 0, let node = outlineView.item(atRow: row) as? FileTreeNode else { return }
+        if prefs.confirmBeforeDelete {
+            let alert = NSAlert()
+            alert.messageText = "Move “\(node.url.lastPathComponent)” to the Trash?"
+            alert.addButton(withTitle: "Move to Trash")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        do { try FileSystemOperations.moveToTrash(node.url); refreshTree() }
+        catch { NSApp.presentError(error) }
+    }
+
+    @objc fileprivate func ctxReveal() {
+        let row = outlineView.clickedRow
+        guard row >= 0, let node = outlineView.item(atRow: row) as? FileTreeNode else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([node.url])
     }
 }
