@@ -70,6 +70,10 @@ public enum MainMenu {
                      action: #selector(EditorWindowController.newWindowForTab(_:)), keyEquivalent: "t")
         menu.addItem(withTitle: "Open…",
                      action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
+        let openFolder = NSMenuItem(title: "Open Folder…",
+                                    action: #selector(EditorWindowController.openFolder(_:)), keyEquivalent: "o")
+        openFolder.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(openFolder)
 
         let openRecent = NSMenuItem(title: "Open Recent", action: nil, keyEquivalent: "")
         let recentMenu = NSMenu(title: "Open Recent")

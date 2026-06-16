@@ -47,6 +47,16 @@ public final class SidebarViewController: NSViewController {
         let menu = NSMenu()
         menu.delegate = self
         outline.menu = menu
+        outline.registerForDraggedTypes([.fileURL])
+
+        dataSource.onDropMove = { [weak self] sources, dest in
+            guard let self else { return }
+            for src in sources {
+                do { _ = try FileSystemOperations.move(src, into: dest) }
+                catch { NSApp.presentError(error) }
+            }
+            self.refreshTree()
+        }
 
         scroll.documentView = outline
         self.scrollView = scroll
@@ -76,11 +86,36 @@ public final class SidebarViewController: NSViewController {
         guard !active else { return }
         active = true
         applyPrefsToDataSource()
-        if dataSource.roots.isEmpty, let dir = defaultRootDirectory() {
-            dataSource.roots = [FileTreeNode(url: dir)]
+        if dataSource.roots.isEmpty {
+            let saved = prefs.sidebarRootPaths.map { URL(fileURLWithPath: $0) }
+                .filter { FileManager.default.fileExists(atPath: $0.path) }
+            if !saved.isEmpty {
+                dataSource.roots = saved.map { FileTreeNode(url: $0) }
+            } else if let dir = defaultRootDirectory() {
+                dataSource.roots = [FileTreeNode(url: dir)]
+            }
         }
         outlineView.reloadData()
         startWatchers()
+    }
+
+    // MARK: Root management (multi-root)
+
+    public func addRoot(_ url: URL) {
+        guard !dataSource.roots.contains(where: { $0.url.path == url.path }) else { return }
+        dataSource.roots.append(FileTreeNode(url: url))
+        persistRoots()
+        if active { startWatchers(); outlineView.reloadData() }
+    }
+
+    public func removeRoot(_ node: FileTreeNode) {
+        dataSource.roots.removeAll { $0 === node }
+        persistRoots()
+        if active { startWatchers(); outlineView.reloadData() }
+    }
+
+    private func persistRoots() {
+        prefs.sidebarRootPaths = dataSource.roots.map { $0.url.path }
     }
 
     public func deactivate() {
@@ -274,6 +309,10 @@ extension SidebarViewController: NSMenuDelegate {
             menu.addItem(.separator())
             menu.addItem(item("Reveal in Finder", #selector(ctxReveal)))
         }
+        if let node, dataSource.roots.contains(where: { $0 === node }) {
+            menu.addItem(.separator())
+            menu.addItem(item("Remove Folder from Sidebar", #selector(ctxRemoveRoot)))
+        }
     }
 }
 
@@ -335,5 +374,11 @@ extension SidebarViewController {
         let row = outlineView.clickedRow
         guard row >= 0, let node = outlineView.item(atRow: row) as? FileTreeNode else { return }
         NSWorkspace.shared.activateFileViewerSelecting([node.url])
+    }
+
+    @objc fileprivate func ctxRemoveRoot() {
+        let row = outlineView.clickedRow
+        guard row >= 0, let node = outlineView.item(atRow: row) as? FileTreeNode else { return }
+        removeRoot(node)
     }
 }

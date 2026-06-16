@@ -206,6 +206,18 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         if show { sidebar?.activate() } else { sidebar?.deactivate() }
     }
 
+    @IBAction public func openFolder(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Open Folder"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if !prefs.showSidebar { prefs.showSidebar = true; applySidebarVisibility() }
+        sidebar?.activate()
+        sidebar?.addRoot(url)
+    }
+
     @IBAction public func toggleLineNumbers(_ sender: Any?) {
         prefs.showLineNumbers.toggle()
         // Preference change notification refreshes all editors; ensure ours too.

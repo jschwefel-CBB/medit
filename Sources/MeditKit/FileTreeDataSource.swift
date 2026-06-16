@@ -33,4 +33,34 @@ public final class FileTreeDataSource: NSObject, NSOutlineViewDataSource {
     public func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
         (item as? FileTreeNode)?.isDirectory ?? false
     }
+
+    // MARK: Drag & drop (internal moves)
+
+    /// Called by the controller to actually perform a move when a drop is accepted.
+    public var onDropMove: ((_ sources: [URL], _ destination: URL) -> Void)?
+
+    public func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
+        (item as? FileTreeNode)?.url as NSURL?
+    }
+
+    public func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo,
+                            proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
+        // Only allow dropping onto a directory node (not between rows).
+        guard let target = item as? FileTreeNode, target.isDirectory, index == NSOutlineViewDropOnItemIndex else {
+            return []
+        }
+        return .move
+    }
+
+    public func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo,
+                            item: Any?, childIndex index: Int) -> Bool {
+        guard let target = item as? FileTreeNode, target.isDirectory else { return false }
+        var sources: [URL] = []
+        info.enumerateDraggingItems(options: [], for: outlineView, classes: [NSURL.self], searchOptions: [:]) { drag, _, _ in
+            if let url = drag.item as? URL { sources.append(url) }
+        }
+        guard !sources.isEmpty else { return false }
+        onDropMove?(sources, target.url)
+        return true
+    }
 }
