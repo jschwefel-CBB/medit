@@ -749,9 +749,23 @@ git commit -m "feat: include resolution with cycle + depth detection"
 
 A tiny AppKit app with **known AX identifiers**, used as ground truth for driving tests. It exposes: a button (`okButton`), a text field (`nameField`), a static label (`statusLabel`) that mirrors the field's text, and a counter label (`countLabel`) incremented by the button.
 
+> **Implementation note (discovered during execution):** A bare SwiftPM
+> executable does **not** launch as a foreground GUI app with its own
+> Accessibility tree — `NSWorkspace.openApplication(at:)` pointed at a raw
+> Mach-O returns the *calling* app (e.g. Terminal) as the running app, so the
+> driver snapshots the wrong tree. The fixture must therefore be assembled into
+> a real `.app` bundle (Info.plist + binary in `Contents/MacOS/`, ad-hoc
+> codesigned) via `Fixtures/TestHostApp/make-app.sh`, and plans/tests must point
+> at `TestHostApp.app`. Additionally, `statusLabel` must update on every
+> keystroke (`NSTextFieldDelegate.controlTextDidChange`), not only on the
+> field's commit action, so GUI tests can observe derived state from synthesized
+> typing without pressing Enter.
+
 **Files:**
 - Create: `~/repositories/autopilot/Fixtures/TestHostApp/Package.swift`
 - Create: `~/repositories/autopilot/Fixtures/TestHostApp/Sources/TestHostApp/main.swift`
+- Create: `~/repositories/autopilot/Fixtures/TestHostApp/Info.plist`
+- Create: `~/repositories/autopilot/Fixtures/TestHostApp/make-app.sh`
 
 - [ ] **Step 1: Write the TestHostApp package manifest**
 
@@ -2048,6 +2062,11 @@ git commit -m "feat: Report, Reporter, Targeting orchestrator, PlanRunner"
 - Create: `~/repositories/autopilot/Tests/AutopilotCoreTests/IntegrationTests.swift`
 
 This test is **environment-gated**: it requires Accessibility permission and a GUI session. It builds TestHostApp, runs a real plan, and asserts the report. It skips (not fails) when AX permission is absent, so CI without the grant stays green.
+
+> **Implementation note:** the test targets `Fixtures/TestHostApp/.build/TestHostApp.app`
+> (the assembled bundle from `make-app.sh`), not the bare `.build/debug/TestHostApp`
+> binary — see the Task 5 note for why. The assertion observes `statusLabel`'s
+> derived value after synthesized typing into `nameField`.
 
 - [ ] **Step 1: Write the integration test**
 
