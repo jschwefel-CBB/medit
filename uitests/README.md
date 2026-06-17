@@ -1,12 +1,12 @@
-# medit GUI tests (autopilot)
+# medit GUI tests (AutoPilot)
 
-These are declarative GUI test plans executed by `autopilot`
-(`~/repositories/autopilot`). They drive the built medit app via the
+These are declarative GUI test plans executed by AutoPilot — the `autopilot`
+CLI (`~/repositories/autopilot`). They drive the built medit app via the
 macOS Accessibility API.
 
 ## Prerequisites
-- Build autopilot: `(cd ~/repositories/autopilot && swift build)`
-- Grant Accessibility permission to the terminal/binary running autopilot
+- Build AutoPilot: `(cd ~/repositories/autopilot && swift build)`
+- Grant Accessibility permission to the terminal/binary running AutoPilot
   (`autopilot doctor` checks this).
 - medit must be installed (so `bundleId` resolves) or its built `.app` path
   supplied via the plan `target.path`.
@@ -21,7 +21,7 @@ Exit codes: 0 pass, 1 test failure, 2 plan error, 3 permission missing.
 
 ## Authoring
 For the complete plan format — actions, assertions, selectors, hygiene
-patterns, and a worked example — see the autopilot authoring guide:
+patterns, and a worked example — see the AutoPilot authoring guide:
 `~/repositories/autopilot/docs/AUTHORING.md`
 (or https://github.com/jschwefel-CBB/autopilot/blob/main/docs/AUTHORING.md).
 
