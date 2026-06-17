@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "name": "type text into editor",
+  "include": ["setups/launch.json"],
+  "target": {
+    "bundleId": "com.jschwefel.medit",
+    "launchArgs": ["--reset-state"]
+  },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "steps": [
+    { "id": "type", "action": "type",
+      "target": { "role": "AXTextArea", "identifier": "editorTextView" },
+      "args": { "text": "hello\nworld" } },
+    { "id": "assert-position", "action": "assert",
+      "target": { "identifier": "positionLabel" },
+      "assert": { "property": "value", "op": "contains", "expected": "2" } }
+  ]
+}

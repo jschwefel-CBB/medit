@@ -6,6 +6,14 @@ import MeditKit
 // @NSApplicationMain attributes and drive the run loop manually so the app
 // works identically whether launched from Xcode or the command line.
 
+// Test hook: start from a clean preferences/state baseline when launched by
+// autopilot (the GUI test driver). Must run before AppDelegate reads prefs.
+if CommandLine.arguments.contains("--reset-state") {
+    if let domain = Bundle.main.bundleIdentifier {
+        UserDefaults.standard.removePersistentDomain(forName: domain)
+    }
+}
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

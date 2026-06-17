@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "name": "launch medit clean",
+  "target": {
+    "bundleId": "com.jschwefel.medit",
+    "launchArgs": ["--reset-state"]
+  },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor",
+      "target": { "role": "AXWindow" }, "args": { "present": true } }
+  ]
+}
