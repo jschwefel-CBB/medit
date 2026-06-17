@@ -20,6 +20,11 @@ macOS Accessibility API.
 Exit codes: 0 pass, 1 test failure, 2 plan error, 3 permission missing.
 
 ## Authoring
+For the complete plan format — actions, assertions, selectors, hygiene
+patterns, and a worked example — see the autopilot authoring guide:
+`~/repositories/autopilot/docs/AUTHORING.md`
+(or https://github.com/jschwefel-CBB/autopilot/blob/main/docs/AUTHORING.md).
+
 Use the MCP `dump_axtree` tool (or read these plans) to discover identifiers.
 
 Tagged controls (AXIdentifier):

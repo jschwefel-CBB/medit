@@ -10,9 +10,10 @@
   "steps": [
     { "id": "type", "action": "type",
       "target": { "role": "AXTextArea", "identifier": "editorTextView" },
-      "args": { "text": "hello\nworld" } },
-    { "id": "assert-position", "action": "assert",
-      "target": { "identifier": "positionLabel" },
-      "assert": { "property": "value", "op": "contains", "expected": "2" } }
+      "args": { "text": "hello world" } },
+    { "id": "assert-value", "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "hello world" } },
+    { "id": "quit", "action": "terminate" }
   ]
 }
