@@ -94,6 +94,11 @@ public final class FindReplaceBar: NSView {
         statusLabel.alignment = .right
         statusLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
+        // Accessibility identifiers for autopilot GUI tests.
+        findField.setAccessibilityIdentifier("findField")
+        replaceField.setAccessibilityIdentifier("replaceField")
+        statusLabel.setAccessibilityIdentifier("findStatusLabel")
+
         let prevButton = makeButton(symbol: "chevron.left", fallback: "<", action: #selector(findPrev))
         let nextButton = makeButton(symbol: "chevron.right", fallback: ">", action: #selector(findNext))
         let doneButton = NSButton(title: "Done", target: self, action: #selector(close))

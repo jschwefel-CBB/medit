@@ -45,6 +45,7 @@ public final class SidebarViewController: NSViewController {
         outline.target = self
         outline.action = #selector(outlineSingleClick)
         outline.doubleAction = #selector(outlineDoubleClick)
+        outline.setAccessibilityIdentifier("sidebarOutline")
 
         let menu = NSMenu()
         menu.delegate = self

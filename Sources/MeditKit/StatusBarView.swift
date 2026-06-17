@@ -40,6 +40,11 @@ public final class StatusBarView: NSView {
         wrapButton.target = self
         wrapButton.action = #selector(wrapButtonClicked)
 
+        // Accessibility identifiers for autopilot GUI tests.
+        positionLabel.setAccessibilityIdentifier("positionLabel")
+        languageButton.setAccessibilityIdentifier("languageButton")
+        encodingButton.setAccessibilityIdentifier("encodingButton")
+
         let stack = NSStackView(views: [positionLabel, NSView(), languageButton, sep(), encodingButton, sep(), lineEndingButton, sep(), wrapButton, sep(), modeLabel])
         stack.orientation = .horizontal
         stack.spacing = 8

@@ -110,6 +110,7 @@ public final class EditorViewController: NSViewController {
         textView.textColor = EditorColors.foreground
         textView.insertionPointColor = EditorColors.foreground
         textView.delegate = self
+        textView.setAccessibilityIdentifier("editorTextView")
         self.textView = textView
 
         // Container holding the (hidden) find/replace bar above the editor.
