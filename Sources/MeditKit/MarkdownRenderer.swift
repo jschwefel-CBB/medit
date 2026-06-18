@@ -44,10 +44,11 @@ public struct MarkdownRenderer {
 private struct AttributedStringBuilder: MarkupVisitor {
     typealias Result = Void
     let theme: MarkdownRenderer.Theme
-    private let out = NSMutableAttributedString()
+    let out = NSMutableAttributedString()
 
     // Inline style state, pushed/popped as we descend.
-    private var bold = false, italic = false, strike = false, code = false
+    var bold = false
+    private var italic = false, strike = false, code = false
     private var link: URL?
     private var listDepth = 0
 
@@ -161,41 +162,51 @@ private struct AttributedStringBuilder: MarkupVisitor {
         let headFont = NSFont.systemFont(ofSize: size, weight: weight)
         let para = bodyParagraph(spacingAfter: size * 0.35, spacingBefore: size * 0.6)
         para.lineHeightMultiple = 1.1
+        if heading.level <= 2 { para.paragraphSpacing = size * 0.55 }  // room for the rule
         let start = out.length
         defaultVisit(heading)
         if out.length > start {
             let range = NSRange(location: start, length: out.length - start)
-            out.addAttributes([.font: headFont, .foregroundColor: theme.headingColor,
-                               .paragraphStyle: para], range: range)
+            var attrs: [NSAttributedString.Key: Any] = [
+                .font: headFont, .foregroundColor: theme.headingColor, .paragraphStyle: para,
+                MarkdownBlockAttribute.headingLevel: heading.level]
+            // h1/h2 get an underline rule drawn by the layout manager.
+            if heading.level <= 2 {
+                attrs[MarkdownBlockAttribute.blockKind] = MarkdownBlockAttribute.Kind.headingRule.rawValue
+            }
+            out.addAttributes(attrs, range: range)
         }
         out.append(NSAttributedString(string: "\n"))
     }
 
     mutating func visitCodeBlock(_ codeBlock: CodeBlock) {
-        let para = bodyParagraph(headIndent: 12, firstLineIndent: 12, spacingAfter: 12, spacingBefore: 4)
-        para.lineHeightMultiple = 1.2
+        let para = bodyParagraph(headIndent: 16, firstLineIndent: 16, spacingAfter: 14, spacingBefore: 6)
+        para.lineHeightMultiple = 1.25
+        para.tailIndent = -16
         // Trim the single trailing newline cmark includes so the panel isn't padded oddly.
         var body = codeBlock.code
         if body.hasSuffix("\n") { body.removeLast() }
+        let start = out.length
         out.append(NSAttributedString(string: body, attributes: [
             .font: theme.monoFont, .foregroundColor: theme.foreground,
-            .backgroundColor: theme.codeBackground, .paragraphStyle: para]))
+            .paragraphStyle: para,
+            MarkdownBlockAttribute.blockKind: MarkdownBlockAttribute.Kind.codeBlock.rawValue]))
+        _ = start
         out.append(NSAttributedString(string: "\n\n"))
     }
 
     mutating func visitBlockQuote(_ blockQuote: BlockQuote) {
         let para = bodyParagraph(headIndent: 18, firstLineIndent: 18, spacingAfter: 10)
         let start = out.length
-        // Leading colored bar via a styled vertical bar glyph.
-        out.append(NSAttributedString(string: "▎ ", attributes: [
-            .foregroundColor: theme.quoteBarColor, .font: theme.baseFont]))
         let savedItalic = italic
         defaultVisit(blockQuote)
         italic = savedItalic
-        // Recolor the quote body secondary, keep the bar color.
         if out.length > start {
-            out.addAttribute(.paragraphStyle, value: para,
-                             range: NSRange(location: start, length: out.length - start))
+            let range = NSRange(location: start, length: out.length - start)
+            out.addAttribute(.paragraphStyle, value: para, range: range)
+            // The layout manager draws the left bar; recolor body secondary.
+            out.addAttribute(MarkdownBlockAttribute.blockKind,
+                             value: MarkdownBlockAttribute.Kind.blockQuote.rawValue, range: range)
         }
     }
 
@@ -233,43 +244,46 @@ private struct AttributedStringBuilder: MarkupVisitor {
 
     mutating func visitThematicBreak(_ thematicBreak: ThematicBreak) {
         let para = NSMutableParagraphStyle()
-        para.paragraphSpacing = 12; para.paragraphSpacingBefore = 8
-        // A full-width hairline rule.
-        out.append(NSAttributedString(string: String(repeating: "\u{2500}", count: 48) + "\n",
-            attributes: [.foregroundColor: theme.tableBorderColor,
-                         .font: theme.baseFont, .paragraphStyle: para]))
+        para.paragraphSpacing = 14; para.paragraphSpacingBefore = 10
+        // A blank line carrying the thematic-break attribute; the layout manager
+        // draws a full-width hairline through it (no box-drawing glyphs).
+        out.append(NSAttributedString(string: "\u{00A0}\n", attributes: [
+            .foregroundColor: NSColor.clear, .font: theme.baseFont, .paragraphStyle: para,
+            MarkdownBlockAttribute.blockKind: MarkdownBlockAttribute.Kind.thematicBreak.rawValue]))
     }
 
     // MARK: Tables
 
+    /// Tables render to a drawn image (a true bordered grid with header shading and
+    /// padded cells), wrapped in a text attachment — far cleaner than tab/box-glyph
+    /// approximations. Cell content is rendered with the same inline styling.
     mutating func visitTable(_ table: Table) {
-        let para = bodyParagraph(spacingAfter: 12, spacingBefore: 4)
-        para.lineHeightMultiple = 1.25
-        let start = out.length
-        renderTableRow(table.head, bold: true)
-        // Separator under the header.
-        let cols = max(1, Array(table.head.children).count)
-        let sep: String = Array(repeating: "──────", count: cols).joined(separator: "┼")
-        out.append(NSAttributedString(string: sep + "\n",
-            attributes: [.foregroundColor: theme.tableBorderColor, .font: theme.monoFont]))
-        for row in table.body.rows { renderTableRow(row, bold: false) }
-        applyParagraph(para, from: start)
-        out.append(NSAttributedString(string: "\n"))
+        var headerCells: [NSAttributedString] = []
+        for cell in table.head.children { headerCells.append(renderCell(cell, bold: true)) }
+        var rows: [[NSAttributedString]] = []
+        for row in table.body.rows {
+            var r: [NSAttributedString] = []
+            for cell in row.children { r.append(renderCell(cell, bold: false)) }
+            rows.append(r)
+        }
+        let image = MarkdownTableRenderer.image(header: headerCells, rows: rows, theme: theme)
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        attachment.bounds = NSRect(origin: .zero, size: image.size)
+        let para = bodyParagraph(spacingAfter: 14, spacingBefore: 6)
+        let attStr = NSMutableAttributedString(attachment: attachment)
+        attStr.addAttribute(.paragraphStyle, value: para,
+                            range: NSRange(location: 0, length: attStr.length))
+        out.append(attStr)
+        out.append(NSAttributedString(string: "\n\n"))
     }
 
-    private mutating func renderTableRow(_ row: Markup, bold: Bool) {
-        let wasBold = self.bold
-        self.bold = bold
-        var first = true
-        for cell in row.children {
-            if !first {
-                out.append(NSAttributedString(string: "  │  ",
-                    attributes: [.foregroundColor: theme.tableBorderColor, .font: theme.monoFont]))
-            }
-            for child in cell.children { visit(child) }
-            first = false
-        }
-        self.bold = wasBold
-        out.append(NSAttributedString(string: "\n"))
+    /// Render a single table cell's inline content into a standalone attributed
+    /// string (reuses the inline visitor machinery via a nested builder).
+    private func renderCell(_ cell: Markup, bold: Bool) -> NSAttributedString {
+        var nested = AttributedStringBuilder(theme: theme)
+        nested.bold = bold
+        for child in cell.children { nested.visit(child) }
+        return nested.out
     }
 }

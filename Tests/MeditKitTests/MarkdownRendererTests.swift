@@ -68,12 +68,14 @@ final class MarkdownRendererTests: XCTestCase {
         let out = renderer().render("1. a\n2. b")
         XCTAssertTrue(out.string.contains("1.") && out.string.contains("2."))
     }
-    func testCodeBlockIsMonospacedWithBackground() {
+    func testCodeBlockIsMonospacedAndMarkedForPanel() {
         let out = renderer().render("```\nlet x = 1\n```")
         let i = offset(out, of: "let x")
         let f = attrs(out, at: i)[.font] as! NSFont
         XCTAssertTrue(f.fontDescriptor.symbolicTraits.contains(.monoSpace) || f.isFixedPitch)
-        XCTAssertNotNil(attrs(out, at: i)[.backgroundColor])
+        // The full-width panel is drawn by the layout manager off this block attr.
+        XCTAssertEqual(attrs(out, at: i)[MarkdownBlockAttribute.blockKind] as? Int,
+                       MarkdownBlockAttribute.Kind.codeBlock.rawValue)
     }
     func testBlockQuoteIsIndented() {
         let out = renderer().render("> quoted")
@@ -88,10 +90,29 @@ final class MarkdownRendererTests: XCTestCase {
         let out = renderer().render("a\n\n---\n\nb")
         XCTAssertTrue(out.string.contains("a") && out.string.contains("b"))
     }
-    func testTableRendersCellsAndHeaderBold() {
+    func testH1IsMarkedForUnderlineRule() {
+        let out = renderer().render("# Title")
+        XCTAssertEqual(attrs(out, at: 0)[MarkdownBlockAttribute.blockKind] as? Int,
+                       MarkdownBlockAttribute.Kind.headingRule.rawValue)
+    }
+    func testH3IsNotMarkedForRule() {
+        let out = renderer().render("### Small")
+        XCTAssertNil(attrs(out, at: 0)[MarkdownBlockAttribute.blockKind])
+    }
+    func testBlockQuoteIsMarked() {
+        let out = renderer().render("> quoted")
+        let i = offset(out, of: "quoted")
+        XCTAssertEqual(attrs(out, at: i)[MarkdownBlockAttribute.blockKind] as? Int,
+                       MarkdownBlockAttribute.Kind.blockQuote.rawValue)
+    }
+
+    func testTableRendersAsAnAttachmentImage() {
+        // Tables render to a drawn bordered-grid image wrapped in a text attachment.
         let out = renderer().render("| H |\n|---|\n| c |")
-        XCTAssertTrue(out.string.contains("H") && out.string.contains("c"))
-        let f = attrs(out, at: offset(out, of: "H"))[.font] as! NSFont
-        XCTAssertTrue(f.fontDescriptor.symbolicTraits.contains(.bold))
+        var foundAttachment = false
+        out.enumerateAttribute(.attachment, in: NSRange(location: 0, length: out.length)) { value, _, _ in
+            if let att = value as? NSTextAttachment, att.image != nil { foundAttachment = true }
+        }
+        XCTAssertTrue(foundAttachment, "a GFM table should render as an image attachment")
     }
 }

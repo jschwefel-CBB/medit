@@ -20,6 +20,7 @@ public final class EditorViewController: NSViewController {
     private var isShowingPreview = false
     private var previewScrollView: NSScrollView?
     private var previewTextView: NSTextView?
+    private var previewLayoutManager: MarkdownPreviewLayoutManager?
     private var previewRefreshWorkItem: DispatchWorkItem?
 
     /// The window controller that handles "New Tab" from our context menu.
@@ -295,7 +296,16 @@ public final class EditorViewController: NSViewController {
 
     private func buildPreviewIfNeeded() {
         guard previewScrollView == nil else { return }
-        let tv = NSTextView()
+        // Build a TextKit stack with our custom layout manager so block
+        // decorations (code panels, rules, quote bar) draw behind the text.
+        let storage = NSTextStorage()
+        let layout = MarkdownPreviewLayoutManager()
+        storage.addLayoutManager(layout)
+        let textContainer = NSTextContainer(size: NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude))
+        textContainer.widthTracksTextView = true
+        layout.addTextContainer(textContainer)
+        previewLayoutManager = layout
+        let tv = NSTextView(frame: .zero, textContainer: textContainer)
         tv.isEditable = false
         tv.isSelectable = true
         tv.drawsBackground = true
@@ -343,6 +353,13 @@ public final class EditorViewController: NSViewController {
             tableBorderColor: .separatorColor,
             linkColor: .linkColor,
             isDark: dark)
+        // Palette for the layout manager's block decorations.
+        previewLayoutManager?.palette = MarkdownPreviewLayoutManager.Palette(
+            codePanel: theme.codeBackground,
+            quoteBar: theme.quoteBarColor,
+            rule: theme.tableBorderColor,
+            tableBorder: theme.tableBorderColor,
+            tableHeaderFill: theme.codeBackground)
         let rendered = MarkdownRenderer(theme: theme).render(currentText)
         tv.textStorage?.setAttributedString(rendered)
         tv.textContainerInset = NSSize(width: 24, height: 20)   // comfortable reading margins
