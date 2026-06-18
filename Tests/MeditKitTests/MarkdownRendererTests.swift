@@ -5,9 +5,12 @@ import AppKit
 final class MarkdownRendererTests: XCTestCase {
     private func renderer() -> MarkdownRenderer {
         MarkdownRenderer(theme: .init(
-            baseFont: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular),
+            baseFont: NSFont.systemFont(ofSize: 15),
+            monoFont: NSFont.monospacedSystemFont(ofSize: 14, weight: .regular),
             foreground: .textColor, secondary: .secondaryLabelColor,
             codeBackground: NSColor.gray.withAlphaComponent(0.15),
+            headingColor: .systemBlue, quoteBarColor: .systemOrange,
+            tableBorderColor: .separatorColor,
             linkColor: .linkColor, isDark: false))
     }
     private func attrs(_ s: NSAttributedString, at i: Int) -> [NSAttributedString.Key: Any] {

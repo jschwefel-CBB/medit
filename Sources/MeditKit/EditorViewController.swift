@@ -323,23 +323,29 @@ public final class EditorViewController: NSViewController {
         previewTextView = tv
     }
 
-    private func previewFont() -> NSFont {
-        NSFont(name: prefs.fontName, size: prefs.fontSize)
-            ?? NSFont.monospacedSystemFont(ofSize: prefs.fontSize, weight: .regular)
-    }
-
     private func renderPreview() {
         guard let tv = previewTextView else { return }
         let dark = view.effectiveAppearance.isDark
+        // Rendered prose reads best in a proportional system font (the editor's
+        // monospace is only used for code). A comfortable reading size.
+        let bodySize: CGFloat = 15
         let theme = MarkdownRenderer.Theme(
-            baseFont: previewFont(),
+            baseFont: NSFont.systemFont(ofSize: bodySize),
+            monoFont: NSFont.monospacedSystemFont(ofSize: bodySize - 1, weight: .regular),
             foreground: EditorColors.foreground,
             secondary: .secondaryLabelColor,
-            codeBackground: NSColor.gray.withAlphaComponent(dark ? 0.22 : 0.12),
+            codeBackground: dark ? NSColor.white.withAlphaComponent(0.06)
+                                 : NSColor.black.withAlphaComponent(0.05),
+            headingColor: dark ? NSColor(srgbRed: 0.60, green: 0.78, blue: 1.0, alpha: 1)
+                               : NSColor(srgbRed: 0.10, green: 0.40, blue: 0.80, alpha: 1),
+            quoteBarColor: dark ? NSColor(srgbRed: 0.85, green: 0.45, blue: 0.35, alpha: 1)
+                                : NSColor(srgbRed: 0.80, green: 0.35, blue: 0.25, alpha: 1),
+            tableBorderColor: .separatorColor,
             linkColor: .linkColor,
             isDark: dark)
         let rendered = MarkdownRenderer(theme: theme).render(currentText)
         tv.textStorage?.setAttributedString(rendered)
+        tv.textContainerInset = NSSize(width: 24, height: 20)   // comfortable reading margins
     }
 
     /// Debounced re-render while preview is visible and auto-refresh is on.
