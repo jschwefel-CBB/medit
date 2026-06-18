@@ -46,4 +46,49 @@ final class MarkdownRendererTests: XCTestCase {
         let out = renderer().render("[txt](https://example.com)")
         XCTAssertEqual((attrs(out, at: offset(out, of: "txt"))[.link] as? URL)?.host, "example.com")
     }
+
+    // MARK: Blocks
+
+    func testHeadingIsLargerAndBold() {
+        let out = renderer().render("# Big")
+        let f = attrs(out, at: 0)[.font] as! NSFont
+        XCTAssertGreaterThan(f.pointSize, 13)
+        XCTAssertTrue(f.fontDescriptor.symbolicTraits.contains(.bold))
+    }
+    func testUnorderedListHasHangingIndentAndBullet() {
+        let out = renderer().render("- one\n- two")
+        XCTAssertTrue(out.string.contains("one") && out.string.contains("two"))
+        let p = attrs(out, at: offset(out, of: "one"))[.paragraphStyle] as! NSParagraphStyle
+        XCTAssertGreaterThan(p.headIndent, 0)
+    }
+    func testOrderedListShowsNumbers() {
+        let out = renderer().render("1. a\n2. b")
+        XCTAssertTrue(out.string.contains("1.") && out.string.contains("2."))
+    }
+    func testCodeBlockIsMonospacedWithBackground() {
+        let out = renderer().render("```\nlet x = 1\n```")
+        let i = offset(out, of: "let x")
+        let f = attrs(out, at: i)[.font] as! NSFont
+        XCTAssertTrue(f.fontDescriptor.symbolicTraits.contains(.monoSpace) || f.isFixedPitch)
+        XCTAssertNotNil(attrs(out, at: i)[.backgroundColor])
+    }
+    func testBlockQuoteIsIndented() {
+        let out = renderer().render("> quoted")
+        let p = attrs(out, at: offset(out, of: "quoted"))[.paragraphStyle] as! NSParagraphStyle
+        XCTAssertGreaterThan(p.firstLineHeadIndent, 0)
+    }
+    func testTaskListShowsCheckboxes() {
+        let out = renderer().render("- [ ] todo\n- [x] done")
+        XCTAssertTrue(out.string.contains("☐") && out.string.contains("☑"))
+    }
+    func testThematicBreakRenders() {
+        let out = renderer().render("a\n\n---\n\nb")
+        XCTAssertTrue(out.string.contains("a") && out.string.contains("b"))
+    }
+    func testTableRendersCellsAndHeaderBold() {
+        let out = renderer().render("| H |\n|---|\n| c |")
+        XCTAssertTrue(out.string.contains("H") && out.string.contains("c"))
+        let f = attrs(out, at: offset(out, of: "H"))[.font] as! NSFont
+        XCTAssertTrue(f.fontDescriptor.symbolicTraits.contains(.bold))
+    }
 }

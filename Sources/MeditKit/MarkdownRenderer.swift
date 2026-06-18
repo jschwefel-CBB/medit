@@ -105,8 +105,114 @@ private struct AttributedStringBuilder: MarkupVisitor {
 
     // MARK: MarkupVisitor — blocks
 
+    /// When > 0 we're inside a list item; paragraphs then use a single newline
+    /// (tight) and skip the double block-gap.
+    private var listDepth = 0
+
     mutating func visitParagraph(_ paragraph: Paragraph) {
         defaultVisit(paragraph)
+        out.append(NSAttributedString(string: listDepth > 0 ? "\n" : "\n\n"))
+    }
+
+    mutating func visitHeading(_ heading: Heading) {
+        let scale: CGFloat = [1: 2.0, 2: 1.6, 3: 1.3, 4: 1.15, 5: 1.05, 6: 1.0][heading.level] ?? 1.0
+        let size = theme.baseFont.pointSize * scale
+        let headFont = font(bold: true, italic: false, mono: false, size: size)
+        let para = NSMutableParagraphStyle()
+        para.paragraphSpacingBefore = size * 0.4
+        para.paragraphSpacing = size * 0.2
+        let start = out.length
+        defaultVisit(heading)
+        if out.length > start {
+            let range = NSRange(location: start, length: out.length - start)
+            out.addAttributes([.font: headFont, .paragraphStyle: para], range: range)
+        }
         out.append(NSAttributedString(string: "\n\n"))
+    }
+
+    mutating func visitCodeBlock(_ codeBlock: CodeBlock) {
+        let para = NSMutableParagraphStyle()
+        para.firstLineHeadIndent = 8; para.headIndent = 8
+        let mono = NSFont.monospacedSystemFont(ofSize: theme.baseFont.pointSize, weight: .regular)
+        // CodeBlock.code includes a trailing newline; keep it as the block body.
+        out.append(NSAttributedString(string: codeBlock.code, attributes: [
+            .font: mono, .foregroundColor: theme.foreground,
+            .backgroundColor: theme.codeBackground, .paragraphStyle: para]))
+        out.append(NSAttributedString(string: "\n"))
+    }
+
+    mutating func visitBlockQuote(_ blockQuote: BlockQuote) {
+        let para = NSMutableParagraphStyle()
+        para.firstLineHeadIndent = 16; para.headIndent = 16
+        let start = out.length
+        defaultVisit(blockQuote)
+        if out.length > start {
+            out.addAttribute(.paragraphStyle, value: para,
+                             range: NSRange(location: start, length: out.length - start))
+        }
+    }
+
+    mutating func visitUnorderedList(_ unorderedList: UnorderedList) {
+        renderList(Array(unorderedList.listItems), ordered: false)
+    }
+    mutating func visitOrderedList(_ orderedList: OrderedList) {
+        renderList(Array(orderedList.listItems), ordered: true)
+    }
+
+    private mutating func renderList(_ items: [ListItem], ordered: Bool) {
+        let para = NSMutableParagraphStyle()
+        para.headIndent = 24; para.firstLineHeadIndent = 8
+        listDepth += 1
+        var n = 1
+        for item in items {
+            let marker: String
+            if let checkbox = item.checkbox {            // GFM task list
+                marker = (checkbox == .checked ? "☑ " : "☐ ")
+            } else if ordered {
+                marker = "\(n). "; n += 1
+            } else {
+                marker = "•  "
+            }
+            let start = out.length
+            out.append(NSAttributedString(string: marker,
+                attributes: [.font: theme.baseFont, .foregroundColor: theme.foreground]))
+            for child in item.children { visit(child) }
+            if out.length > start {
+                out.addAttribute(.paragraphStyle, value: para,
+                                 range: NSRange(location: start, length: out.length - start))
+            }
+        }
+        listDepth -= 1
+        out.append(NSAttributedString(string: "\n"))
+    }
+
+    mutating func visitThematicBreak(_ thematicBreak: ThematicBreak) {
+        // A full-width rule rendered as a struck-through run of spaces.
+        out.append(NSAttributedString(string: "\u{00A0}\n", attributes: [
+            .strikethroughStyle: NSUnderlineStyle.single.rawValue,
+            .strikethroughColor: theme.secondary,
+            .foregroundColor: theme.secondary,
+            .font: theme.baseFont]))
+        out.append(NSAttributedString(string: "\n"))
+    }
+
+    mutating func visitTable(_ table: Table) {
+        renderTableRow(table.head, bold: true)
+        for row in table.body.rows { renderTableRow(row, bold: false) }
+        out.append(NSAttributedString(string: "\n"))
+    }
+
+    private mutating func renderTableRow(_ row: Markup, bold: Bool) {
+        let wasBold = self.bold
+        self.bold = bold
+        var first = true
+        for cell in row.children {
+            if !first { out.append(NSAttributedString(string: "\t",
+                attributes: [.font: theme.baseFont, .foregroundColor: theme.foreground])) }
+            for child in cell.children { visit(child) }
+            first = false
+        }
+        self.bold = wasBold
+        out.append(NSAttributedString(string: "\n"))
     }
 }
