@@ -48,6 +48,25 @@ final class FileTreeDataSourceTests: XCTestCase {
         XCTAssertTrue(ds.outlineView(outline, isItemExpandable: rootNode))
     }
 
+    func testEmptyDirectoryIsNotExpandable() {
+        let ds = makeDataSource()
+        let outline = NSOutlineView()
+        let rootNode = ds.outlineView(outline, child: 0, ofItem: nil) as! FileTreeNode
+        // rootA contains an empty "sub" directory — it must NOT be expandable.
+        let count = ds.outlineView(outline, numberOfChildrenOfItem: rootNode)
+        var foundEmptyDir = false
+        for i in 0..<count {
+            let child = ds.outlineView(outline, child: i, ofItem: rootNode) as! FileTreeNode
+            if child.url.lastPathComponent == "sub" {
+                foundEmptyDir = true
+                XCTAssertTrue(child.isDirectory)
+                XCTAssertFalse(ds.outlineView(outline, isItemExpandable: child),
+                               "an empty folder should not be expandable")
+            }
+        }
+        XCTAssertTrue(foundEmptyDir)
+    }
+
     func testFileIsNotExpandable() {
         let ds = makeDataSource()
         let outline = NSOutlineView()

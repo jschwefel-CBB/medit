@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "name": "sidebar: New Folder creates untitled folder inside, enters rename, and commits the name",
+  "target": {
+    "bundleId": "com.jschwefel.medit",
+    "launchArgs": ["--reset-state", "--open-folder", "/tmp/medit-fixture"]
+  },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "comment": "PRECONDITION: `rm -rf /tmp/medit-fixture && mkdir -p /tmp/medit-fixture`. Verifies the 1.5 fix: New Folder creates 'untitled folder' INSIDE the right-clicked folder, enters rename, and commits. The rename field is a plain NSTextField the app already focused, so we type with `focus: false` (skip the focus-click) and `commit: true` (Return).",
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-outline", "action": "waitFor", "target": { "identifier": "sidebarOutline" }, "args": { "present": true } },
+    { "id": "right-click-root-folder", "action": "rightClick", "target": { "role": "AXStaticText", "value": "medit-fixture" } },
+    { "id": "click-new-folder", "action": "click", "target": { "role": "AXMenuItem", "title": "New Folder" } },
+    { "id": "wait-rename-field", "action": "waitFor", "target": { "role": "AXTextField", "value": "untitled folder" }, "args": { "present": true } },
+    { "id": "rename", "action": "type", "target": { "role": "AXTextField", "value": "untitled folder" }, "args": { "text": "src", "focus": false, "commit": true } },
+    { "id": "assert-folder-row", "action": "assert", "target": { "role": "AXStaticText", "value": "src" }, "assert": { "property": "exists", "op": "exists", "expected": "true" } },
+    { "id": "assert-untitled-gone", "action": "assert", "target": { "role": "AXStaticText", "value": "untitled folder" }, "assert": { "property": "exists", "op": "notExists", "expected": "true" } },
+    { "id": "quit", "action": "terminate" }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "name": "editor: clicking the status-bar wrap indicator toggles its title",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "steps": [
+    {
+      "id": "assert-wrap-off-initial",
+      "action": "assert",
+      "target": { "role": "AXButton", "title": "Wrap: Off" },
+      "assert": { "property": "exists", "op": "exists", "expected": "true" }
+    },
+    {
+      "id": "click-wrap-indicator",
+      "action": "click",
+      "target": { "role": "AXButton", "title": "Wrap: Off" }
+    },
+    {
+      "id": "assert-wrap-on",
+      "action": "assert",
+      "target": { "role": "AXButton", "title": "Wrap: On" },
+      "assert": { "property": "exists", "op": "exists", "expected": "true" }
+    },
+    {
+      "id": "click-wrap-back-off",
+      "action": "click",
+      "target": { "role": "AXButton", "title": "Wrap: On" }
+    },
+    {
+      "id": "assert-wrap-off-again",
+      "action": "assert",
+      "target": { "role": "AXButton", "title": "Wrap: Off" },
+      "assert": { "property": "exists", "op": "exists", "expected": "true" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

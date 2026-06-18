@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0",
+  "name": "brackets: nested brackets remain intact in editor value as depth grows (rainbow content guard)",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "comment": "Rainbow depth COLORS are painted as NSLayoutManager temporary attributes and are NOT readable through AXValue — autopilot cannot assert glyph color. What we CAN guarantee is the render-regression invariant: after typing deeply nested brackets, the text content is still fully present and undamaged by the colorizer's temp-attribute passes. Auto-close is on, so we paste a known nested string via setValue (no per-key auto-close interference) and assert exact content. Color verification stays a manual/visual check (see docs/testplans/README.md).",
+  "steps": [
+    {
+      "id": "set-nested-brackets",
+      "action": "setValue",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "([{([{}])}])" }
+    },
+    {
+      "id": "force-recolor",
+      "action": "wait",
+      "args": { "seconds": 1 }
+    },
+    {
+      "id": "assert-content-intact",
+      "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "equals", "expected": "([{([{}])}])" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

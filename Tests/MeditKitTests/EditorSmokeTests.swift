@@ -106,6 +106,40 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertNotEqual(before, editor.wrapLinesForTesting, "wrap pref should flip")
     }
 
+    func testRainbowBracketsApplyTemporaryColorAndClearOnDisable() {
+        let prefs = Preferences(defaults: UserDefaults(suiteName: "medit.smoke.\(UUID().uuidString)")!)
+        prefs.rainbowBrackets = true
+        let doc = TextDocument(); doc.setTextForTesting("f(x){y}")
+        let wc = EditorWindowController(document: doc, preferences: prefs)
+        _ = wc.window
+        wc.loadViewIfNeededForTesting()
+        guard let editor = wc.editorForTesting, let tv = wc.focusedTextView,
+              let lm = tv.layoutManager else { return XCTFail("no editor") }
+
+        editor.refreshBracketColorizerForTesting()
+        // The '(' at offset 1 should carry a temporary foreground (depth) color.
+        let attr = lm.temporaryAttribute(.foregroundColor, atCharacterIndex: 1, effectiveRange: nil)
+        XCTAssertNotNil(attr, "bracket should have a depth color overlay")
+
+        // Disabling clears the overlay.
+        prefs.rainbowBrackets = false
+        editor.applyPreferencesForTesting()
+        let cleared = lm.temporaryAttribute(.foregroundColor, atCharacterIndex: 1, effectiveRange: nil)
+        XCTAssertNil(cleared, "overlay should be cleared when rainbow brackets is off")
+    }
+
+    func testDraggedFileOpensInsteadOfPastingPath() {
+        let controller = makeWindowController(text: "hello")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("no text view") }
+        var opened: [URL] = []
+        tv.onOpenFiles = { opened = $0 }
+        let dropped = [URL(fileURLWithPath: "/tmp/example.txt")]
+        tv.performFileDropForTesting(dropped)
+        // The file-open hook fired; the path was NOT inserted into the text.
+        XCTAssertEqual(opened, dropped)
+        XCTAssertEqual(tv.string, "hello", "dragged file path must not be pasted into the editor")
+    }
+
     func testEditorViewHasNonZeroSizeWhenShown() {
         // Regression: the contentViewController's scroll view collapsed to {0,0},
         // making text and the caret invisible. The editor view and its text view

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0",
+  "name": "find: Cmd-F opens the find bar, typing a query shows the match count",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "comment": "The find field is an NSSearchField that medit makes first responder on open (makeFirstResponder + selectText). autopilot's `type` action does a focus-CLICK before typing, and that click drops the already-attached field-editor focus on a search field, so the characters go nowhere (value stays empty). The reliable input is `keyPress` of each character — no click, types straight into the already-focused field. (setValue also works but doesn't fire the live search.) So we keyPress 'b','e','t','a' and assert the live match count.",
+  "steps": [
+    {
+      "id": "seed-text",
+      "action": "setValue",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "alpha beta gamma beta delta" }
+    },
+    {
+      "id": "focus-editor",
+      "action": "click",
+      "target": { "identifier": "editorTextView" }
+    },
+    {
+      "id": "open-find-bar",
+      "action": "keyPress",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "cmd+f" }
+    },
+    {
+      "id": "wait-find-field",
+      "action": "waitFor",
+      "target": { "identifier": "findField" },
+      "args": { "present": true }
+    },
+    { "id": "k-b", "action": "keyPress", "target": { "identifier": "findField" }, "args": { "keys": "b" } },
+    { "id": "k-e", "action": "keyPress", "target": { "identifier": "findField" }, "args": { "keys": "e" } },
+    { "id": "k-t", "action": "keyPress", "target": { "identifier": "findField" }, "args": { "keys": "t" } },
+    { "id": "k-a", "action": "keyPress", "target": { "identifier": "findField" }, "args": { "keys": "a" } },
+    {
+      "id": "assert-find-field-value",
+      "action": "assert",
+      "target": { "identifier": "findField" },
+      "assert": { "property": "value", "op": "equals", "expected": "beta" }
+    },
+    {
+      "id": "assert-match-count-shown",
+      "action": "assert",
+      "target": { "identifier": "findStatusLabel" },
+      "assert": { "property": "value", "op": "contains", "expected": "2" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

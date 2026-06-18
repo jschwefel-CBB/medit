@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0",
+  "name": "menus: Show Line Numbers menu item exists and toggles without error",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "comment": "LIMITATION: the line-number ruler is an NSRulerView (not a discrete AX element) and menu-item checkmarks are not exposed in AX, so neither the ruler's visibility nor the menu mark is assertable through autopilot. This plan verifies the View > 'Show Line Numbers' item is present (menu wired) and that toggling it via Shift-Cmd-L twice raises no error and leaves the editor usable. Whether the gutter actually shows/hides is a MANUAL visual check (see README).",
+  "steps": [
+    {
+      "id": "assert-menu-item-exists",
+      "action": "assert",
+      "target": { "role": "AXMenuItem", "title": "Show Line Numbers" },
+      "assert": { "property": "exists", "op": "exists", "expected": "true" }
+    },
+    {
+      "id": "focus-editor",
+      "action": "click",
+      "target": { "identifier": "editorTextView" }
+    },
+    {
+      "id": "toggle-off",
+      "action": "keyPress",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "shift+cmd+l" }
+    },
+    {
+      "id": "toggle-on",
+      "action": "keyPress",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "shift+cmd+l" }
+    },
+    {
+      "id": "settle",
+      "action": "wait",
+      "args": { "seconds": 1 }
+    },
+    {
+      "id": "assert-editor-still-usable",
+      "action": "setValue",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "ok" }
+    },
+    {
+      "id": "assert-typed",
+      "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "ok" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

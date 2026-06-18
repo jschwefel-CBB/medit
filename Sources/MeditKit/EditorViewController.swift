@@ -11,6 +11,7 @@ public final class EditorViewController: NSViewController {
     private(set) var textView: NSTextView!
     private var ruler: LineNumberRulerView?
     private var highlighter: SyntaxHighlightingController?
+    private var bracketColorizer: BracketColorizer?
     private var appearanceObservation: NSKeyValueObservation?
     private var isWrapping = false
 
@@ -86,6 +87,7 @@ public final class EditorViewController: NSViewController {
         textView.autoresizingMask = [.width]
         textView.pcStyleNavigationKeys = prefs.pcStyleNavigationKeys
         textView.autoIndentEnabled = prefs.autoIndent
+        textView.indentBetweenBracketsEnabled = prefs.indentBetweenBrackets
         textView.autoCloseBracketsEnabled = prefs.autoCloseBrackets
         textView.indentTabWidth = prefs.tabWidth
         textView.indentUseSpaces = prefs.insertSpacesForTab
@@ -108,6 +110,7 @@ public final class EditorViewController: NSViewController {
         textView.textColor = EditorColors.foreground
         textView.insertionPointColor = EditorColors.foreground
         textView.delegate = self
+        textView.setAccessibilityIdentifier("editorTextView")
         self.textView = textView
 
         // Container holding the (hidden) find/replace bar above the editor.
@@ -216,7 +219,13 @@ public final class EditorViewController: NSViewController {
         applyWrapMode(prefs.wrapLines)
         configureRuler(visible: prefs.showLineNumbers)
         configureHighlighter()
+        configureBracketColorizer()
         (textView as? EditorTextView)?.onOverwriteModeChange = { [weak self] _ in self?.updateStatusBar() }
+        // Dragged files open (in tabs, preserving order) instead of pasting paths.
+        (textView as? EditorTextView)?.onOpenFiles = { [weak self] urls in
+            guard let wc = self?.newTabActionTarget as? EditorWindowController else { return }
+            wc.openFiles(at: urls)
+        }
         applyStatusBarVisibility(prefs.showStatusBar)
         updateStatusBar()
         observePreferences()
@@ -249,6 +258,7 @@ public final class EditorViewController: NSViewController {
         loadDocumentText()
         highlighter?.setLanguage(document?.highlightLanguage)
         configureRuler(visible: prefs.showLineNumbers)
+        bracketColorizer?.refresh()
         ruler?.needsDisplay = true
     }
 
@@ -370,6 +380,22 @@ public final class EditorViewController: NSViewController {
             guard let self else { return }
             let isDark = self.view.effectiveAppearance.isDark
             self.highlighter?.setTheme(self.prefs.highlightThemeName(forDarkMode: isDark))
+            // Re-resolve the depth palette for the new appearance.
+            self.bracketColorizer?.refresh()
+        }
+    }
+
+    /// Create or tear down the rainbow-bracket overlay based on preferences.
+    private func configureBracketColorizer() {
+        if prefs.rainbowBrackets {
+            let colorizer = bracketColorizer ?? BracketColorizer(textView: textView)
+            colorizer.emphasizeEnclosingPair = prefs.emphasizeEnclosingPair
+            colorizer.emphasisStyle = prefs.enclosingPairEmphasisStyle
+            bracketColorizer = colorizer
+            colorizer.refresh()
+        } else {
+            bracketColorizer?.clear()
+            bracketColorizer = nil
         }
     }
 
@@ -393,6 +419,7 @@ public final class EditorViewController: NSViewController {
             editorTextView.pcStyleNavigationKeys = prefs.pcStyleNavigationKeys
             if !prefs.pcStyleNavigationKeys { editorTextView.resetOverwriteMode() }
             editorTextView.autoIndentEnabled = prefs.autoIndent
+            editorTextView.indentBetweenBracketsEnabled = prefs.indentBetweenBrackets
             editorTextView.autoCloseBracketsEnabled = prefs.autoCloseBrackets
             editorTextView.indentTabWidth = prefs.tabWidth
             editorTextView.indentUseSpaces = prefs.insertSpacesForTab
@@ -409,6 +436,7 @@ public final class EditorViewController: NSViewController {
         textView.needsDisplay = true
         applyStatusBarVisibility(prefs.showStatusBar)
         applyShowInvisibles(prefs.showInvisibles)
+        configureBracketColorizer()
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -619,6 +647,10 @@ public final class EditorViewController: NSViewController {
     var wrapLinesForTesting: Bool { prefs.wrapLines }
     /// Test hook: invoke the status bar's wrap toggle as if clicked.
     func simulateStatusBarWrapClickForTesting() { statusBar?.simulateWrapClickForTesting() }
+    /// Test hook: force a synchronous bracket-overlay repaint.
+    func refreshBracketColorizerForTesting() { bracketColorizer?.refresh() }
+    /// Test hook: re-run the preference-changed handler.
+    func applyPreferencesForTesting() { preferencesChanged() }
 
     private func updateMatchStatus(for query: SearchQuery) {
         guard let bar = findReplaceBar else { return }
@@ -657,6 +689,7 @@ extension EditorViewController: NSTextViewDelegate {
     public func textDidChange(_ notification: Notification) {
         document?.updateText(textView.string)
         highlighter?.scheduleHighlight()
+        bracketColorizer?.scheduleRefresh()
         // Empty↔non-empty transitions flip the gutter (hidden when empty).
         configureRuler(visible: prefs.showLineNumbers)
         ruler?.needsDisplay = true
@@ -665,9 +698,7 @@ extension EditorViewController: NSTextViewDelegate {
 
     public func textViewDidChangeSelection(_ notification: Notification) {
         updateStatusBar()
-        // Bracket-match highlight intentionally not invoked here: the old
-        // showFindIndicator flash was jarring on every keystroke. A static
-        // depth-colored highlight is planned as a separate feature.
+        bracketColorizer?.updateCaretEmphasis()
     }
 
     /// Inject "New Tab" at the top of the editor's right-click menu.

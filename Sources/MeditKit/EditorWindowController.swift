@@ -35,6 +35,11 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         // (the old 360x240 floor is what let it come back tiny).
         window.minSize = EditorWindowController.minWindowSize
         window.setFrameAutosaveName("medit.editor.window")
+        // Under --reset-state (the GUI test driver), opt the window out of AppKit
+        // state restoration so no previous session's document window comes back.
+        if LaunchReset.isRequested(in: CommandLine.arguments) {
+            window.isRestorable = false
+        }
 
         super.init(window: window)
 
@@ -195,21 +200,48 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// Open `url` as a tab in THIS window (so the sidebar stays put), or focus the
     /// tab if the file is already open. Called by the sidebar.
     public func openFile(at url: URL) {
+        openFiles(at: [url])
+    }
+
+    /// Open one or more files as tabs in THIS window, preserving the given order.
+    /// Opens sequentially (openDocument is async, so a plain loop would race and
+    /// tab them in nondeterministic / reverse order) and chains each new tab
+    /// after the previously inserted one so left-to-right order matches `urls`.
+    public func openFiles(at urls: [URL]) {
+        guard window != nil else { return }
+        var remaining = urls
+        openNext(&remaining, after: nil)
+    }
+
+    private func openNext(_ urls: inout [URL], after previous: NSWindow?) {
         guard let window else { return }
-        // Already open? Focus its window/tab.
+        guard !urls.isEmpty else { return }
+        let url = urls.removeFirst()
+        var rest = urls
+
+        // Already open? Focus it, then continue with the rest (anchored after it).
         if let existing = NSDocumentController.shared.document(for: url),
            let w = existing.windowControllers.first?.window {
             w.makeKeyAndOrderFront(nil)
+            openNext(&rest, after: w)
             return
         }
-        NSDocumentController.shared.openDocument(withContentsOf: url, display: false) { doc, _, error in
-            if let error { NSApp.presentError(error); return }
-            guard let doc else { return }
-            if doc.windowControllers.isEmpty { doc.makeWindowControllers() }
-            guard let newWindow = doc.windowControllers.first?.window else { return }
-            // Tab it onto this window so we stay in the same window (sidebar intact).
-            window.addTabbedWindow(newWindow, ordered: .above)
-            newWindow.makeKeyAndOrderFront(nil)
+        NSDocumentController.shared.openDocument(withContentsOf: url, display: false) { [weak self] doc, _, error in
+            if let error { NSApp.presentError(error) }
+            var anchor = previous
+            if let doc {
+                if doc.windowControllers.isEmpty { doc.makeWindowControllers() }
+                if let newWindow = doc.windowControllers.first?.window {
+                    // Place after the previously inserted tab (or the original
+                    // window for the first file) so drop order is preserved.
+                    let target = previous ?? window
+                    target.addTabbedWindow(newWindow, ordered: .above)
+                    newWindow.makeKeyAndOrderFront(nil)
+                    anchor = newWindow
+                }
+            }
+            var restCopy = rest
+            self?.openNext(&restCopy, after: anchor)
         }
     }
 
@@ -258,6 +290,12 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         panel.allowsMultipleSelection = false
         panel.prompt = "Open Folder"
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        openFolder(at: url)
+    }
+
+    /// Open a folder as a sidebar root programmatically (no panel). Shared by the
+    /// menu handler and the `--open-folder` launch hook used by the test driver.
+    public func openFolder(at url: URL) {
         if !prefs.showSidebar { prefs.showSidebar = true; applySidebarVisibility() }
         sidebar?.activate()
         sidebar?.addRoot(url)
@@ -294,6 +332,13 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         editor?.applyShowInvisibles(prefs.showInvisibles)
     }
 
+    // Distinct name (NOT a generic `toggleBrackets`) to avoid any AppKit selector
+    // collision — the lesson from the toggleSidebar/NSSplitViewController clash.
+    @IBAction public func toggleRainbowBrackets(_ sender: Any?) {
+        prefs.rainbowBrackets.toggle()
+        // The pref-change notification reconfigures the colorizer in each editor.
+    }
+
     /// Keep the View-menu check marks in sync with current state.
     public func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
@@ -311,6 +356,8 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
             menuItem.state = prefs.showStatusBar ? .on : .off
         case #selector(toggleInvisibles(_:)):
             menuItem.state = prefs.showInvisibles ? .on : .off
+        case #selector(toggleRainbowBrackets(_:)):
+            menuItem.state = prefs.rainbowBrackets ? .on : .off
         default:
             break
         }

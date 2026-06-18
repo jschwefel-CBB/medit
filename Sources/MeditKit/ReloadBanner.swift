@@ -18,12 +18,15 @@ public final class ReloadBanner: NSView {
 
         label.font = .systemFont(ofSize: 11)
         label.lineBreakMode = .byTruncatingTail
+        label.setAccessibilityIdentifier("reloadBannerLabel")
         let reload = NSButton(title: "Reload", target: self, action: #selector(reloadTapped))
         reload.bezelStyle = .rounded
         reload.controlSize = .small
+        reload.setAccessibilityIdentifier("reloadButton")
         let dismiss = NSButton(title: "✕", target: self, action: #selector(dismissTapped))
         dismiss.bezelStyle = .inline
         dismiss.isBordered = false
+        dismiss.setAccessibilityIdentifier("dismissReloadButton")
 
         let stack = NSStackView(views: [label, NSView(), reload, dismiss])
         stack.orientation = .horizontal

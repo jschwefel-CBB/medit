@@ -26,7 +26,7 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.appearance, .system)
         XCTAssertEqual(prefs.fontSize, 13, accuracy: 0.001)
         XCTAssertFalse(prefs.fontName.isEmpty)
-        XCTAssertEqual(prefs.tabWidth, 4)
+        XCTAssertEqual(prefs.tabWidth, 2)
         XCTAssertTrue(prefs.insertSpacesForTab)
     }
 
@@ -46,11 +46,14 @@ final class PreferencesTests: XCTestCase {
     func testEditingAssistDefaultsOnAndPersist() {
         XCTAssertTrue(prefs.autoIndent)
         XCTAssertTrue(prefs.autoCloseBrackets)
+        XCTAssertTrue(prefs.indentBetweenBrackets)
         prefs.autoIndent = false
         prefs.autoCloseBrackets = false
+        prefs.indentBetweenBrackets = false
         let r = Preferences(defaults: defaults)
         XCTAssertFalse(r.autoIndent)
         XCTAssertFalse(r.autoCloseBrackets)
+        XCTAssertFalse(r.indentBetweenBrackets)
     }
 
     func testStripOnSaveDefaultsOnAndPersists() {
@@ -157,5 +160,25 @@ final class PreferencesTests: XCTestCase {
         XCTAssertLessThanOrEqual(prefs.editorPadding, 40)
         prefs.editorPadding = 12
         XCTAssertEqual(Preferences(defaults: defaults).editorPadding, 12)
+    }
+
+    func testRainbowBracketDefaultsAndPersist() {
+        XCTAssertTrue(prefs.rainbowBrackets)
+        XCTAssertTrue(prefs.emphasizeEnclosingPair)
+        XCTAssertEqual(prefs.enclosingPairEmphasisStyle, .bold)
+        prefs.rainbowBrackets = false
+        prefs.emphasizeEnclosingPair = false
+        prefs.enclosingPairEmphasisStyle = .underline
+        let r = Preferences(defaults: defaults)
+        XCTAssertFalse(r.rainbowBrackets)
+        XCTAssertFalse(r.emphasizeEnclosingPair)
+        XCTAssertEqual(r.enclosingPairEmphasisStyle, .underline)
+    }
+
+    func testEmphasisStyleRoundTripsAllCases() {
+        for style in EnclosingPairEmphasisStyle.allCases {
+            prefs.enclosingPairEmphasisStyle = style
+            XCTAssertEqual(Preferences(defaults: defaults).enclosingPairEmphasisStyle, style)
+        }
     }
 }

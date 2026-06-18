@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0",
+  "name": "find: Opt-Cmd-F opens find+replace, clicking All replaces every match",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "comment": "Two different field types here: the find field is an NSSearchField that is first-responder on open, so we keyPress into it with NO click (autopilot's `type`/click drops a search field's field-editor focus). The replace field is a plain NSTextField that is NOT focused on open, so we click it first, then keyPress. Replace-all is the bar's 'All' button (NSButton, no key equivalent). Asserts now poll, so no manual settles are needed.",
+  "steps": [
+    {
+      "id": "seed-text",
+      "action": "setValue",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "red green red blue red" }
+    },
+    {
+      "id": "focus-editor",
+      "action": "click",
+      "target": { "identifier": "editorTextView" }
+    },
+    {
+      "id": "open-find-replace",
+      "action": "keyPress",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "opt+cmd+f" }
+    },
+    {
+      "id": "wait-replace-field",
+      "action": "waitFor",
+      "target": { "identifier": "replaceField" },
+      "args": { "present": true }
+    },
+    { "id": "find-r", "action": "keyPress", "target": { "identifier": "findField" }, "args": { "keys": "r" } },
+    { "id": "find-e", "action": "keyPress", "target": { "identifier": "findField" }, "args": { "keys": "e" } },
+    { "id": "find-d", "action": "keyPress", "target": { "identifier": "findField" }, "args": { "keys": "d" } },
+    {
+      "id": "assert-find-populated",
+      "action": "assert",
+      "target": { "identifier": "findField" },
+      "assert": { "property": "value", "op": "equals", "expected": "red" }
+    },
+    {
+      "id": "focus-replace-field",
+      "action": "click",
+      "target": { "identifier": "replaceField" }
+    },
+    { "id": "rep-a", "action": "keyPress", "target": { "identifier": "replaceField" }, "args": { "keys": "a" } },
+    { "id": "rep-m", "action": "keyPress", "target": { "identifier": "replaceField" }, "args": { "keys": "m" } },
+    { "id": "rep-b", "action": "keyPress", "target": { "identifier": "replaceField" }, "args": { "keys": "b" } },
+    { "id": "rep-e", "action": "keyPress", "target": { "identifier": "replaceField" }, "args": { "keys": "e" } },
+    { "id": "rep-r", "action": "keyPress", "target": { "identifier": "replaceField" }, "args": { "keys": "r" } },
+    {
+      "id": "assert-replace-populated",
+      "action": "assert",
+      "target": { "identifier": "replaceField" },
+      "assert": { "property": "value", "op": "equals", "expected": "amber" }
+    },
+    {
+      "id": "click-replace-all",
+      "action": "click",
+      "target": { "role": "AXButton", "title": "All" }
+    },
+    {
+      "id": "assert-replaced",
+      "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "equals", "expected": "amber green amber blue amber" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

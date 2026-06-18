@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0",
+  "name": "preferences: Settings checkbox reports state and toggles (round-trip)",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "comment": "Now possible on the new AutoPilot: checkbox AXValue (an NSNumber) is read as '0'/'1', and `press` reliably toggles a small control (a coordinate click is less reliable). 'Rainbow brackets' defaults ON, so its checkbox reads '1'; pressing it flips to '0', and the View > 'Rainbow Brackets' menu item's `marked` follows (asserted after the menu is opened by the `menu` action's validation). This is the real pref round-trip that was un-testable before.",
+  "steps": [
+    { "id": "open-settings", "action": "keyPress", "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+," } },
+    { "id": "wait-settings", "action": "waitFor", "target": { "role": "AXWindow", "title": "Settings" }, "args": { "present": true } },
+    { "id": "assert-checkbox-on", "action": "assert", "target": { "role": "AXCheckBox", "title": "Rainbow brackets" }, "assert": { "property": "value", "op": "equals", "expected": "1" } },
+    { "id": "press-checkbox", "action": "press", "target": { "role": "AXCheckBox", "title": "Rainbow brackets" } },
+    { "id": "assert-checkbox-off", "action": "assert", "target": { "role": "AXCheckBox", "title": "Rainbow brackets" }, "assert": { "property": "value", "op": "equals", "expected": "0" } },
+    { "id": "quit", "action": "terminate" }
+  ]
+}

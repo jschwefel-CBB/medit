@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "name": "menus: Rainbow Brackets menu item exists and toggles without error",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "comment": "LIMITATION: bracket colors are NSLayoutManager temporary attributes (not AX-readable) and menu-item checkmarks are not exposed in AX, so the actual recoloring is not assertable here. This plan verifies the View > 'Rainbow Brackets' item is present and clicking it twice (it has no key equivalent) raises no error and leaves bracketed text intact. Whether colors toggle on/off is a MANUAL visual check (see README).",
+  "steps": [
+    {
+      "id": "seed-brackets",
+      "action": "setValue",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "([{}])" }
+    },
+    {
+      "id": "assert-menu-item-exists",
+      "action": "assert",
+      "target": { "role": "AXMenuItem", "title": "Rainbow Brackets" },
+      "assert": { "property": "exists", "op": "exists", "expected": "true" }
+    },
+    {
+      "id": "click-toggle-off",
+      "action": "click",
+      "target": { "role": "AXMenuItem", "title": "Rainbow Brackets" }
+    },
+    {
+      "id": "click-toggle-on",
+      "action": "click",
+      "target": { "role": "AXMenuItem", "title": "Rainbow Brackets" }
+    },
+    {
+      "id": "assert-brackets-intact",
+      "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "equals", "expected": "([{}])" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

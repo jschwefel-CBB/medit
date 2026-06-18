@@ -21,6 +21,7 @@ public final class GoToLineSheet: NSObject {
         label.translatesAutoresizingMaskIntoConstraints = false
         field = NSTextField()
         field.translatesAutoresizingMaskIntoConstraints = false
+        field.setAccessibilityIdentifier("goToLineField")
         field.formatter = {
             let f = NumberFormatter(); f.numberStyle = .none; f.allowsFloats = false; f.minimum = 1
             return f

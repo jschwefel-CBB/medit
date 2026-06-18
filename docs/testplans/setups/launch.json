@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "name": "setup: launch medit with clean state and wait for window",
+  "target": {
+    "bundleId": "com.jschwefel.medit",
+    "launchArgs": ["--reset-state"]
+  },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "comment": "Verified live against medit 1.5.0: the editor (editorTextView), sidebar (sidebarOutline), and status label (positionLabel) DO surface their AXIdentifiers, so plans target by identifier. Menu items, however, expose NO value/mark-char in AX, so menu-toggle plans assert observable side effects (status-bar title, AXOutline presence) instead of the checkmark. --reset-state was strengthened (App/main.swift + LaunchReset.swift) to clear sidebar bookmarks, disable window restoration, and delete autosaved untitled docs, so this yields a truly empty editor at Ln 1, Col 1 with no sidebar roots.",
+  "steps": [
+    {
+      "id": "setup-wait-window",
+      "action": "waitFor",
+      "target": { "role": "AXWindow" },
+      "args": { "present": true }
+    },
+    {
+      "id": "setup-wait-editor",
+      "action": "waitFor",
+      "target": { "identifier": "editorTextView" },
+      "args": { "present": true }
+    },
+    {
+      "id": "setup-settle",
+      "action": "wait",
+      "args": { "seconds": 1 }
+    }
+  ]
+}

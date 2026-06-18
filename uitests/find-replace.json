@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "name": "find bar opens and accepts input",
+  "include": ["setups/launch.json"],
+  "target": {
+    "bundleId": "com.jschwefel.medit",
+    "launchArgs": ["--reset-state"]
+  },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "steps": [
+    { "id": "type-body", "action": "type",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "alpha beta alpha" } },
+    { "id": "open-find", "action": "keyPress",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "cmd+f" } },
+    { "id": "find-field-exists", "action": "assert",
+      "target": { "identifier": "findField" },
+      "assert": { "property": "exists", "op": "exists" } },
+    { "id": "type-query", "action": "type",
+      "target": { "identifier": "findField" },
+      "args": { "text": "alpha" } }
+  ]
+}

@@ -13,6 +13,9 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var showStatusBarCheck: NSButton!
     private var showInvisiblesCheck: NSButton!
     private var paddingField: NSTextField!
+    private var rainbowBracketsCheck: NSButton!
+    private var emphasizePairCheck: NSButton!
+    private var emphasisStylePopup: NSPopUpButton!
     private var smartQuotesCheck: NSButton!
     private var smartDashesCheck: NSButton!
     private var textReplacementCheck: NSButton!
@@ -23,6 +26,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var tabWidthField: NSTextField!
     private var pcKeysCheck: NSButton!
     private var autoIndentCheck: NSButton!
+    private var indentBetweenBracketsCheck: NSButton!
     private var autoCloseCheck: NSButton!
     private var stripWSCheck: NSButton!
     private var externalChangePopup: NSPopUpButton!
@@ -148,6 +152,12 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         wrapCheck = check("Wrap long lines", #selector(checkChanged))
         showStatusBarCheck = check("Show status bar", #selector(checkChanged))
         showInvisiblesCheck = check("Show invisibles", #selector(checkChanged))
+        rainbowBracketsCheck = check("Rainbow brackets", #selector(checkChanged))
+        emphasizePairCheck = check("Emphasize enclosing pair at caret", #selector(checkChanged))
+        emphasisStylePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+        emphasisStylePopup.addItems(withTitles: ["Bold", "Underline", "Background"])
+        emphasisStylePopup.target = self
+        emphasisStylePopup.action = #selector(emphasisStyleChanged)
 
         let paddingTitle = label("Text padding:")
         paddingField = NSTextField()
@@ -170,6 +180,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         tabWidthField.action = #selector(tabWidthChanged)
         pcKeysCheck = check("PC-style Home/End/Insert keys", #selector(checkChanged))
         autoIndentCheck = check("Auto-indent new lines", #selector(checkChanged))
+        indentBetweenBracketsCheck = check("Indent between brackets on Return", #selector(checkChanged))
         autoCloseCheck = check("Auto-close brackets", #selector(checkChanged))
         stripWSCheck = check("Strip trailing whitespace on save", #selector(checkChanged))
 
@@ -207,6 +218,11 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         stack.add(showInvisiblesCheck, indent: checkIndent)
         stack.addRow(label: paddingTitle, control: paddingField, controlWidth: 60)
 
+        stack.add(header("Brackets"), gap: 18)
+        stack.add(rainbowBracketsCheck, indent: checkIndent)
+        stack.add(emphasizePairCheck, indent: checkIndent)
+        stack.addRow(label: label("Enclosing-pair emphasis:"), control: emphasisStylePopup, controlWidth: 140)
+
         stack.add(header("Smart Substitutions"), gap: 18)
         stack.add(smartQuotesCheck, indent: checkIndent)
         stack.add(smartDashesCheck, indent: checkIndent)
@@ -220,6 +236,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         stack.addRow(label: tabTitle, control: tabWidthField, controlWidth: 60)
         stack.add(pcKeysCheck, indent: checkIndent)
         stack.add(autoIndentCheck, indent: checkIndent)
+        stack.add(indentBetweenBracketsCheck, indent: checkIndent)
         stack.add(autoCloseCheck, indent: checkIndent)
         stack.add(stripWSCheck, indent: checkIndent)
 
@@ -288,6 +305,13 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         showStatusBarCheck.state = prefs.showStatusBar ? .on : .off
         showInvisiblesCheck.state = prefs.showInvisibles ? .on : .off
         paddingField.integerValue = prefs.editorPadding
+        rainbowBracketsCheck.state = prefs.rainbowBrackets ? .on : .off
+        emphasizePairCheck.state = prefs.emphasizeEnclosingPair ? .on : .off
+        switch prefs.enclosingPairEmphasisStyle {
+        case .bold: emphasisStylePopup.selectItem(at: 0)
+        case .underline: emphasisStylePopup.selectItem(at: 1)
+        case .background: emphasisStylePopup.selectItem(at: 2)
+        }
         smartQuotesCheck.state = prefs.smartQuotes ? .on : .off
         smartDashesCheck.state = prefs.smartDashes ? .on : .off
         textReplacementCheck.state = prefs.automaticTextReplacement ? .on : .off
@@ -298,6 +322,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         tabWidthField.integerValue = prefs.tabWidth
         pcKeysCheck.state = prefs.pcStyleNavigationKeys ? .on : .off
         autoIndentCheck.state = prefs.autoIndent ? .on : .off
+        indentBetweenBracketsCheck.state = prefs.indentBetweenBrackets ? .on : .off
         autoCloseCheck.state = prefs.autoCloseBrackets ? .on : .off
         stripWSCheck.state = prefs.stripTrailingWhitespaceOnSave ? .on : .off
         switch prefs.externalChangePolicy {
@@ -351,9 +376,12 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         prefs.wrapLines = wrapCheck.state == .on
         prefs.showStatusBar = showStatusBarCheck.state == .on
         prefs.showInvisibles = showInvisiblesCheck.state == .on
+        prefs.rainbowBrackets = rainbowBracketsCheck.state == .on
+        prefs.emphasizeEnclosingPair = emphasizePairCheck.state == .on
         prefs.insertSpacesForTab = spacesCheck.state == .on
         prefs.pcStyleNavigationKeys = pcKeysCheck.state == .on
         prefs.autoIndent = autoIndentCheck.state == .on
+        prefs.indentBetweenBrackets = indentBetweenBracketsCheck.state == .on
         prefs.autoCloseBrackets = autoCloseCheck.state == .on
         prefs.stripTrailingWhitespaceOnSave = stripWSCheck.state == .on
     }
@@ -373,6 +401,14 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
     @objc private func paddingChanged(_ sender: Any?) {
         prefs.editorPadding = paddingField.integerValue
+    }
+
+    @objc private func emphasisStyleChanged(_ sender: Any?) {
+        switch emphasisStylePopup.indexOfSelectedItem {
+        case 1: prefs.enclosingPairEmphasisStyle = .underline
+        case 2: prefs.enclosingPairEmphasisStyle = .background
+        default: prefs.enclosingPairEmphasisStyle = .bold
+        }
     }
 
     @objc private func externalChangePolicyChanged(_ sender: Any?) {
