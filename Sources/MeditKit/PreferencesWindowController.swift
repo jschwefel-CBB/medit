@@ -15,6 +15,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var paddingField: NSTextField!
     private var rainbowBracketsCheck: NSButton!
     private var emphasizePairCheck: NSButton!
+    private var autoRefreshPreviewCheck: NSButton!
+    private var autoShowPreviewCheck: NSButton!
     private var emphasisStylePopup: NSPopUpButton!
     private var smartQuotesCheck: NSButton!
     private var smartDashesCheck: NSButton!
@@ -170,6 +172,11 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         emphasisStylePopup.action = #selector(emphasisStyleChanged)
         emphasisStylePopup.toolTip = "How the enclosing pair is emphasized: bold, underline, or background"
 
+        autoRefreshPreviewCheck = check("Auto-refresh preview", #selector(checkChanged))
+        autoRefreshPreviewCheck.toolTip = "Keep the Markdown preview up to date as you edit or the file changes"
+        autoShowPreviewCheck = check("Auto-show preview for Markdown", #selector(checkChanged))
+        autoShowPreviewCheck.toolTip = "Open the rendered preview automatically when you open a Markdown file"
+
         let paddingTitle = label("Text padding:")
         paddingField = NSTextField()
         paddingField.formatter = paddingFormatter()
@@ -255,6 +262,10 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         stack.add(emphasizePairCheck, indent: checkIndent)
         stack.addRow(label: label("Enclosing-pair emphasis:"), control: emphasisStylePopup, controlWidth: 140)
 
+        stack.add(header("Markdown"), gap: 18)
+        stack.add(autoShowPreviewCheck, indent: checkIndent)
+        stack.add(autoRefreshPreviewCheck, indent: checkIndent)
+
         stack.add(header("Smart Substitutions"), gap: 18)
         stack.add(smartQuotesCheck, indent: checkIndent)
         stack.add(smartDashesCheck, indent: checkIndent)
@@ -339,6 +350,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         paddingField.integerValue = prefs.editorPadding
         rainbowBracketsCheck.state = prefs.rainbowBrackets ? .on : .off
         emphasizePairCheck.state = prefs.emphasizeEnclosingPair ? .on : .off
+        autoRefreshPreviewCheck.state = prefs.autoRefreshPreview ? .on : .off
+        autoShowPreviewCheck.state = prefs.autoShowPreviewForMarkdown ? .on : .off
         switch prefs.enclosingPairEmphasisStyle {
         case .bold: emphasisStylePopup.selectItem(at: 0)
         case .underline: emphasisStylePopup.selectItem(at: 1)
@@ -410,6 +423,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         prefs.showInvisibles = showInvisiblesCheck.state == .on
         prefs.rainbowBrackets = rainbowBracketsCheck.state == .on
         prefs.emphasizeEnclosingPair = emphasizePairCheck.state == .on
+        prefs.autoRefreshPreview = autoRefreshPreviewCheck.state == .on
+        prefs.autoShowPreviewForMarkdown = autoShowPreviewCheck.state == .on
         prefs.insertSpacesForTab = spacesCheck.state == .on
         prefs.pcStyleNavigationKeys = pcKeysCheck.state == .on
         prefs.autoIndent = autoIndentCheck.state == .on
