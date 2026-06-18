@@ -26,6 +26,12 @@ final class PreferencesTests: XCTestCase {
         XCTAssertFalse(Preferences(defaults: defaults).autoRefreshPreview)
     }
 
+    func testAutoShowPreviewForMarkdownDefaultsOffAndPersists() {
+        XCTAssertFalse(prefs.autoShowPreviewForMarkdown)
+        prefs.autoShowPreviewForMarkdown = true
+        XCTAssertTrue(Preferences(defaults: defaults).autoShowPreviewForMarkdown)
+    }
+
     func testDefaultsAreSane() {
         XCTAssertTrue(prefs.showLineNumbers)
         XCTAssertFalse(prefs.wrapLines)          // gedit default: no wrap

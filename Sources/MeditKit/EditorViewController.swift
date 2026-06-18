@@ -237,6 +237,10 @@ public final class EditorViewController: NSViewController {
         updateStatusBar()
         observePreferences()
         observeResize()
+        // Auto-open the preview for Markdown documents when the user opted in.
+        if prefs.autoShowPreviewForMarkdown, document?.highlightLanguage == "markdown" {
+            showPreview(true)
+        }
     }
 
     private func observeResize() {

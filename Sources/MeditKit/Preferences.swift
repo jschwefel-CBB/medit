@@ -73,6 +73,7 @@ public final class Preferences {
         static let emphasizeEnclosingPair = "emphasizeEnclosingPair"
         static let enclosingPairEmphasisStyle = "enclosingPairEmphasisStyle"
         static let autoRefreshPreview = "autoRefreshPreview"
+        static let autoShowPreviewForMarkdown = "autoShowPreviewForMarkdown"
     }
 
     private func registerDefaults() {
@@ -113,7 +114,8 @@ public final class Preferences {
             Key.rainbowBrackets: true,
             Key.emphasizeEnclosingPair: true,
             Key.enclosingPairEmphasisStyle: EnclosingPairEmphasisStyle.bold.rawValue,
-            Key.autoRefreshPreview: true
+            Key.autoRefreshPreview: true,
+            Key.autoShowPreviewForMarkdown: false
         ])
     }
 
@@ -310,6 +312,11 @@ public final class Preferences {
     public var autoRefreshPreview: Bool {
         get { defaults.bool(forKey: Key.autoRefreshPreview) }
         set { defaults.set(newValue, forKey: Key.autoRefreshPreview); didChange() }
+    }
+    /// Automatically show the preview when a Markdown document is opened.
+    public var autoShowPreviewForMarkdown: Bool {
+        get { defaults.bool(forKey: Key.autoShowPreviewForMarkdown) }
+        set { defaults.set(newValue, forKey: Key.autoShowPreviewForMarkdown); didChange() }
     }
 
     /// The highlight.js theme name to use for the given effective appearance.
