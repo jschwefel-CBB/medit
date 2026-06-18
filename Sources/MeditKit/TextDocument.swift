@@ -58,6 +58,24 @@ public final class TextDocument: NSDocument {
         self.editorWindowController = controller
     }
 
+    // MARK: Printing
+
+    /// Print the rendered Markdown preview for Markdown documents; otherwise fall
+    /// back to AppKit's default (plain text) printing. Uses the live editor text
+    /// so unsaved edits print too.
+    public override func printOperation(withSettings printSettings: [NSPrintInfo.AttributeKey: Any]) throws -> NSPrintOperation {
+        let info = NSPrintInfo(dictionary: printSettings)
+        let text = currentEditorTextOrModel
+        if highlightLanguage == "markdown" {
+            let op = MarkdownPrinter.operation(forMarkdown: text, info: info)
+            op.jobTitle = fileURL?.lastPathComponent ?? "Markdown"
+            return op
+        }
+        // Plain-text fallback (NSDocument's base printOperation is unimplemented).
+        return MarkdownPrinter.plainTextOperation(text, info: info,
+                                                  jobTitle: fileURL?.lastPathComponent ?? "Document")
+    }
+
     // MARK: Reading
 
     public override func read(from data: Data, ofType typeName: String) throws {
