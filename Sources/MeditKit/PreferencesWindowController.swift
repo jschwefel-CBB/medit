@@ -138,63 +138,95 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             NSButton(checkboxWithTitle: title, target: self, action: action)
         }
 
-        // Build all controls.
+        // Build all controls. Each interactive control carries a help tooltip
+        // (macOS standard): a short phrase describing the setting's effect,
+        // sentence case, no trailing period. A test guards that none are missing.
         fontLabel = NSTextField(labelWithString: "")
         let fontButton = NSButton(title: "Change…", target: self, action: #selector(chooseFont))
         fontButton.bezelStyle = .rounded
+        fontButton.toolTip = "Choose the editor's font family and size"
 
         appearancePopup = NSPopUpButton(frame: .zero, pullsDown: false)
         appearancePopup.addItems(withTitles: ["System", "Light", "Dark"])
         appearancePopup.target = self
         appearancePopup.action = #selector(appearanceChanged)
+        appearancePopup.toolTip = "Match the system appearance, or force a light or dark theme"
 
         lineNumbersCheck = check("Show line numbers", #selector(checkChanged))
+        lineNumbersCheck.toolTip = "Display a line-number gutter down the left edge"
         wrapCheck = check("Wrap long lines", #selector(checkChanged))
+        wrapCheck.toolTip = "Wrap text to the window width instead of scrolling horizontally"
         showStatusBarCheck = check("Show status bar", #selector(checkChanged))
+        showStatusBarCheck.toolTip = "Show the bottom bar with line/column, language, and encoding"
         showInvisiblesCheck = check("Show invisibles", #selector(checkChanged))
+        showInvisiblesCheck.toolTip = "Reveal spaces, tabs, and line breaks as faint marks"
         rainbowBracketsCheck = check("Rainbow brackets", #selector(checkChanged))
+        rainbowBracketsCheck.toolTip = "Color brackets by nesting depth so matching pairs are easy to spot"
         emphasizePairCheck = check("Emphasize enclosing pair at caret", #selector(checkChanged))
+        emphasizePairCheck.toolTip = "Highlight the bracket pair that surrounds the cursor"
         emphasisStylePopup = NSPopUpButton(frame: .zero, pullsDown: false)
         emphasisStylePopup.addItems(withTitles: ["Bold", "Underline", "Background"])
         emphasisStylePopup.target = self
         emphasisStylePopup.action = #selector(emphasisStyleChanged)
+        emphasisStylePopup.toolTip = "How the enclosing pair is emphasized: bold, underline, or background"
 
         let paddingTitle = label("Text padding:")
         paddingField = NSTextField()
         paddingField.formatter = paddingFormatter()
         paddingField.target = self
         paddingField.action = #selector(paddingChanged)
+        paddingField.toolTip = "Blank space between the text and the editor's edges, in points"
 
         smartQuotesCheck = check("Smart quotes", #selector(smartSubstChanged))
+        smartQuotesCheck.toolTip = "Convert straight quotes to curly typographic quotes as you type"
         smartDashesCheck = check("Smart dashes", #selector(smartSubstChanged))
+        smartDashesCheck.toolTip = "Convert double hyphens to en and em dashes as you type"
         textReplacementCheck = check("Automatic text replacement", #selector(smartSubstChanged))
+        textReplacementCheck.toolTip = "Apply your macOS text-replacement shortcuts while typing"
         spellingCorrectionCheck = check("Correct spelling automatically", #selector(smartSubstChanged))
+        spellingCorrectionCheck.toolTip = "Fix misspellings automatically as you type"
         smartInsertDeleteCheck = check("Smart copy/paste spacing", #selector(smartSubstChanged))
+        smartInsertDeleteCheck.toolTip = "Adjust spaces automatically when cutting and pasting words"
         continuousSpellCheck = check("Check spelling while typing", #selector(smartSubstChanged))
+        continuousSpellCheck.toolTip = "Underline misspelled words as you type"
 
         spacesCheck = check("Insert spaces instead of tabs", #selector(checkChanged))
+        spacesCheck.toolTip = "Indent with spaces rather than tab characters"
         let tabTitle = label("Tab width:")
         tabWidthField = NSTextField()
         tabWidthField.formatter = integerFormatter()
         tabWidthField.target = self
         tabWidthField.action = #selector(tabWidthChanged)
+        tabWidthField.toolTip = "Number of spaces a tab represents"
         pcKeysCheck = check("PC-style Home/End/Insert keys", #selector(checkChanged))
+        pcKeysCheck.toolTip = "Home/End jump to line start/end, and Insert toggles overwrite"
         autoIndentCheck = check("Auto-indent new lines", #selector(checkChanged))
+        autoIndentCheck.toolTip = "Match the previous line's indentation on Return"
         indentBetweenBracketsCheck = check("Indent between brackets on Return", #selector(checkChanged))
+        indentBetweenBracketsCheck.toolTip = "Pressing Return between a bracket pair opens an indented line between them"
         autoCloseCheck = check("Auto-close brackets", #selector(checkChanged))
+        autoCloseCheck.toolTip = "Type an opening bracket and the matching closing one is inserted"
         stripWSCheck = check("Strip trailing whitespace on save", #selector(checkChanged))
+        stripWSCheck.toolTip = "Remove trailing spaces and tabs from each line when saving"
 
         externalChangePopup = NSPopUpButton(frame: .zero, pullsDown: false)
         externalChangePopup.addItems(withTitles: ["Notify", "Prompt", "Auto-reload if clean"])
         externalChangePopup.target = self
         externalChangePopup.action = #selector(externalChangePolicyChanged)
+        externalChangePopup.toolTip = "What to do when a file changes on disk outside medit"
 
         sortFoldersFirstCheck = check("Sort folders first", #selector(sidebarCheckChanged))
+        sortFoldersFirstCheck.toolTip = "List folders above files in the sidebar"
         sortAscendingCheck = check("Sort A→Z (off = Z→A)", #selector(sidebarCheckChanged))
+        sortAscendingCheck.toolTip = "Sort sidebar entries alphabetically; turn off to reverse"
         openOnSingleClickCheck = check("Open on single click", #selector(sidebarCheckChanged))
+        openOnSingleClickCheck.toolTip = "Open files with a single click instead of a double click"
         sidebarOnRightCheck = check("Sidebar on the right", #selector(sidebarCheckChanged))
+        sidebarOnRightCheck.toolTip = "Place the file sidebar on the right side of the window"
         confirmDeleteCheck = check("Confirm before deleting", #selector(sidebarCheckChanged))
+        confirmDeleteCheck.toolTip = "Ask for confirmation before moving an item to the Trash"
         revealActiveFileCheck = check("Reveal the active file", #selector(sidebarCheckChanged))
+        revealActiveFileCheck.toolTip = "Select the current document in the sidebar as you switch tabs"
 
         // Stack everything top-down with section headers.
         let leftMargin: CGFloat = 20
@@ -435,5 +467,31 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         case .light: NSApp.appearance = NSAppearance(named: .aqua)
         case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
         }
+    }
+
+    // MARK: Testing
+
+    /// Every interactive setting control in the window (checkboxes, popups, and
+    /// editable value fields), found by walking the built view tree. Used by the
+    /// tooltip-coverage test so a new control can't ship without a help tooltip.
+    /// Excludes static labels/headers and the read-only font label.
+    public func interactiveControlsForTesting() -> [NSControl] {
+        guard let root = window?.contentView else { return [] }
+        var found: [NSControl] = []
+        func walk(_ view: NSView) {
+            // Order matters: NSPopUpButton is an NSButton subclass, so match it
+            // first. The only plain NSButtons in this window are the setting
+            // checkboxes and the font "Change…" button — all want a tooltip.
+            if let popup = view as? NSPopUpButton {
+                found.append(popup)
+            } else if let button = view as? NSButton {
+                found.append(button)
+            } else if let field = view as? NSTextField, field.isEditable {
+                found.append(field)
+            }
+            view.subviews.forEach(walk)
+        }
+        walk(root)
+        return found
     }
 }
