@@ -144,7 +144,8 @@ rapid-suite flakiness note). "Self-contained" = no manual step beyond the
 | `menus/line-numbers-toggle.json` | `Show Line Numbers` item exists; ⇧⌘L toggles without error (ruler/mark not AX-observable). | ✅ |
 | `menus/rainbow-brackets-toggle.json` | `Rainbow Brackets` item exists; clicking it leaves bracketed text intact (color not AX-observable). | ✅ |
 | `menus/sidebar-toggle.json` | ⌃⌘0 reveals the sidebar; `sidebarOutline` appears (absent→present). | ✅ |
-| `preferences/open-settings.json` | `Settings…` menu item exists (the window itself is not autopilot-drivable — gap #3). | ✅ |
+| `preferences/open-settings.json` | Cmd-, opens the `Settings` window; key controls present. | ✅ |
+| `preferences/settings-checkbox-roundtrip.json` | A Settings checkbox reports its state (`1`) and `press` toggles it (`0`). | ✅ |
 | `sidebar/empty-space-menu.json` | Right-click empty sidebar shows **only** `Open Folder…`. | ✅ |
 | `sidebar/new-file.json` | Folder ▸ New File creates `untitled` and enters inline rename (1.5 flow). | ✅ via `--open-folder` |
 | `sidebar/new-folder.json` | Folder ▸ New Folder creates `untitled folder` **inside** it and enters rename (1.5 fix). | ✅ via `--open-folder` |

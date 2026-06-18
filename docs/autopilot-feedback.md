@@ -78,6 +78,31 @@ regions (gutter background, selection), not thin glyphs.
 - `keyPress`-per-character is a reliable escape hatch for any field `type` can't drive —
   keep it working.
 
+### Round-2 verification (commit `b379586`) — both fixes confirmed, one residue
+
+We re-pulled after your `focus: false` + numeric-`AXValue` fixes and verified them
+against the live app:
+
+- **`type focus: false` — works for plain `NSTextField`.** The sidebar rename
+  fields now take a single `type {text, focus:false, commit:true}` step (replacing a
+  6-step `keyPress`-per-char chain) and the file is renamed on disk. 
+- **Checkbox value — fixed.** `assert value == "1"`/`"0"` now reads an `AXCheckBox`,
+  and `press` toggles it. We added a real Settings round-trip plan
+  (`assert "1"` → `press` → `assert "0"`) that was impossible before. 
+- **Residue (P2): `focus: false` does NOT rescue an `NSSearchField`.** Our find field
+  is an `NSSearchField`; `type` with `focus:false` still lands nothing in it (verified
+  3/3 fail), while `keyPress`-per-char works. Likely because the editable text is in
+  the search field's **child field editor**, and `type` targets the resolved
+  container element rather than the field editor / first responder, whereas `keyPress`
+  sends raw key events to whatever is first responder. So the find/replace plans keep
+  `keyPress`. *Possible fix:* when the resolved element is an `AXTextField`/search
+  field with a focusable child text element, route `type` to the field editor (or the
+  current first responder) rather than the container. Plain text fields are fine; the
+  search field is the lone outlier.
+
+Net: with both fixes, the medit suite is **19/19** (added the checkbox round-trip),
+and the only typing case still needing `keyPress` is the `NSSearchField`.
+
 ---
 
 ## ROUND 1 — original report (commit `3d7b5cb`)
