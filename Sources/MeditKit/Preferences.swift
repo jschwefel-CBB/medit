@@ -72,6 +72,9 @@ public final class Preferences {
         static let rainbowBrackets = "rainbowBrackets"
         static let emphasizeEnclosingPair = "emphasizeEnclosingPair"
         static let enclosingPairEmphasisStyle = "enclosingPairEmphasisStyle"
+        static let autoRefreshPreview = "autoRefreshPreview"
+        static let autoShowPreviewForMarkdown = "autoShowPreviewForMarkdown"
+        static let printLineNumbers = "printLineNumbers"
     }
 
     private func registerDefaults() {
@@ -111,7 +114,10 @@ public final class Preferences {
             Key.editorPadding: 4,
             Key.rainbowBrackets: true,
             Key.emphasizeEnclosingPair: true,
-            Key.enclosingPairEmphasisStyle: EnclosingPairEmphasisStyle.bold.rawValue
+            Key.enclosingPairEmphasisStyle: EnclosingPairEmphasisStyle.bold.rawValue,
+            Key.autoRefreshPreview: true,
+            Key.autoShowPreviewForMarkdown: false,
+            Key.printLineNumbers: true
         ])
     }
 
@@ -303,6 +309,21 @@ public final class Preferences {
     public var enclosingPairEmphasisStyle: EnclosingPairEmphasisStyle {
         get { EnclosingPairEmphasisStyle(rawValue: defaults.string(forKey: Key.enclosingPairEmphasisStyle) ?? "") ?? .bold }
         set { defaults.set(newValue.rawValue, forKey: Key.enclosingPairEmphasisStyle); didChange() }
+    }
+    /// Keep the Markdown preview current from buffer edits and on-disk changes.
+    public var autoRefreshPreview: Bool {
+        get { defaults.bool(forKey: Key.autoRefreshPreview) }
+        set { defaults.set(newValue, forKey: Key.autoRefreshPreview); didChange() }
+    }
+    /// Automatically show the preview when a Markdown document is opened.
+    public var autoShowPreviewForMarkdown: Bool {
+        get { defaults.bool(forKey: Key.autoShowPreviewForMarkdown) }
+        set { defaults.set(newValue, forKey: Key.autoShowPreviewForMarkdown); didChange() }
+    }
+    /// Include line numbers and a filename header when printing plain/source files.
+    public var printLineNumbers: Bool {
+        get { defaults.bool(forKey: Key.printLineNumbers) }
+        set { defaults.set(newValue, forKey: Key.printLineNumbers); didChange() }
     }
 
     /// The highlight.js theme name to use for the given effective appearance.

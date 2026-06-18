@@ -13,6 +13,12 @@ public final class TextDocument: NSDocument {
     /// through `updateText(_:)` (which also flags the document dirty).
     public private(set) var text: String = ""
 
+    /// A pristine, untitled document: never saved (no file), currently empty, and
+    /// never edited. Such a lone tab can be replaced when a file is opened.
+    public var isPristineUntitled: Bool {
+        fileURL == nil && text.isEmpty && !isDocumentEdited
+    }
+
     /// Encoding to use when saving. Defaults to UTF-8 for new documents;
     /// set to the detected encoding when an existing file is read.
     public var fileEncoding: String.Encoding = .utf8
@@ -50,6 +56,26 @@ public final class TextDocument: NSDocument {
         let controller = EditorWindowController(document: self)
         addWindowController(controller)
         self.editorWindowController = controller
+    }
+
+    // MARK: Printing
+
+    /// Print the rendered Markdown preview for Markdown documents; otherwise fall
+    /// back to AppKit's default (plain text) printing. Uses the live editor text
+    /// so unsaved edits print too.
+    public override func printOperation(withSettings printSettings: [NSPrintInfo.AttributeKey: Any]) throws -> NSPrintOperation {
+        let info = NSPrintInfo(dictionary: printSettings)
+        let text = currentEditorTextOrModel
+        if highlightLanguage == "markdown" {
+            let op = MarkdownPrinter.operation(forMarkdown: text, info: info)
+            op.jobTitle = fileURL?.lastPathComponent ?? "Markdown"
+            return op
+        }
+        // Plain-text fallback (NSDocument's base printOperation is unimplemented).
+        return MarkdownPrinter.plainTextOperation(
+            text, info: info,
+            jobTitle: fileURL?.lastPathComponent ?? "Document",
+            lineNumbers: Preferences.shared.printLineNumbers)
     }
 
     // MARK: Reading

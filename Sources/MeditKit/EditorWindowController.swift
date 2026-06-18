@@ -332,6 +332,15 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         editor?.applyShowInvisibles(prefs.showInvisibles)
     }
 
+    @IBAction public func toggleMarkdownPreview(_ sender: Any?) {
+        guard let editor else { return }
+        editor.showPreview(!editor.isPreviewVisible)
+    }
+
+    @IBAction public func toggleAutoShowMarkdownPreview(_ sender: Any?) {
+        prefs.autoShowPreviewForMarkdown.toggle()
+    }
+
     // Distinct name (NOT a generic `toggleBrackets`) to avoid any AppKit selector
     // collision — the lesson from the toggleSidebar/NSSplitViewController clash.
     @IBAction public func toggleRainbowBrackets(_ sender: Any?) {
@@ -358,6 +367,12 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
             menuItem.state = prefs.showInvisibles ? .on : .off
         case #selector(toggleRainbowBrackets(_:)):
             menuItem.state = prefs.rainbowBrackets ? .on : .off
+        case #selector(toggleMarkdownPreview(_:)):
+            menuItem.state = (editor?.isPreviewVisible == true) ? .on : .off
+            // Only meaningful for Markdown documents.
+            return textDocument.highlightLanguage == "markdown"
+        case #selector(toggleAutoShowMarkdownPreview(_:)):
+            menuItem.state = prefs.autoShowPreviewForMarkdown ? .on : .off
         default:
             break
         }
