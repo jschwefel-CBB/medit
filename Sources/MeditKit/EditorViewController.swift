@@ -301,17 +301,28 @@ public final class EditorViewController: NSViewController {
         let storage = NSTextStorage()
         let layout = MarkdownPreviewLayoutManager()
         storage.addLayoutManager(layout)
+        // Container tracks the text view's WIDTH but grows unbounded in height so
+        // the text view becomes as tall as the content — which is what lets the
+        // enclosing scroll view scroll.
         let textContainer = NSTextContainer(size: NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude))
         textContainer.widthTracksTextView = true
+        textContainer.heightTracksTextView = false
         layout.addTextContainer(textContainer)
         previewLayoutManager = layout
-        let tv = NSTextView(frame: .zero, textContainer: textContainer)
+        let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 100), textContainer: textContainer)
         tv.isEditable = false
         tv.isSelectable = true
         tv.drawsBackground = true
         tv.backgroundColor = .textBackgroundColor
         tv.textContainerInset = NSSize(width: CGFloat(prefs.editorPadding), height: CGFloat(prefs.editorPadding))
         tv.setAccessibilityIdentifier("markdownPreviewTextView")
+        // Vertical-scroll configuration (NSTextView(frame:textContainer:) doesn't
+        // set these the way scrollableTextView() would).
+        tv.minSize = NSSize(width: 0, height: 0)
+        tv.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        tv.isVerticallyResizable = true
+        tv.isHorizontallyResizable = false
+        tv.autoresizingMask = [.width]
         let sv = NSScrollView()
         sv.translatesAutoresizingMaskIntoConstraints = false
         sv.hasVerticalScroller = true
