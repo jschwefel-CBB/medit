@@ -223,6 +223,11 @@ public enum MainMenu {
                                  action: #selector(EditorWindowController.toggleRainbowBrackets(_:)), keyEquivalent: "")
         menu.addItem(rainbow)
 
+        let preview = NSMenuItem(title: "Show Markdown Preview",
+                                 action: #selector(EditorWindowController.toggleMarkdownPreview(_:)), keyEquivalent: "V")
+        preview.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(preview)
+
         let hiddenFiles = NSMenuItem(title: "Show Hidden Files",
                                      action: #selector(EditorWindowController.toggleHiddenFiles(_:)), keyEquivalent: "")
         menu.addItem(hiddenFiles)
