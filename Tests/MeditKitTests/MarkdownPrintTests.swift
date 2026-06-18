@@ -27,6 +27,15 @@ final class MarkdownPrintTests: XCTestCase {
         XCTAssertNotNil(op)
     }
 
+    func testPlainTextPrintWithLineNumbersIncludesHeaderAndNumbers() {
+        let op = MarkdownPrinter.plainTextOperation("alpha\nbeta\ngamma", jobTitle: "notes.txt",
+                                                    lineNumbers: true)
+        let s = (op.view as? NSTextView)?.string ?? ""
+        XCTAssertTrue(s.contains("notes.txt"), "header with filename")
+        XCTAssertTrue(s.contains("1") && s.contains("2") && s.contains("3"), "line numbers")
+        XCTAssertTrue(s.contains("beta"))
+    }
+
     func testPrinterBuildsOperationFromMarkdown() {
         let op = MarkdownPrinter.operation(forMarkdown: "# H\n\n| A | B |\n|---|---|\n| 1 | 2 |")
         XCTAssertNotNil(op.view as? NSTextView)

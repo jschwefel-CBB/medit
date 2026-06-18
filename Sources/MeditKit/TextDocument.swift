@@ -72,8 +72,10 @@ public final class TextDocument: NSDocument {
             return op
         }
         // Plain-text fallback (NSDocument's base printOperation is unimplemented).
-        return MarkdownPrinter.plainTextOperation(text, info: info,
-                                                  jobTitle: fileURL?.lastPathComponent ?? "Document")
+        return MarkdownPrinter.plainTextOperation(
+            text, info: info,
+            jobTitle: fileURL?.lastPathComponent ?? "Document",
+            lineNumbers: Preferences.shared.printLineNumbers)
     }
 
     // MARK: Reading

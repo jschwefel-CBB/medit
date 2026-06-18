@@ -61,9 +61,10 @@ enum MarkdownPrinter {
     }
 
     /// Plain monospace printing for non-Markdown documents (medit doesn't use
-    /// AppKit's default NSDocument printing, which is unimplemented here).
+    /// AppKit's default NSDocument printing, which is unimplemented here). When
+    /// `lineNumbers` is true, prepends a filename header and numbers each line.
     static func plainTextOperation(_ text: String, info: NSPrintInfo = .shared,
-                                   jobTitle: String) -> NSPrintOperation {
+                                   jobTitle: String, lineNumbers: Bool = false) -> NSPrintOperation {
         let printInfo = info.copy() as! NSPrintInfo
         printInfo.horizontalPagination = .automatic
         printInfo.verticalPagination = .automatic
@@ -72,14 +73,37 @@ enum MarkdownPrinter {
         printInfo.topMargin = margin; printInfo.bottomMargin = margin
         let pageWidth = printInfo.paperSize.width - margin * 2
 
+        let mono = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        let body = NSMutableAttributedString()
+
+        if lineNumbers {
+            // Filename header.
+            let header = NSAttributedString(string: "\(jobTitle)\n\n", attributes: [
+                .font: NSFont.boldSystemFont(ofSize: 12), .foregroundColor: NSColor.black])
+            body.append(header)
+            // Right-aligned, gutter-style line numbers in a leading column.
+            let lines = text.components(separatedBy: "\n")
+            let width = String(max(1, lines.count)).count
+            let para = NSMutableParagraphStyle()
+            para.headIndent = CGFloat(width + 2) * 7   // hang wrapped lines past the gutter
+            for (i, line) in lines.enumerated() {
+                let num = String(format: "%\(width)d  ", i + 1)
+                body.append(NSAttributedString(string: num, attributes: [
+                    .font: mono, .foregroundColor: NSColor(white: 0.5, alpha: 1), .paragraphStyle: para]))
+                body.append(NSAttributedString(string: line + "\n", attributes: [
+                    .font: mono, .foregroundColor: NSColor.black, .paragraphStyle: para]))
+            }
+        } else {
+            body.append(NSAttributedString(string: text, attributes: [
+                .font: mono, .foregroundColor: NSColor.black]))
+        }
+
         let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: pageWidth, height: 100))
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
         textView.backgroundColor = .white
         textView.drawsBackground = true
-        textView.string = text
-        textView.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        textView.textColor = .black
+        textView.textStorage?.setAttributedString(body)
         textView.sizeToFit()
 
         let op = NSPrintOperation(view: textView, printInfo: printInfo)
