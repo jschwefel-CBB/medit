@@ -15,6 +15,13 @@ public final class EditorViewController: NSViewController {
     private var appearanceObservation: NSKeyValueObservation?
     private var isWrapping = false
 
+    // Markdown preview (per-tab; not a global pref). The preview pane is built
+    // lazily and swapped in for the editor scroll view by `showPreview`.
+    private var isShowingPreview = false
+    private var previewScrollView: NSScrollView?
+    private var previewTextView: NSTextView?
+    private var previewRefreshWorkItem: DispatchWorkItem?
+
     /// The window controller that handles "New Tab" from our context menu.
     weak var newTabActionTarget: AnyObject?
 
@@ -260,10 +267,85 @@ public final class EditorViewController: NSViewController {
         configureRuler(visible: prefs.showLineNumbers)
         bracketColorizer?.refresh()
         ruler?.needsDisplay = true
+        if isShowingPreview { renderPreview() }
     }
 
     /// The live text currently in the editor (for saves).
     var currentText: String { textView.string }
+
+    // MARK: Markdown preview
+
+    /// Whether the rendered Markdown preview is currently shown (per-tab state).
+    public var isPreviewVisible: Bool { isShowingPreview }
+
+    /// Show or hide the read-only Markdown preview, swapping it for the editor.
+    public func showPreview(_ show: Bool) {
+        if show {
+            buildPreviewIfNeeded()
+            renderPreview()
+        }
+        isShowingPreview = show
+        previewScrollView?.isHidden = !show
+        scrollView.isHidden = show
+    }
+
+    private func buildPreviewIfNeeded() {
+        guard previewScrollView == nil else { return }
+        let tv = NSTextView()
+        tv.isEditable = false
+        tv.isSelectable = true
+        tv.drawsBackground = true
+        tv.backgroundColor = .textBackgroundColor
+        tv.textContainerInset = NSSize(width: CGFloat(prefs.editorPadding), height: CGFloat(prefs.editorPadding))
+        tv.setAccessibilityIdentifier("markdownPreviewTextView")
+        let sv = NSScrollView()
+        sv.translatesAutoresizingMaskIntoConstraints = false
+        sv.hasVerticalScroller = true
+        sv.hasHorizontalScroller = false
+        sv.autohidesScrollers = true
+        sv.borderType = .noBorder
+        sv.documentView = tv
+        sv.isHidden = true
+        let container = view
+        container.addSubview(sv)
+        // Occupy the exact band the editor scroll view occupies.
+        NSLayoutConstraint.activate([
+            sv.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            sv.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            sv.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            sv.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+        ])
+        previewScrollView = sv
+        previewTextView = tv
+    }
+
+    private func previewFont() -> NSFont {
+        NSFont(name: prefs.fontName, size: prefs.fontSize)
+            ?? NSFont.monospacedSystemFont(ofSize: prefs.fontSize, weight: .regular)
+    }
+
+    private func renderPreview() {
+        guard let tv = previewTextView else { return }
+        let dark = view.effectiveAppearance.isDark
+        let theme = MarkdownRenderer.Theme(
+            baseFont: previewFont(),
+            foreground: EditorColors.foreground,
+            secondary: .secondaryLabelColor,
+            codeBackground: NSColor.gray.withAlphaComponent(dark ? 0.22 : 0.12),
+            linkColor: .linkColor,
+            isDark: dark)
+        let rendered = MarkdownRenderer(theme: theme).render(currentText)
+        tv.textStorage?.setAttributedString(rendered)
+    }
+
+    /// Debounced re-render while preview is visible and auto-refresh is on.
+    private func schedulePreviewRefresh() {
+        guard isShowingPreview, prefs.autoRefreshPreview else { return }
+        previewRefreshWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.renderPreview() }
+        previewRefreshWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+    }
 
     // MARK: Font
 
@@ -382,6 +464,7 @@ public final class EditorViewController: NSViewController {
             self.highlighter?.setTheme(self.prefs.highlightThemeName(forDarkMode: isDark))
             // Re-resolve the depth palette for the new appearance.
             self.bracketColorizer?.refresh()
+            if self.isShowingPreview { self.renderPreview() }
         }
     }
 
@@ -437,6 +520,10 @@ public final class EditorViewController: NSViewController {
         applyStatusBarVisibility(prefs.showStatusBar)
         applyShowInvisibles(prefs.showInvisibles)
         configureBracketColorizer()
+        if isShowingPreview {
+            previewTextView?.textContainerInset = NSSize(width: pad, height: pad)
+            renderPreview()
+        }
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -651,6 +738,9 @@ public final class EditorViewController: NSViewController {
     func refreshBracketColorizerForTesting() { bracketColorizer?.refresh() }
     /// Test hook: re-run the preference-changed handler.
     func applyPreferencesForTesting() { preferencesChanged() }
+    var isPreviewVisibleForTesting: Bool { isShowingPreview }
+    func togglePreviewForTesting() { showPreview(!isShowingPreview) }
+    var previewAttributedStringForTesting: NSAttributedString? { previewTextView?.attributedString() }
 
     private func updateMatchStatus(for query: SearchQuery) {
         guard let bar = findReplaceBar else { return }
@@ -694,6 +784,7 @@ extension EditorViewController: NSTextViewDelegate {
         configureRuler(visible: prefs.showLineNumbers)
         ruler?.needsDisplay = true
         updateStatusBar()
+        schedulePreviewRefresh()
     }
 
     public func textViewDidChangeSelection(_ notification: Notification) {
