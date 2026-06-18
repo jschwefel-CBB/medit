@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "name": "markdown: View > Show Markdown Preview toggles a rendered preview pane",
+  "target": { "bundleId": "com.jschwefel.medit", "launchFiles": ["/tmp/medit-md-demo.md"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "comment": "PRECONDITION: write a Markdown fixture first, e.g. `printf '# Heading 1\\n\\n- a\\n- b\\n' > /tmp/medit-md-demo.md`. Verifies Phase 1: a .md file opens in the editor, the preview pane (markdownPreviewTextView) is absent until toggled, the View > Show Markdown Preview menu action (⇧⌘V) shows it, and the rendered NSAttributedString contains the document's heading text. No --reset-state: launchFiles needs the file to stay open.",
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "settle", "action": "wait", "args": { "seconds": 1 } },
+    { "id": "assert-no-preview", "action": "assert", "target": { "identifier": "markdownPreviewTextView" }, "assert": { "property": "exists", "op": "notExists", "expected": "true" } },
+    { "id": "toggle-preview", "action": "menu", "args": { "menuPath": ["View", "Show Markdown Preview"] } },
+    { "id": "wait-preview", "action": "waitFor", "target": { "identifier": "markdownPreviewTextView" }, "args": { "present": true } },
+    { "id": "assert-rendered", "action": "assert", "target": { "identifier": "markdownPreviewTextView" }, "assert": { "property": "value", "op": "contains", "expected": "Heading 1" } },
+    { "id": "quit", "action": "terminate" }
+  ]
+}
