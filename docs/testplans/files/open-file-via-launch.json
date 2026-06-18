@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0",
+  "name": "files: launching with a file opens it into the editor (open-path smoke)",
+  "target": {
+    "bundleId": "com.jschwefel.medit",
+    "launchFiles": ["/tmp/medit-fixture-open.txt"]
+  },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "comment": "PRECONDITION (MANUAL): create the fixture first — `printf 'opened via launch\\n' > /tmp/medit-fixture-open.txt`. Exercises the same openFiles(at:) path drag-to-open routes through. NOTE: deliberately NO --reset-state — that flag closes all documents at launch (to discard restored sessions), which would also close the file we just asked to open. So this plan launches without reset and asserts the launched file's contents reach the editor. The drag-opens-file-vs-pastes-path behavior itself is covered by the headless EditorTextView.performFileDropForTesting Swift test (autopilot has no file-drag action). No include — this plan owns its target via launchFiles.",
+  "steps": [
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "target": { "role": "AXWindow" },
+      "args": { "present": true }
+    },
+    {
+      "id": "wait-editor",
+      "action": "waitFor",
+      "target": { "identifier": "editorTextView" },
+      "args": { "present": true }
+    },
+    {
+      "id": "settle",
+      "action": "wait",
+      "args": { "seconds": 1 }
+    },
+    {
+      "id": "assert-file-contents-loaded",
+      "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "opened via launch" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

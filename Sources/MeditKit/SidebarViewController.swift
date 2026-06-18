@@ -158,7 +158,13 @@ public final class SidebarViewController: NSViewController {
     // MARK: Root management (multi-root)
 
     public func addRoot(_ url: URL) {
-        guard !dataSource.roots.contains(where: { $0.url.path == url.path }) else { return }
+        // Normalize so the same folder added via two code paths (e.g. AppKit's
+        // openFiles plus the --open-folder hook, which may differ only by a
+        // trailing slash) is deduped to a single root.
+        let target = url.standardizedFileURL.resolvingSymlinksInPath().path
+        guard !dataSource.roots.contains(where: {
+            $0.url.standardizedFileURL.resolvingSymlinksInPath().path == target
+        }) else { return }
         // The open panel granted access; hold it and bookmark it for next launch.
         if url.startAccessingSecurityScopedResource() {
             accessedRootURLs.insert(url)

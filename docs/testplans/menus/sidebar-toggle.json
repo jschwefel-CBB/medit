@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0",
+  "name": "menus: Show Sidebar (Ctrl-Cmd-0) reveals the sidebar outline view",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "comment": "showSidebar defaults false, so the split pane starts collapsed and sidebarOutline is ABSENT from the AX tree (verified). Ctrl-Cmd-0 expands it -> the outline appears. NOTE: collapsing again does NOT remove the outline from the AX tree (NSSplitViewItem keeps the collapsed pane's view mounted), so only the reveal direction is assertable here; the hide is left to a manual/visual check. Menu-item checkmarks are not exposed in AX, so we assert on the outline's appearance, the directly observable effect.",
+  "steps": [
+    {
+      "id": "assert-outline-absent-initially",
+      "action": "assert",
+      "target": { "identifier": "sidebarOutline" },
+      "assert": { "property": "exists", "op": "notExists", "expected": "true" }
+    },
+    {
+      "id": "show-sidebar",
+      "action": "keyPress",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "ctrl+cmd+0" }
+    },
+    {
+      "id": "wait-outline-present",
+      "action": "waitFor",
+      "target": { "identifier": "sidebarOutline" },
+      "args": { "present": true }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

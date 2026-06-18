@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0",
+  "name": "sidebar: right-clicking empty space offers only Open Folder…",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "comment": "Verifies the 1.5 rule: right-clicking empty sidebar space (no row) shows ONLY 'Open Folder…' — not New File/New Folder. With a clean --reset-state launch the sidebar has no roots, so the whole outline is empty space; a right-click anywhere in it is an empty-space click. Asserts the allowed item exists and the disallowed items do not.",
+  "steps": [
+    {
+      "id": "show-sidebar",
+      "action": "keyPress",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "ctrl+cmd+0" }
+    },
+    {
+      "id": "wait-outline",
+      "action": "waitFor",
+      "target": { "identifier": "sidebarOutline" },
+      "args": { "present": true }
+    },
+    {
+      "id": "right-click-empty",
+      "action": "rightClick",
+      "target": { "identifier": "sidebarOutline" }
+    },
+    {
+      "id": "assert-open-folder-present",
+      "action": "assert",
+      "target": { "role": "AXMenuItem", "title": "Open Folder…" },
+      "assert": { "property": "exists", "op": "exists", "expected": "true" }
+    },
+    {
+      "id": "assert-no-new-file",
+      "action": "assert",
+      "target": { "role": "AXMenuItem", "title": "New File" },
+      "assert": { "property": "exists", "op": "notExists", "expected": "true" }
+    },
+    {
+      "id": "assert-no-new-folder",
+      "action": "assert",
+      "target": { "role": "AXMenuItem", "title": "New Folder" },
+      "assert": { "property": "exists", "op": "notExists", "expected": "true" }
+    },
+    {
+      "id": "dismiss-menu",
+      "action": "keyPress",
+      "target": { "identifier": "sidebarOutline" },
+      "args": { "keys": "escape" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

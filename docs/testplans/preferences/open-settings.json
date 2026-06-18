@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0",
+  "name": "preferences: Cmd-, opens the Settings window with expected controls",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "comment": "Now drivable on the new AutoPilot: the key map includes ',' so Cmd-, opens Settings (was impossible before). The window title is 'Settings'. We assert it opens and a representative control from several sections is present (by exact title — these checkboxes have no AXIdentifier). NOTE: checkbox on/off STATE is not assertable — AutoPilot reads AXValue via string cast, but an NSButton checkbox's AXValue is a number, so `assert value` returns empty. So this asserts presence only; the pref defaults are covered headlessly by PreferencesTests.",
+  "steps": [
+    { "id": "open-settings", "action": "keyPress", "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+," } },
+    { "id": "wait-settings", "action": "waitFor", "target": { "role": "AXWindow", "title": "Settings" }, "args": { "present": true } },
+    { "id": "assert-rainbow-checkbox", "action": "assert", "target": { "role": "AXCheckBox", "title": "Rainbow brackets" }, "assert": { "property": "exists", "op": "exists", "expected": "true" } },
+    { "id": "assert-indent-checkbox", "action": "assert", "target": { "role": "AXCheckBox", "title": "Indent between brackets on Return" }, "assert": { "property": "exists", "op": "exists", "expected": "true" } },
+    { "id": "assert-spaces-checkbox", "action": "assert", "target": { "role": "AXCheckBox", "title": "Insert spaces instead of tabs" }, "assert": { "property": "exists", "op": "exists", "expected": "true" } },
+    { "id": "quit", "action": "terminate" }
+  ]
+}

@@ -15,6 +15,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = MainMenu.build(appName: displayName(default: appName))
         NSApp.setActivationPolicy(.regular)
 
+        // Under --reset-state (the GUI test driver), close any document that
+        // AppKit/macOS restored from the previous session so the suite starts
+        // from a guaranteed-blank Untitled window. macOS reopens the last
+        // document from state outside our UserDefaults domain, so clearing
+        // defaults is not enough — we close them here, after restoration has run.
+        let resetting = LaunchReset.isRequested(in: CommandLine.arguments)
+        if resetting { closeAllRestoredDocuments() }
+
         // Restore-last-session, else one blank tab. State restoration runs
         // around launch; we can't reliably know during
         // applicationShouldOpenUntitledFile whether a window was restored, so we
@@ -22,7 +30,30 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // if nothing was restored. This avoids the "two tabs at launch" bug where
         // restoration AND an untitled-open both fire.
         DispatchQueue.main.async { [weak self] in
+            // A reopened document can arrive asynchronously after launch; under
+            // --reset-state close it again here before deciding about untitled.
+            if resetting { self?.closeAllRestoredDocuments() }
             self?.openUntitledIfNoDocuments()
+            self?.openLaunchFolderIfRequested()
+        }
+    }
+
+    /// If launched with `--open-folder <path>` (GUI test driver hook), seed that
+    /// folder as a sidebar root in the front window once it exists. Guarded so it
+    /// runs at most once even if AppKit also delivers the path via openFiles.
+    private var didOpenLaunchFolder = false
+    private func openLaunchFolderIfRequested() {
+        guard !didOpenLaunchFolder,
+              let path = LaunchReset.requestedFolderToOpen(in: CommandLine.arguments) else { return }
+        didOpenLaunchFolder = true
+        openFolderInFrontWindow(URL(fileURLWithPath: path, isDirectory: true))
+    }
+
+    /// Close every open document without saving — used only under --reset-state
+    /// to discard any session that macOS restored before launch.
+    private func closeAllRestoredDocuments() {
+        for document in NSDocumentController.shared.documents {
+            document.close()
         }
     }
 
@@ -52,6 +83,37 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     /// returning false here is safe for both launch and reopen.
     public func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
 
+    /// Intercept open requests for directories: AppKit/`NSDocumentController` would
+    /// otherwise try to open a folder as a document and fail ("cannot open files
+    /// in the folder format"). Route directories to the sidebar instead and hand
+    /// the rest to the normal document machinery.
+    public func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        var documentPaths: [String] = []
+        for path in filenames {
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue {
+                openFolderInFrontWindow(URL(fileURLWithPath: path, isDirectory: true))
+            } else {
+                documentPaths.append(path)
+            }
+        }
+        for path in documentPaths {
+            NSDocumentController.shared.openDocument(
+                withContentsOf: URL(fileURLWithPath: path), display: true) { _, _, _ in }
+        }
+        sender.reply(toOpenOrPrint: .success)
+    }
+
+    /// Open a folder as a sidebar root in the front editor window, creating one
+    /// (a blank untitled document) if none exists yet.
+    private func openFolderInFrontWindow(_ url: URL) {
+        openUntitledIfNoDocuments()
+        guard let controller = NSApp.mainWindow?.windowController as? EditorWindowController
+            ?? NSApp.windows.compactMap({ $0.windowController as? EditorWindowController }).first
+        else { return }
+        controller.openFolder(at: url)
+    }
+
     /// Clicking the Dock icon with no open windows should give a blank tab.
     public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag { openUntitledIfNoDocuments() }
@@ -59,6 +121,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    /// Block AppKit's window/state restoration pass entirely under --reset-state,
+    /// so no document window from a previous session is recreated. (Returns true
+    /// for normal launches, preserving restore-last-session behavior.)
+    public func applicationShouldRestoreApplicationState(_ app: NSApplication,
+                                                         coder: NSCoder) -> Bool {
+        !LaunchReset.isRequested(in: CommandLine.arguments)
+    }
 
     // MARK: Preferences
 

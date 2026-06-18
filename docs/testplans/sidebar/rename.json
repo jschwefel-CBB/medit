@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "name": "sidebar: Rename… on a file commits the new name",
+  "target": {
+    "bundleId": "com.jschwefel.medit",
+    "launchArgs": ["--reset-state", "--open-folder", "/tmp/medit-fixture"]
+  },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "comment": "PRECONDITION: `rm -rf /tmp/medit-fixture && mkdir -p /tmp/medit-fixture && printf x > /tmp/medit-fixture/old.txt`. Expand the root via its disclosure triangle (AXIdentifier NSOutlineViewDisclosureButtonKey), right-click old.txt > Rename… (U+2026 ellipsis), then keyPress the new name into the pre-focused field (no click) and Return to commit. Asserts the new name appears and old.txt is gone.",
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-outline", "action": "waitFor", "target": { "identifier": "sidebarOutline" }, "args": { "present": true } },
+    { "id": "expand-root", "action": "click", "target": { "identifier": "NSOutlineViewDisclosureButtonKey" } },
+    { "id": "wait-file-row", "action": "waitFor", "target": { "role": "AXStaticText", "value": "old.txt" }, "args": { "present": true } },
+    { "id": "right-click-file", "action": "rightClick", "target": { "role": "AXStaticText", "value": "old.txt" } },
+    { "id": "click-rename", "action": "click", "target": { "role": "AXMenuItem", "title": "Rename…" } },
+    { "id": "wait-rename-field", "action": "waitFor", "target": { "role": "AXTextField", "value": "old.txt" }, "args": { "present": true } },
+    { "id": "k-n", "action": "keyPress", "target": { "role": "AXTextField", "value": "old.txt" }, "args": { "keys": "n" } },
+    { "id": "k-e", "action": "keyPress", "target": { "role": "AXTextField", "value": "n" }, "args": { "keys": "e" } },
+    { "id": "k-w", "action": "keyPress", "target": { "role": "AXTextField", "value": "ne" }, "args": { "keys": "w" } },
+    { "id": "commit", "action": "keyPress", "target": { "role": "AXTextField", "value": "new" }, "args": { "keys": "return" } },
+    { "id": "assert-new-name", "action": "assert", "target": { "role": "AXStaticText", "value": "new" }, "assert": { "property": "exists", "op": "exists", "expected": "true" } },
+    { "id": "assert-old-gone", "action": "assert", "target": { "role": "AXStaticText", "value": "old.txt" }, "assert": { "property": "exists", "op": "notExists", "expected": "true" } },
+    { "id": "quit", "action": "terminate" }
+  ]
+}

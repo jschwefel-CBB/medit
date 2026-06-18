@@ -35,6 +35,11 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         // (the old 360x240 floor is what let it come back tiny).
         window.minSize = EditorWindowController.minWindowSize
         window.setFrameAutosaveName("medit.editor.window")
+        // Under --reset-state (the GUI test driver), opt the window out of AppKit
+        // state restoration so no previous session's document window comes back.
+        if LaunchReset.isRequested(in: CommandLine.arguments) {
+            window.isRestorable = false
+        }
 
         super.init(window: window)
 
@@ -285,6 +290,12 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         panel.allowsMultipleSelection = false
         panel.prompt = "Open Folder"
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        openFolder(at: url)
+    }
+
+    /// Open a folder as a sidebar root programmatically (no panel). Shared by the
+    /// menu handler and the `--open-folder` launch hook used by the test driver.
+    public func openFolder(at url: URL) {
         if !prefs.showSidebar { prefs.showSidebar = true; applySidebarVisibility() }
         sidebar?.activate()
         sidebar?.addRoot(url)

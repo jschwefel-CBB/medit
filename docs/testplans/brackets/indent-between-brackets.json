@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "name": "brackets: Return between a matched pair splits it across three lines with indent",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "comment": "indentBetweenBrackets defaults true; tabWidth defaults 2; insertSpacesForTab defaults true. With the caret between { and } (from auto-close), pressing Return should produce '{', a blank indented line, and '}' on its own line. We type the opener (auto-close gives '{|}'), then press Return, then assert both braces survive and a newline was inserted between them.",
+  "steps": [
+    {
+      "id": "click-editor",
+      "action": "click",
+      "target": { "identifier": "editorTextView" }
+    },
+    {
+      "id": "type-open-brace",
+      "action": "type",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "{" }
+    },
+    {
+      "id": "assert-brace-pair",
+      "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "{}" }
+    },
+    {
+      "id": "press-return",
+      "action": "keyPress",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "return" }
+    },
+    {
+      "id": "assert-open-brace-on-first-line",
+      "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "matches", "expected": "^\\{\\n" }
+    },
+    {
+      "id": "assert-close-brace-on-own-line",
+      "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "matches", "expected": "\\n\\}$" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

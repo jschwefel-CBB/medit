@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "name": "editor: status bar reports caret line/column after typing",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "steps": [
+    {
+      "id": "assert-initial-position",
+      "action": "assert",
+      "target": { "identifier": "positionLabel" },
+      "assert": { "property": "value", "op": "equals", "expected": "Ln 1, Col 1" }
+    },
+    {
+      "id": "type-line1",
+      "action": "type",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "abc" }
+    },
+    {
+      "id": "assert-col-advanced",
+      "action": "assert",
+      "target": { "identifier": "positionLabel" },
+      "assert": { "property": "value", "op": "equals", "expected": "Ln 1, Col 4" }
+    },
+    {
+      "id": "type-newline",
+      "action": "type",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "\n" }
+    },
+    {
+      "id": "assert-line-advanced",
+      "action": "assert",
+      "target": { "identifier": "positionLabel" },
+      "assert": { "property": "value", "op": "contains", "expected": "Ln 2" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

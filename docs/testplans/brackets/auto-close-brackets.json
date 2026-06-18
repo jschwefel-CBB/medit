@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0",
+  "name": "brackets: typing an opener auto-inserts its closer",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "comment": "autoCloseBrackets defaults to true. Typing '(' should yield '()' with the caret between. We assert the editor value contains the auto-inserted closer.",
+  "steps": [
+    {
+      "id": "click-editor",
+      "action": "click",
+      "target": { "identifier": "editorTextView" }
+    },
+    {
+      "id": "type-open-paren",
+      "action": "type",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "(" }
+    },
+    {
+      "id": "assert-pair-present",
+      "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "()" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

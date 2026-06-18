@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0",
+  "name": "navigation: Cmd-L opens Go to Line, entering a line moves the caret",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "comment": "The go-to-line field is first responder when the sheet opens, so we keyPress the digit directly (no click — see find-bar.json for why a click breaks an already-focused field). Asserts poll, so no manual settle is needed.",
+  "steps": [
+    {
+      "id": "seed-multiline",
+      "action": "setValue",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "line one\nline two\nline three\nline four\nline five" }
+    },
+    {
+      "id": "focus-editor",
+      "action": "click",
+      "target": { "identifier": "editorTextView" }
+    },
+    {
+      "id": "open-go-to-line",
+      "action": "keyPress",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "cmd+l" }
+    },
+    {
+      "id": "wait-goto-field",
+      "action": "waitFor",
+      "target": { "identifier": "goToLineField" },
+      "args": { "present": true }
+    },
+    {
+      "id": "type-line-number",
+      "action": "keyPress",
+      "target": { "identifier": "goToLineField" },
+      "args": { "keys": "4" }
+    },
+    {
+      "id": "confirm-goto",
+      "action": "keyPress",
+      "target": { "identifier": "goToLineField" },
+      "args": { "keys": "return" }
+    },
+    {
+      "id": "assert-caret-on-line-4",
+      "action": "assert",
+      "target": { "identifier": "positionLabel" },
+      "assert": { "property": "value", "op": "contains", "expected": "Ln 4" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}

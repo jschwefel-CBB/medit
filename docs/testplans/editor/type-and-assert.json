@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0",
+  "name": "editor: type text and assert it lands in the editor",
+  "target": { "bundleId": "com.jschwefel.medit", "launchArgs": ["--reset-state"] },
+  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "include": ["../setups/launch.json"],
+  "steps": [
+    {
+      "id": "click-editor",
+      "action": "click",
+      "target": { "identifier": "editorTextView" }
+    },
+    {
+      "id": "type-hello",
+      "action": "type",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "hello world" }
+    },
+    {
+      "id": "assert-contains",
+      "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "hello world" }
+    },
+    {
+      "id": "quit",
+      "action": "terminate"
+    }
+  ]
+}
