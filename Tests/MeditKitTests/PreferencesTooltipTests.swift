@@ -35,4 +35,20 @@ final class PreferencesTooltipTests: XCTestCase {
             XCTAssertGreaterThan(tip.count, 8, "tooltip too terse: \(tip)")
         }
     }
+
+    /// Discoverability guard (1.6.1): every setting control must have a clickable
+    /// ⓘ help button carrying the same help text — the slow system tooltip alone
+    /// wasn't obvious enough. One help button per interactive control.
+    func testEveryControlHasAHelpButton() {
+        let controller = makeController()
+        let controlTexts = controller.interactiveControlsForTesting()
+            .compactMap { $0.toolTip }.filter { !$0.isEmpty }.sorted()
+        let helpTexts = controller.helpButtonTextsForTesting().sorted()
+
+        XCTAssertEqual(helpTexts.count, controlTexts.count,
+            "expected one ⓘ help button per setting control; controls=\(controlTexts.count) help=\(helpTexts.count)")
+        // Every control's help text is presented by some help button.
+        XCTAssertEqual(helpTexts, controlTexts,
+            "help-button texts should match the controls' help text exactly")
+    }
 }

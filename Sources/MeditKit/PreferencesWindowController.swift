@@ -67,6 +67,99 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
     /// Vertical row stacker: each appended view is pinned below the previous one
     /// at the left margin, so adding/reordering rows needs no anchor surgery.
+    /// A circular ⓘ help button that is muted gray at rest and brightens to the
+    /// control accent color while the pointer is over it — discoverable on
+    /// approach without a permanent column of blue.
+    private final class HoverHelpButton: NSButton {
+        private var tracking: NSTrackingArea?
+        var restColor: NSColor = .secondaryLabelColor { didSet { if !hovering { contentTintColor = restColor } } }
+        var hoverColor: NSColor = .controlAccentColor
+        private var hovering = false
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            if let tracking { removeTrackingArea(tracking) }
+            let t = NSTrackingArea(rect: bounds,
+                                   options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+                                   owner: self, userInfo: nil)
+            addTrackingArea(t); tracking = t
+        }
+        override func mouseEntered(with event: NSEvent) {
+            hovering = true; contentTintColor = hoverColor
+        }
+        override func mouseExited(with event: NSEvent) {
+            hovering = false; contentTintColor = restColor
+        }
+    }
+
+    /// Owns the shared help popover and the per-button help text, and shows the
+    /// text in a popover anchored to the clicked ⓘ button. One instance per
+    /// Settings window. Keeps help text discoverable without the slow,
+    /// non-obvious system tooltip hover.
+    private final class HelpButtonController: NSObject {
+        static let axIdentifier = "settingsHelpButton"
+        private let popover = NSPopover()
+        private var textByButton: [ObjectIdentifier: String] = [:]
+        private let textField = NSTextField(wrappingLabelWithString: "")
+
+        override init() {
+            super.init()
+            popover.behavior = .transient
+            popover.animates = true
+            let vc = NSViewController()
+            let container = NSView()
+            textField.translatesAutoresizingMaskIntoConstraints = false
+            textField.isEditable = false
+            textField.isSelectable = false
+            textField.drawsBackground = false
+            textField.font = .systemFont(ofSize: 12)
+            textField.preferredMaxLayoutWidth = 240
+            container.addSubview(textField)
+            NSLayoutConstraint.activate([
+                textField.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+                textField.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+                textField.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+                textField.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12),
+                container.widthAnchor.constraint(equalToConstant: 264),
+            ])
+            vc.view = container
+            popover.contentViewController = vc
+        }
+
+        /// Build a circular ⓘ help button (gray at rest, accent on hover) bound to `text`.
+        func makeButton(text: String) -> NSButton {
+            let button = HoverHelpButton()
+            button.target = self
+            button.action = #selector(show(_:))
+            if let image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: "Help") {
+                button.image = image
+                button.isBordered = false
+                button.imagePosition = .imageOnly
+                (button.cell as? NSButtonCell)?.imageScaling = .scaleProportionallyDown
+            } else {
+                button.title = "?"
+                button.bezelStyle = .helpButton
+            }
+            button.contentTintColor = button.restColor   // gray at rest; HoverHelpButton brightens on hover
+            button.setAccessibilityHelp(text)
+            button.toolTip = text                     // hover still works too
+            // Shared id marks it as a help button (walkers exclude these); the
+            // AXHelp text disambiguates individual buttons for UI tests.
+            button.setAccessibilityIdentifier(HelpButtonController.axIdentifier)
+            textByButton[ObjectIdentifier(button)] = text
+            return button
+        }
+
+        @objc private func show(_ sender: NSButton) {
+            guard let text = textByButton[ObjectIdentifier(sender)] else { return }
+            if popover.isShown { popover.close() }
+            textField.stringValue = text
+            popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .maxX)
+        }
+    }
+
+    private let helpButtons = HelpButtonController()
+
     private final class RowStacker {
         let container: NSView
         private let leftInset: CGFloat
@@ -303,6 +396,11 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         stack.finish(bottomInset: -20)
         content.widthAnchor.constraint(equalToConstant: 460).isActive = true
 
+        // Make help discoverable: place a standard ⓘ help button after each
+        // interactive control, showing that control's help text in a popover on
+        // click (the slow system tooltip alone wasn't obvious enough).
+        attachHelpButtons(in: content)
+
         // Host the content in a scroll view so Settings scroll if they don't fit.
         let scrollView = NSScrollView()
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -320,6 +418,38 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             content.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
             content.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
         ])
+    }
+
+    /// After layout, attach a ⓘ help button trailing every interactive control,
+    /// using that control's existing `toolTip` as the popover text (single source
+    /// of truth — no duplicated help strings). Help buttons themselves are
+    /// skipped so we don't recurse.
+    private func attachHelpButtons(in content: NSView) {
+        // Snapshot the controls first; we mutate the tree while iterating.
+        var controls: [NSControl] = []
+        func walk(_ v: NSView) {
+            if v is NSButton, v.accessibilityHelp() != nil,
+               (v as? NSControl)?.toolTip == nil { /* skip our help buttons */ }
+            if let popup = v as? NSPopUpButton { controls.append(popup) }
+            else if let button = v as? NSButton, !(button.image?.isTemplate == true && button.title.isEmpty),
+                    button.toolTip != nil { controls.append(button) }
+            else if let field = v as? NSTextField, field.isEditable { controls.append(field) }
+            v.subviews.forEach(walk)
+        }
+        walk(content)
+
+        for control in controls {
+            guard let text = control.toolTip, !text.isEmpty else { continue }
+            let help = helpButtons.makeButton(text: text)
+            help.translatesAutoresizingMaskIntoConstraints = false
+            content.addSubview(help)
+            NSLayoutConstraint.activate([
+                help.leadingAnchor.constraint(equalTo: control.trailingAnchor, constant: 6),
+                help.centerYAnchor.constraint(equalTo: control.centerYAnchor),
+                help.widthAnchor.constraint(equalToConstant: 16),
+                help.heightAnchor.constraint(equalToConstant: 16),
+            ])
+        }
     }
 
     private func integerFormatter() -> NumberFormatter {
@@ -502,6 +632,11 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         guard let root = window?.contentView else { return [] }
         var found: [NSControl] = []
         func walk(_ view: NSView) {
+            // Skip the ⓘ help buttons — they decorate the real controls and are
+            // not themselves settings.
+            if (view as? NSControl)?.accessibilityIdentifier() == HelpButtonController.axIdentifier {
+                return
+            }
             // Order matters: NSPopUpButton is an NSButton subclass, so match it
             // first. The only plain NSButtons in this window are the setting
             // checkboxes and the font "Change…" button — all want a tooltip.
@@ -516,5 +651,23 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         }
         walk(root)
         return found
+    }
+
+    /// The help text of every ⓘ help button in the window. Used by the help-button
+    /// coverage test to prove each setting has a clickable, discoverable help
+    /// affordance (not just a slow hover tooltip).
+    public func helpButtonTextsForTesting() -> [String] {
+        guard let root = window?.contentView else { return [] }
+        var texts: [String] = []
+        func walk(_ view: NSView) {
+            if let button = view as? NSButton,
+               button.accessibilityIdentifier() == HelpButtonController.axIdentifier,
+               let help = button.accessibilityHelp() {
+                texts.append(help)
+            }
+            view.subviews.forEach(walk)
+        }
+        walk(root)
+        return texts
     }
 }
