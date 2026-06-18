@@ -696,4 +696,49 @@ final class EditorSmokeTests: XCTestCase {
             contentView.cacheDisplay(in: contentView.bounds, to: rep)
         }
     }
+
+    // MARK: Markdown preview
+
+    func testMarkdownPreviewTogglesAndRenders() {
+        let wc = makeWindowController(text: "# Title\n\n- a\n- b")
+        wc.documentForTesting?.languageOverride = "markdown"
+        let editor = wc.editorForTesting!
+        XCTAssertFalse(editor.isPreviewVisibleForTesting)
+        editor.togglePreviewForTesting()
+        XCTAssertTrue(editor.isPreviewVisibleForTesting)
+        let rendered = editor.previewAttributedStringForTesting
+        XCTAssertTrue(rendered?.string.contains("Title") == true,
+                      "preview should render the heading text")
+        XCTAssertTrue(rendered?.string.contains("a") == true)
+        editor.togglePreviewForTesting()
+        XCTAssertFalse(editor.isPreviewVisibleForTesting)
+    }
+
+    func testMarkdownPreviewMenuGatedToMarkdown() {
+        let wc = makeWindowController(text: "plain text")
+        let item = NSMenuItem(title: "Show Markdown Preview",
+            action: #selector(EditorWindowController.toggleMarkdownPreview(_:)), keyEquivalent: "")
+        XCTAssertFalse(wc.validateMenuItem(item),
+                       "preview toggle should be disabled for non-Markdown documents")
+
+        let mdWC = makeWindowController(text: "# md")
+        mdWC.documentForTesting?.languageOverride = "markdown"
+        let mdItem = NSMenuItem(title: "Show Markdown Preview",
+            action: #selector(EditorWindowController.toggleMarkdownPreview(_:)), keyEquivalent: "")
+        XCTAssertTrue(mdWC.validateMenuItem(mdItem),
+                      "preview toggle should be enabled for Markdown documents")
+    }
+
+    func testAutoShowPreviewOpensPreviewForMarkdown() {
+        let prefs = Preferences(defaults: UserDefaults(suiteName: "medit.smoke.\(UUID().uuidString)")!)
+        prefs.autoShowPreviewForMarkdown = true
+        let document = TextDocument()
+        document.setTextForTesting("# auto")
+        document.languageOverride = "markdown"
+        let wc = EditorWindowController(document: document, preferences: prefs)
+        _ = wc.window
+        wc.loadViewIfNeededForTesting()
+        XCTAssertTrue(wc.editorForTesting?.isPreviewVisibleForTesting == true,
+                      "preview should auto-open for a Markdown doc when the pref is on")
+    }
 }
