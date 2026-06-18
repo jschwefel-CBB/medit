@@ -15,13 +15,18 @@ let package = Package(
     dependencies: [
         // Syntax highlighting via highlight.js. HighlighterSwift's product/import
         // name is `Highlighter` (the package repo is HighlighterSwift).
-        .package(url: "https://github.com/smittytone/HighlighterSwift", from: "3.1.0")
+        .package(url: "https://github.com/smittytone/HighlighterSwift", from: "3.1.0"),
+        // Markdown parsing (Apple, CommonMark + GFM). swift-markdown publishes no
+        // semver tags — it tracks the toolchain — so we pin a resolved revision in
+        // Package.resolved for reproducibility (branch used only to resolve first).
+        .package(url: "https://github.com/apple/swift-markdown.git", branch: "main")
     ],
     targets: [
         .target(
             name: "MeditKit",
             dependencies: [
-                .product(name: "Highlighter", package: "HighlighterSwift")
+                .product(name: "Highlighter", package: "HighlighterSwift"),
+                .product(name: "Markdown", package: "swift-markdown")
             ],
             swiftSettings: [
                 // Start in Swift 5 language mode. AppKit's delegate-heavy, main-thread
