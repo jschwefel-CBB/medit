@@ -20,6 +20,7 @@
 				<string>public.plain-text</string>
 				<string>public.text</string>
 				<string>public.source-code</string>
+				<string>net.daringfireball.markdown</string>
 				<string>public.data</string>
 			</array>
 			<key>NSDocumentClass</key>

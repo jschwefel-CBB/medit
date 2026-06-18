@@ -7,6 +7,10 @@ import AppKit
 public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var preferencesController: PreferencesWindowController?
+    /// Set when files/folders are opened at launch (via `application(_:openFiles:)`),
+    /// so the deferred "open a blank Untitled" step doesn't also fire and leave a
+    /// stray empty tab next to the opened file.
+    private var didOpenFilesAtLaunch = false
 
     public override init() { super.init() }
 
@@ -30,11 +34,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // if nothing was restored. This avoids the "two tabs at launch" bug where
         // restoration AND an untitled-open both fire.
         DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             // A reopened document can arrive asynchronously after launch; under
             // --reset-state close it again here before deciding about untitled.
-            if resetting { self?.closeAllRestoredDocuments() }
-            self?.openUntitledIfNoDocuments()
-            self?.openLaunchFolderIfRequested()
+            if resetting { self.closeAllRestoredDocuments() }
+            // Don't open a blank tab if files were opened at launch.
+            if !self.didOpenFilesAtLaunch { self.openUntitledIfNoDocuments() }
+            self.openLaunchFolderIfRequested()
         }
     }
 
@@ -55,6 +61,18 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         for document in NSDocumentController.shared.documents {
             document.close()
         }
+    }
+
+    /// When a file is opened, replace a *single* pristine (empty, never-edited)
+    /// Untitled document by closing it — so opening a file into a fresh window
+    /// doesn't leave a stray blank tab. If more than one untitled doc exists, or
+    /// any has been touched, leave them all alone (open in a new tab instead).
+    func closePristineUntitledDocuments(excluding opened: NSDocument) {
+        let pristine = NSDocumentController.shared.documents
+            .compactMap { $0 as? TextDocument }
+            .filter { $0 !== opened && $0.isPristineUntitled }
+        guard pristine.count == 1 else { return }
+        pristine[0].close()
     }
 
     private func openUntitledIfNoDocuments() {
@@ -88,6 +106,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     /// in the folder format"). Route directories to the sidebar instead and hand
     /// the rest to the normal document machinery.
     public func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        didOpenFilesAtLaunch = true
         var documentPaths: [String] = []
         for path in filenames {
             var isDir: ObjCBool = false
@@ -99,7 +118,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         for path in documentPaths {
             NSDocumentController.shared.openDocument(
-                withContentsOf: URL(fileURLWithPath: path), display: true) { _, _, _ in }
+                withContentsOf: URL(fileURLWithPath: path), display: true) { [weak self] doc, _, error in
+                if let error { NSApp.presentError(error); return }
+                guard let doc else { return }
+                // Ensure the opened document's window is created and frontmost —
+                // a freshly launched Untitled window can otherwise stay on top.
+                if doc.windowControllers.isEmpty { doc.makeWindowControllers() }
+                doc.showWindows()
+                doc.windowControllers.first?.window?.makeKeyAndOrderFront(nil)
+                // Replace a lone pristine Untitled tab/window with the opened file.
+                self?.closePristineUntitledDocuments(excluding: doc)
+            }
         }
         sender.reply(toOpenOrPrint: .success)
     }

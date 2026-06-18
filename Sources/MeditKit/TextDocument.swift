@@ -13,6 +13,12 @@ public final class TextDocument: NSDocument {
     /// through `updateText(_:)` (which also flags the document dirty).
     public private(set) var text: String = ""
 
+    /// A pristine, untitled document: never saved (no file), currently empty, and
+    /// never edited. Such a lone tab can be replaced when a file is opened.
+    public var isPristineUntitled: Bool {
+        fileURL == nil && text.isEmpty && !isDocumentEdited
+    }
+
     /// Encoding to use when saving. Defaults to UTF-8 for new documents;
     /// set to the detected encoding when an existing file is read.
     public var fileEncoding: String.Encoding = .utf8
