@@ -61,6 +61,7 @@ session** is on — it is by default — the files you had open when you last qu
 
 <!-- SCREENSHOT: a fresh medit window, empty Untitled document, tab bar with the +
      button, status bar at the bottom. → images/first-launch.png -->
+![First launch](images/first-launch.png)
 
 ---
 
@@ -124,6 +125,7 @@ Opening a file while a lone, untouched **Untitled** tab is present replaces that
 blank tab instead of leaving it behind.
 
 <!-- SCREENSHOT: a window with several tabs open. → images/tabs.png -->
+![Tabs](images/tabs.png)
 
 ---
 
