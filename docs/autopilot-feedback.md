@@ -6,6 +6,33 @@
 
 ---
 
+## medit 2.5.0 — AP findings: screenshot capture (mostly resolved by the AUTHORING.md update)
+
+Docs release (full User Manual + 16 screenshots + App Store prep). The AP work
+this cycle was the **documentation screenshot capture**, written up in detail in
+the "Screenshot capture for docs" section below (SC-1..SC-5).
+
+**The AUTHORING.md update resolved most of them**, and I proved it by capturing 16
+medit-only shots:
+- **SC-2 / SC-4 (relaunch race / no attach):** fixed by **`attach: true`** — attach
+  to the already-arranged window instead of relaunching. This was the key unlock;
+  it's how the find-bar / Recent-pane / Find-in-All-Tabs shots got captured.
+- **SC-1 (silent screenshot fail):** AUTHORING.md now documents that the
+  unresolved-target path falls back to full-display and sets `result.message`.
+- **SC-5 (secondary-display):** documented as handled; I still used the
+  `dump-axtree --pid` frame → `screencapture -R` fallback as the reliable path.
+
+**Still open (one real gap):** safely capturing an **open menu/popover that extends
+beyond the window frame** (medit's Edit▸Text and the status-bar language/encoding
+menus). A window-bounded crop clips them; a bigger region risks catching other
+windows (it did, early — caught unrelated app windows). The open menu's own AX
+`frame` reported zero-size, so it can't be used to bound the capture. Those 3 shots
+are deferred. Also worth flagging from medit's side: the sidebar's
+`sidebarPaneSwitcher` (an `AXRadioGroup`) exposes **no accessible segment children**
+— neither AP nor System Events can click a named segment (a minor medit a11y gap).
+
+---
+
 ## Screenshot capture for docs — findings (using AP's `screenshot` / `captureTarget`)
 
 Capturing README + manual screenshots from the running app. The `screenshot`
