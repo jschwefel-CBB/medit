@@ -170,11 +170,11 @@ final class EditorSmokeTests: XCTestCase {
         let wc = makeWindowController(text: "abc\ndef\nghi")
         guard let editor = wc.editorForTesting,
               let tv = wc.focusedTextView as? EditorTextView else { return XCTFail("no editor") }
-        XCTAssertFalse(editor.columnModeIndicatorVisibleForTesting, "COL indicator OFF (dim) by default")
+        XCTAssertFalse(editor.columnModeIndicatorVisibleForTesting, "BLK indicator empty/hidden by default")
         tv.toggleColumnMode()
-        XCTAssertTrue(editor.columnModeIndicatorVisibleForTesting, "COL indicator ON (accent pill) in column mode")
+        XCTAssertTrue(editor.columnModeIndicatorVisibleForTesting, "blue BLK pill shows in block mode")
         tv.exitColumnMode()
-        XCTAssertFalse(editor.columnModeIndicatorVisibleForTesting, "COL indicator back to OFF (dim) after exit")
+        XCTAssertFalse(editor.columnModeIndicatorVisibleForTesting, "BLK indicator empty/hidden after exit")
     }
 
     func testColumnTypeAcrossRowsZeroWidth() {
