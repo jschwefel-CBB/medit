@@ -235,20 +235,42 @@ public final class EditorTextView: NSTextView {
 
     // MARK: Drag & drop — open dragged files, don't paste their paths
 
+    /// Register file-URL drags so the OS routes dragged files to our drag
+    /// overrides. A plain-text NSTextView (isRichText = false) otherwise does NOT
+    /// accept file URLs, so dragged files were silently rejected before they ever
+    /// reached `performDragOperation`. Registering `.fileURL` (in addition to
+    /// whatever the superclass registers for text) makes file drops work whether
+    /// the editor is empty or full.
+    private func registerFileDragTypes() {
+        var types = registeredDraggedTypes
+        if !types.contains(.fileURL) { types.append(.fileURL) }
+        registerForDraggedTypes(types)
+    }
+
+    /// Register file-URL drags once the view is in a window (by which point the
+    /// superclass has registered its own text drag types, so we append rather
+    /// than clobber).
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil { registerFileDragTypes() }
+    }
+
     /// File URLs on a dragging pasteboard (empty for a plain-text drag).
     private static func fileURLs(on pasteboard: NSPasteboard) -> [URL] {
-        let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        let opts: [NSPasteboard.ReadingOptionKey: Any] = [
+            .urlReadingFileURLsOnly: true,
+        ]
         let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: opts) as? [URL] ?? []
         return urls.filter { $0.isFileURL }
     }
 
     public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        if !EditorTextView.fileURLs(on: sender.draggingPasteboard).isEmpty { return .generic }
+        if !EditorTextView.fileURLs(on: sender.draggingPasteboard).isEmpty { return .copy }
         return super.draggingEntered(sender)
     }
 
     public override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        if !EditorTextView.fileURLs(on: sender.draggingPasteboard).isEmpty { return .generic }
+        if !EditorTextView.fileURLs(on: sender.draggingPasteboard).isEmpty { return .copy }
         return super.draggingUpdated(sender)
     }
 

@@ -128,6 +128,69 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertNil(cleared, "overlay should be cleared when rainbow brackets is off")
     }
 
+    func testWindowFramePersistsToPreference() {
+        // The contract that matters: a move/resize writes the exact frame to the
+        // pref, so the next launch can restore it. (We don't assert the restored
+        // window's geometry exactly — AppKit legitimately adjusts a window to fit
+        // the current screen, which is environment-dependent and not the bug.)
+        let prefs = Preferences(defaults: UserDefaults(suiteName: "medit.frame.\(UUID().uuidString)")!)
+        let doc = TextDocument(); doc.setTextForTesting("a")
+        let wc = EditorWindowController(document: doc, preferences: prefs)
+        defer { wc.window?.close() }
+        let target = NSRect(x: 120, y: 140, width: 980, height: 640)
+        wc.window?.setFrame(target, display: false)
+        wc.simulateWindowMoveForTesting()
+        XCTAssertEqual(NSRectFromString(prefs.windowFrame), target, "exact frame persists on move")
+    }
+
+    func testRestoreReadsSavedFrameNotDefault() {
+        // A controller created with a saved frame restores from it rather than the
+        // default size, and a controller with no saved frame is NOT parked at the
+        // lower-left origin.
+        let prefs = Preferences(defaults: UserDefaults(suiteName: "medit.frame2.\(UUID().uuidString)")!)
+        // No saved frame yet → centered default (not at origin 0,0).
+        let wc1 = EditorWindowController(document: { let d = TextDocument(); d.setTextForTesting("x"); return d }(),
+                                         preferences: prefs)
+        defer { wc1.window?.close() }
+        XCTAssertFalse(wc1.shouldCascadeWindows, "cascading must be off (was the lower-left cause)")
+        let def = wc1.window!.frame
+        XCTAssertFalse(def.origin.x == 0 && def.origin.y == 0, "default window must not sit at the lower-left origin")
+
+        // Now seed a saved frame and confirm a fresh controller picks it up (size).
+        prefs.windowFrame = NSStringFromRect(NSRect(x: 100, y: 120, width: 920, height: 600))
+        let wc2 = EditorWindowController(document: { let d = TextDocument(); d.setTextForTesting("y"); return d }(),
+                                         preferences: prefs)
+        defer { wc2.window?.close() }
+        let restored = wc2.window!.frame
+        XCTAssertNotEqual(restored.size.width, EditorWindowController.defaultWindowSize.width,
+                          "should restore the saved width, not the default")
+    }
+
+    func testEditorRegistersFileURLDragType() {
+        // Regression: a plain-text NSTextView doesn't accept file-URL drags by
+        // default, so dragging a file onto medit did nothing (anywhere, ever).
+        // The editor must register .fileURL so dropped files open.
+        let controller = makeWindowController(text: "some content")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("no text view") }
+        // loadViewIfNeededForTesting (in makeWindowController) puts the text view in
+        // a window, so viewDidMoveToWindow has already registered the drag types.
+        XCTAssertTrue(tv.registeredDraggedTypes.contains(.fileURL),
+                      "editor must accept file-URL drags so dropped files open")
+    }
+
+    func testDraggedFileOpensEvenWhenEditorHasContent() {
+        // Dropping a file must open it regardless of whether the editor is empty
+        // or full of text.
+        let controller = makeWindowController(text: "lots\nof\nexisting\ncontent")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("no text view") }
+        var opened: [URL] = []
+        tv.onOpenFiles = { opened = $0 }
+        let dropped = [URL(fileURLWithPath: "/tmp/dropme.txt")]
+        tv.performFileDropForTesting(dropped)
+        XCTAssertEqual(opened, dropped)
+        XCTAssertEqual(tv.string, "lots\nof\nexisting\ncontent", "drop must not paste the path")
+    }
+
     func testDraggedFileOpensInsteadOfPastingPath() {
         let controller = makeWindowController(text: "hello")
         guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("no text view") }

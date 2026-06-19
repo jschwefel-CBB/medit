@@ -64,6 +64,7 @@ public final class Preferences {
         static let sidebarRootBookmarks = "sidebarRootBookmarks"
         static let recentFilePaths = "recentFilePaths"
         static let sidebarPane = "sidebarPane"
+        static let windowFrame = "windowFrame"
         static let smartQuotes = "smartQuotes"
         static let smartDashes = "smartDashes"
         static let automaticTextReplacement = "automaticTextReplacement"
@@ -268,6 +269,11 @@ public final class Preferences {
     public var sidebarPane: String {
         get { defaults.string(forKey: Key.sidebarPane) ?? "folders" }
         set { defaults.set(newValue, forKey: Key.sidebarPane); didChange() }
+    }
+    /// Last window frame (NSStringFromRect), restored on next launch. Empty = none yet.
+    public var windowFrame: String {
+        get { defaults.string(forKey: Key.windowFrame) ?? "" }
+        set { defaults.set(newValue, forKey: Key.windowFrame); didChange() }
     }
     public var sidebarRootBookmarks: [Data] {
         get { (defaults.array(forKey: Key.sidebarRootBookmarks) as? [Data]) ?? [] }
