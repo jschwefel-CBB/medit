@@ -6,6 +6,60 @@
 
 ---
 
+## Screenshot capture for docs — findings (using AP's `screenshot` / `captureTarget`)
+
+Capturing README + manual screenshots from the running app. The `screenshot`
+action works well in the happy path (clean full-window PNGs of medit's editor,
+Markdown preview, and Settings all came out great). But three things tripped up a
+documentation-capture workflow:
+
+**SC-1 (P1) — `screenshot` with `target: { role: "AXWindow" }` fails with no
+message.** A plan step `{ action: "screenshot", target: { role: AXWindow } }`
+returned `result: fail` with `message: null` and wrote **no PNG** — while the
+preceding `waitFor editorTextView` on the *same* window **passed** (so AP resolved
+the window's elements fine). Repro: `bundleId` target, `waitFor editorTextView`
+(pass), then `screenshot` AXWindow (fail, 42ms, no file). **Ask:** when a
+screenshot step fails, populate `message` with the reason (target didn't resolve /
+capture returned empty / window off-screen) — a silent `fail` with no artifact and
+no message is hard to debug. (The full-display fallback path *does* set a message;
+the element-target path doesn't.)
+
+**SC-2 (P2) — `run` with `bundleId` terminates + relaunches the app, then
+`screenshot` races the unrendered window.** AP logged *"terminating 1 existing
+instance(s) of medit.app for a clean relaunch"* — so a `run` plan does **not**
+attach to my already-arranged, already-rendered window; it kills it and launches a
+fresh one. A `screenshot` immediately after `waitFor` then fires ~40ms in, before
+the new window has painted, yielding a blank/failed shot. Plans that added a
+`wait` (2–3s) settle after the element appeared captured fine. **Ask:** either have
+`screenshot` wait for the window to be paintable (non-empty) before capturing, or
+document that a settle is required after launch; and for **doc workflows
+specifically**, a `screenshot --pid <pid>` (attach-and-capture, like
+`dump-axtree --pid`) would let a caller screenshot an app they arranged themselves
+without AP relaunching it.
+
+**SC-3 (P3) — element-scoped crops (`captureTarget` / `screenshot` with a small
+element target) of thin/!solid elements landed empty.** Targeting `positionLabel`
+(a tiny status-bar label) or `sidebarOutline` produced blank/near-empty crops with
+large padding (padding around a 1-line label captures mostly the area *above* it,
+including whatever's behind the window). Big solid elements (`editorTextView`,
+`AXWindow`) crop fine. For thin strips, capturing the full window and cropping
+geometrically was more reliable. Not a bug so much as a sharp edge — element
+captures assume the element's frame is the region of interest, which is wrong for
+1-line labels surrounded by other content. Worth a note in §12a.
+
+**Not AP:** driving medit into *transient* states for a shot (open the find bar,
+open a status-bar popup, show the reload banner) via osascript/System Events
+keystrokes was flaky on my end — AppleScript timing, unrelated to AutoPilot. AP's
+own `menu` action would likely be more reliable than my osascript menu-clicking for
+those; that's a workflow fix on the medit side, not an AP gap.
+
+**Net:** AP's screenshot capability is solid for full-window/large-element captures
+(which covers most doc needs). SC-1 (silent failure) and SC-2 (relaunch race / no
+attach-and-capture) are the two worth addressing for a smooth documentation
+workflow.
+
+---
+
 ## medit 2.4.1 — no new AutoPilot findings
 
 Patch: the block-mode status-bar indicator now shows a blue **` BLK `** pill while
