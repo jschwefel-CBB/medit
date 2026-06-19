@@ -251,6 +251,7 @@ public final class EditorViewController: NSViewController {
         configureHighlighter()
         configureBracketColorizer()
         (textView as? EditorTextView)?.onOverwriteModeChange = { [weak self] _ in self?.updateStatusBar() }
+        (textView as? EditorTextView)?.onColumnModeChange = { [weak self] active in self?.statusBar?.setColumnMode(active) }
         // Dragged files open (in tabs, preserving order) instead of pasting paths.
         (textView as? EditorTextView)?.onOpenFiles = { [weak self] urls in
             guard let wc = self?.newTabActionTarget as? EditorWindowController else { return }
@@ -715,6 +716,7 @@ public final class EditorViewController: NSViewController {
         let overwrite = (textView as? EditorTextView)?.isOverwriteMode ?? false
         statusBar.update(line: pos.line, column: pos.column, language: language, encoding: encoding,
                          lineEnding: document?.lineEnding ?? .lf, overwrite: overwrite, wrap: prefs.wrapLines)
+        statusBar.setColumnMode((textView as? EditorTextView)?.isColumnEditing ?? false)
         // Live document statistics (word/line/char count), gated on the pref.
         if prefs.showDocumentStats {
             let counts = TextStatistics.counts(for: textView.string, selection: sel)
@@ -727,6 +729,7 @@ public final class EditorViewController: NSViewController {
     /// Test hooks for document statistics.
     public func refreshStatusBarForTesting() { updateStatusBar() }
     public var statusBarStatsForTesting: String { statusBar?.statsTextForTesting ?? "" }
+    public var columnModeIndicatorVisibleForTesting: Bool { statusBar?.columnModeVisibleForTesting ?? false }
 
     /// Apply a manual language override (nil = auto-detect), re-highlight, and
     /// refresh the status bar.

@@ -166,6 +166,17 @@ final class EditorSmokeTests: XCTestCase {
                           "should restore the saved width, not the default")
     }
 
+    func testColumnModeShowsStatusBarIndicator() {
+        let wc = makeWindowController(text: "abc\ndef\nghi")
+        guard let editor = wc.editorForTesting,
+              let tv = wc.focusedTextView as? EditorTextView else { return XCTFail("no editor") }
+        XCTAssertFalse(editor.columnModeIndicatorVisibleForTesting, "COL indicator hidden by default")
+        tv.toggleColumnMode()
+        XCTAssertTrue(editor.columnModeIndicatorVisibleForTesting, "COL indicator shows in column mode")
+        tv.exitColumnMode()
+        XCTAssertFalse(editor.columnModeIndicatorVisibleForTesting, "COL indicator hidden after exit")
+    }
+
     func testColumnTypeAcrossRowsZeroWidth() {
         // Zero-width block at column 2, rows 0..2 → typing inserts on every row.
         let wc = makeWindowController(text: "abcd\nefgh\nijkl")

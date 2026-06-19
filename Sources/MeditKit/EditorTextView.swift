@@ -48,9 +48,17 @@ public final class EditorTextView: NSTextView {
         var isZeroWidth: Bool { leftColumn == rightColumn }
     }
 
+    /// Called when column-edit mode turns on/off (so the status bar can update).
+    public var onColumnModeChange: ((Bool) -> Void)?
+
     /// Non-nil while column mode is active.
     private(set) var columnBlock: ColumnBlock? {
-        didSet { needsDisplay = true }
+        didSet {
+            needsDisplay = true
+            if (oldValue == nil) != (columnBlock == nil) {
+                onColumnModeChange?(columnBlock != nil)
+            }
+        }
     }
     /// Sticky column mode toggled from the menu (⌥⌘B): subsequent clicks start
     /// blocks without needing the Option key.
