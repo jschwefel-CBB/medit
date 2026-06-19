@@ -18,6 +18,7 @@ public final class StatusBarView: NSView {
     public var onWrapToggle: (() -> Void)?
 
     private let positionLabel = StatusBarView.makeLabel(align: .left)
+    private let statsLabel = StatusBarView.makeLabel(align: .left)
     private let languageButton = StatusBarView.makeInlineButton()
     private let encodingButton = StatusBarView.makeInlineButton()
     private let lineEndingButton = StatusBarView.makeInlineButton()
@@ -42,10 +43,11 @@ public final class StatusBarView: NSView {
 
         // Accessibility identifiers for autopilot GUI tests.
         positionLabel.setAccessibilityIdentifier("positionLabel")
+        statsLabel.setAccessibilityIdentifier("documentStatsLabel")
         languageButton.setAccessibilityIdentifier("languageButton")
         encodingButton.setAccessibilityIdentifier("encodingButton")
 
-        let stack = NSStackView(views: [positionLabel, NSView(), languageButton, sep(), encodingButton, sep(), lineEndingButton, sep(), wrapButton, sep(), modeLabel])
+        let stack = NSStackView(views: [positionLabel, sep(), statsLabel, NSView(), languageButton, sep(), encodingButton, sep(), lineEndingButton, sep(), wrapButton, sep(), modeLabel])
         stack.orientation = .horizontal
         stack.spacing = 8
         stack.alignment = .centerY
@@ -70,6 +72,15 @@ public final class StatusBarView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// Set the document-statistics text (word/line/char count). Empty hides it.
+    public func setStats(_ text: String) {
+        statsLabel.stringValue = text
+        statsLabel.isHidden = text.isEmpty
+    }
+
+    /// Test hook.
+    public var statsTextForTesting: String { statsLabel.stringValue }
 
     public func update(line: Int, column: Int, language: String, encoding: String,
                        lineEnding: LineEnding, overwrite: Bool, wrap: Bool) {

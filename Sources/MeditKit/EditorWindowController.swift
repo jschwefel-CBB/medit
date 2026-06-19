@@ -404,6 +404,20 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         editor?.applyStatusBarVisibility(prefs.showStatusBar)
     }
 
+    @IBAction public func toggleDocumentStats(_ sender: Any?) {
+        // Toggling the pref posts the change notification, which the editor
+        // observes and refreshes the status bar (showing/hiding the count).
+        prefs.showDocumentStats.toggle()
+    }
+
+    // MARK: Text transforms
+
+    @IBAction public func sortLinesAscending(_ sender: Any?) { editor?.sortSelectedLines(ascending: true) }
+    @IBAction public func sortLinesDescending(_ sender: Any?) { editor?.sortSelectedLines(ascending: false) }
+    @IBAction public func makeUpperCase(_ sender: Any?) { editor?.changeCaseOfSelection(to: .upper) }
+    @IBAction public func makeLowerCase(_ sender: Any?) { editor?.changeCaseOfSelection(to: .lower) }
+    @IBAction public func makeTitleCase(_ sender: Any?) { editor?.changeCaseOfSelection(to: .title) }
+
     @IBAction public func toggleInvisibles(_ sender: Any?) {
         prefs.showInvisibles.toggle()
         editor?.applyShowInvisibles(prefs.showInvisibles)
@@ -448,6 +462,8 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
             menuItem.state = prefs.wrapLines ? .on : .off
         case #selector(toggleStatusBar(_:)):
             menuItem.state = prefs.showStatusBar ? .on : .off
+        case #selector(toggleDocumentStats(_:)):
+            menuItem.state = prefs.showDocumentStats ? .on : .off
         case #selector(toggleInvisibles(_:)):
             menuItem.state = prefs.showInvisibles ? .on : .off
         case #selector(toggleRainbowBrackets(_:)):

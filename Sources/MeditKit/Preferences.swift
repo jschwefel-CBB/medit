@@ -65,6 +65,9 @@ public final class Preferences {
         static let recentFilePaths = "recentFilePaths"
         static let sidebarPane = "sidebarPane"
         static let windowFrame = "windowFrame"
+        static let reopenLastSession = "reopenLastSession"
+        static let lastSessionFiles = "lastSessionFiles"
+        static let showDocumentStats = "showDocumentStats"
         static let smartQuotes = "smartQuotes"
         static let smartDashes = "smartDashes"
         static let automaticTextReplacement = "automaticTextReplacement"
@@ -111,6 +114,9 @@ public final class Preferences {
             Key.sidebarRootBookmarks: [Data](),
             Key.recentFilePaths: [String](),
             Key.sidebarPane: "folders",
+            Key.reopenLastSession: true,
+            Key.lastSessionFiles: [String](),
+            Key.showDocumentStats: true,
             Key.smartQuotes: false,
             Key.smartDashes: false,
             Key.automaticTextReplacement: false,
@@ -271,6 +277,21 @@ public final class Preferences {
         set { defaults.set(newValue, forKey: Key.sidebarPane); didChange() }
     }
     /// Last window frame (NSStringFromRect), restored on next launch. Empty = none yet.
+    /// Reopen the previous session's files at launch.
+    public var reopenLastSession: Bool {
+        get { defaults.bool(forKey: Key.reopenLastSession) }
+        set { defaults.set(newValue, forKey: Key.reopenLastSession); didChange() }
+    }
+    /// File paths open at the end of the last session (for restore).
+    public var lastSessionFiles: [String] {
+        get { (defaults.array(forKey: Key.lastSessionFiles) as? [String]) ?? [] }
+        set { defaults.set(newValue, forKey: Key.lastSessionFiles); didChange() }
+    }
+    /// Show live document statistics (word/line/char count) in the status bar.
+    public var showDocumentStats: Bool {
+        get { defaults.bool(forKey: Key.showDocumentStats) }
+        set { defaults.set(newValue, forKey: Key.showDocumentStats); didChange() }
+    }
     public var windowFrame: String {
         get { defaults.string(forKey: Key.windowFrame) ?? "" }
         set { defaults.set(newValue, forKey: Key.windowFrame); didChange() }

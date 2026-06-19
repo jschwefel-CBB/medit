@@ -12,6 +12,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var wrapCheck: NSButton!
     private var showStatusBarCheck: NSButton!
     private var showInvisiblesCheck: NSButton!
+    private var showDocumentStatsCheck: NSButton!
+    private var reopenLastSessionCheck: NSButton!
     private var paddingField: NSTextField!
     private var rainbowBracketsCheck: NSButton!
     private var emphasizePairCheck: NSButton!
@@ -257,6 +259,10 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         showStatusBarCheck.toolTip = "Show the bottom bar with line/column, language, and encoding"
         showInvisiblesCheck = check("Show invisibles", #selector(checkChanged))
         showInvisiblesCheck.toolTip = "Reveal spaces, tabs, and line breaks as faint marks"
+        showDocumentStatsCheck = check("Show word/line count in status bar", #selector(checkChanged))
+        showDocumentStatsCheck.toolTip = "Show a live word, line, and character count (and selection count) in the status bar"
+        reopenLastSessionCheck = check("Reopen last session's files at launch", #selector(checkChanged))
+        reopenLastSessionCheck.toolTip = "When medit starts, reopen the files you had open when you last quit"
         rainbowBracketsCheck = check("Rainbow brackets", #selector(checkChanged))
         rainbowBracketsCheck.toolTip = "Color brackets by nesting depth so matching pairs are easy to spot"
         emphasizePairCheck = check("Emphasize enclosing pair at caret", #selector(checkChanged))
@@ -353,6 +359,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         stack.add(lineNumbersCheck, indent: checkIndent)
         stack.add(wrapCheck, indent: checkIndent)
         stack.add(showStatusBarCheck, indent: checkIndent)
+        stack.add(showDocumentStatsCheck, indent: checkIndent)
         stack.add(showInvisiblesCheck, indent: checkIndent)
         stack.addRow(label: paddingTitle, control: paddingField, controlWidth: 60)
 
@@ -387,6 +394,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         stack.add(stripWSCheck, indent: checkIndent)
 
         stack.add(header("Files"), gap: 18)
+        stack.add(reopenLastSessionCheck, indent: checkIndent)
         stack.addRow(label: label("On external change:"), control: externalChangePopup, controlWidth: 180)
 
         stack.add(header("Sidebar"), gap: 18)
@@ -486,6 +494,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         lineNumbersCheck.state = prefs.showLineNumbers ? .on : .off
         wrapCheck.state = prefs.wrapLines ? .on : .off
         showStatusBarCheck.state = prefs.showStatusBar ? .on : .off
+        showDocumentStatsCheck.state = prefs.showDocumentStats ? .on : .off
+        reopenLastSessionCheck.state = prefs.reopenLastSession ? .on : .off
         showInvisiblesCheck.state = prefs.showInvisibles ? .on : .off
         paddingField.integerValue = prefs.editorPadding
         rainbowBracketsCheck.state = prefs.rainbowBrackets ? .on : .off
@@ -562,6 +572,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         prefs.showLineNumbers = lineNumbersCheck.state == .on
         prefs.wrapLines = wrapCheck.state == .on
         prefs.showStatusBar = showStatusBarCheck.state == .on
+        prefs.showDocumentStats = showDocumentStatsCheck.state == .on
+        prefs.reopenLastSession = reopenLastSessionCheck.state == .on
         prefs.showInvisibles = showInvisiblesCheck.state == .on
         prefs.rainbowBrackets = rainbowBracketsCheck.state == .on
         prefs.emphasizeEnclosingPair = emphasizePairCheck.state == .on

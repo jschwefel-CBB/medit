@@ -166,6 +166,31 @@ final class EditorSmokeTests: XCTestCase {
                           "should restore the saved width, not the default")
     }
 
+    func testSortLinesThroughEditor() {
+        let wc = makeWindowController(text: "banana\napple\ncherry")
+        guard let editor = wc.editorForTesting, let tv = wc.focusedTextView else { return XCTFail("no editor") }
+        tv.setSelectedRange(NSRange(location: 0, length: (tv.string as NSString).length))
+        editor.sortSelectedLinesForTesting(ascending: true)
+        XCTAssertEqual(tv.string, "apple\nbanana\ncherry")
+    }
+
+    func testChangeCaseThroughEditor() {
+        let wc = makeWindowController(text: "hello world")
+        guard let editor = wc.editorForTesting, let tv = wc.focusedTextView else { return XCTFail("no editor") }
+        tv.setSelectedRange(NSRange(location: 0, length: (tv.string as NSString).length))
+        editor.changeCaseForTesting(.upper)
+        XCTAssertEqual(tv.string, "HELLO WORLD")
+    }
+
+    func testStatusBarShowsDocumentStats() {
+        let wc = makeWindowController(text: "one two three\nfour five")
+        guard let editor = wc.editorForTesting else { return XCTFail("no editor") }
+        editor.refreshStatusBarForTesting()
+        let stats = editor.statusBarStatsForTesting
+        XCTAssertTrue(stats.contains("5 words"), "expected word count, got: \(stats)")
+        XCTAssertTrue(stats.contains("2 lines"), "expected line count, got: \(stats)")
+    }
+
     func testEditorRegistersFileURLDragType() {
         // Regression: a plain-text NSTextView doesn't accept file-URL drags by
         // default, so dragging a file onto medit did nothing (anywhere, ever).

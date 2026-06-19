@@ -38,9 +38,48 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             // A reopened document can arrive asynchronously after launch; under
             // --reset-state close it again here before deciding about untitled.
             if resetting { self.closeAllRestoredDocuments() }
-            // Don't open a blank tab if files were opened at launch.
+            // Reopen the previous session's files (unless files were opened at
+            // launch, something was already restored, or we're resetting state).
+            if !resetting, !self.didOpenFilesAtLaunch { self.reopenLastSessionIfEnabled() }
+            // Don't open a blank tab if files were opened/restored at launch.
             if !self.didOpenFilesAtLaunch { self.openUntitledIfNoDocuments() }
             self.openLaunchFolderIfRequested()
+            // Track session changes from here on.
+            self.observeSessionChanges()
+        }
+    }
+
+    // MARK: Session restore
+
+    /// Reopen files saved from the last session (most editors do this now). Only
+    /// runs when the pref is on and no documents are already open.
+    private func reopenLastSessionIfEnabled() {
+        guard Preferences.shared.reopenLastSession,
+              NSDocumentController.shared.documents.isEmpty else { return }
+        let urls = SessionStore.shared.files.filter { FileManager.default.fileExists(atPath: $0.path) }
+        guard !urls.isEmpty else { return }
+        didOpenFilesAtLaunch = true   // suppress the untitled-open
+        for url in urls {
+            NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
+                if let error { NSApp.presentError(error) }
+            }
+        }
+    }
+
+    /// Snapshot the currently-open file URLs to the session store. Called whenever
+    /// documents are opened/closed and at termination.
+    @objc private func snapshotSession() {
+        let urls = NSDocumentController.shared.documents
+            .compactMap { ($0 as? TextDocument)?.fileURL }
+        SessionStore.shared.record(urls)
+    }
+
+    private func observeSessionChanges() {
+        // NSDocumentController doesn't post a single "documents changed" event, so
+        // snapshot on the lifecycle notifications that bracket open/close.
+        let nc = NotificationCenter.default
+        for name: NSNotification.Name in [NSWindow.didBecomeMainNotification, NSWindow.willCloseNotification] {
+            nc.addObserver(self, selector: #selector(snapshotSession), name: name, object: nil)
         }
     }
 
@@ -150,6 +189,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    public func applicationWillTerminate(_ notification: Notification) {
+        // Final, authoritative snapshot of the session for next-launch restore.
+        if !LaunchReset.isRequested(in: CommandLine.arguments) { snapshotSession() }
+    }
 
     /// Block AppKit's window/state restoration pass entirely under --reset-state,
     /// so no document window from a previous session is recreated. (Returns true

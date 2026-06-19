@@ -6,6 +6,25 @@
 
 ---
 
+## medit 2.3.0 — no new AutoPilot findings
+
+**AutoPilot commit in use:** `730f6d3` (R4). Work this release: session restore
+(reopen last files), word count in the status bar, Sort Lines + Change Case
+(Edit ▸ Text), and the pure ColumnSelection model (column editing itself deferred
+— NSTextView collapses multi-carets).
+
+- **No AP-side issues.** Most verification was the headless test suite (339 tests);
+  the feature cores (SessionStore, TextStatistics, TextTransforms, ColumnSelection)
+  are pure and unit-tested. `dump-axtree --pid` again verified live state cleanly:
+  confirmed session restore (both files reopened as tabs — AX tab buttons
+  `['sess-a.txt','sess-b.txt']`) and the live word-count status segment
+  (`documentStatsLabel` = "3 words · 4 lines · 20 chars").
+- **Nothing for AutoPilot to fix.** The one hard problem this release was an
+  AppKit limitation (NSTextView merges zero-width selection ranges), not anything
+  AutoPilot-related.
+
+---
+
 ## medit 2.2.0 — no new AutoPilot findings
 
 **AutoPilot commit in use:** `730f6d3` (the R4 fixes). Work this release: Recent

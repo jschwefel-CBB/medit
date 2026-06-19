@@ -130,6 +130,26 @@ public enum MainMenu {
         menu.addItem(goToLine)
         menu.addItem(.separator())
 
+        // Text transforms submenu (sort lines / change case).
+        let textItem = NSMenuItem(title: "Text", action: nil, keyEquivalent: "")
+        let textMenu = NSMenu(title: "Text")
+        let sortAsc = NSMenuItem(title: "Sort Lines Ascending",
+                                 action: #selector(EditorWindowController.sortLinesAscending(_:)), keyEquivalent: "")
+        let sortDesc = NSMenuItem(title: "Sort Lines Descending",
+                                  action: #selector(EditorWindowController.sortLinesDescending(_:)), keyEquivalent: "")
+        textMenu.addItem(sortAsc)
+        textMenu.addItem(sortDesc)
+        textMenu.addItem(.separator())
+        textMenu.addItem(NSMenuItem(title: "Make Upper Case",
+                                    action: #selector(EditorWindowController.makeUpperCase(_:)), keyEquivalent: ""))
+        textMenu.addItem(NSMenuItem(title: "Make Lower Case",
+                                    action: #selector(EditorWindowController.makeLowerCase(_:)), keyEquivalent: ""))
+        textMenu.addItem(NSMenuItem(title: "Capitalize",
+                                    action: #selector(EditorWindowController.makeTitleCase(_:)), keyEquivalent: ""))
+        textItem.submenu = textMenu
+        menu.addItem(textItem)
+        menu.addItem(.separator())
+
         // Spelling & substitutions submenu (native).
         let spelling = NSMenuItem(title: "Spelling and Grammar", action: nil, keyEquivalent: "")
         let spellingMenu = NSMenu(title: "Spelling and Grammar")
@@ -218,6 +238,10 @@ public enum MainMenu {
         let statusBar = NSMenuItem(title: "Show Status Bar",
                                    action: #selector(EditorWindowController.toggleStatusBar(_:)), keyEquivalent: "")
         menu.addItem(statusBar)
+
+        let docStats = NSMenuItem(title: "Show Word Count",
+                                  action: #selector(EditorWindowController.toggleDocumentStats(_:)), keyEquivalent: "")
+        menu.addItem(docStats)
 
         let invisibles = NSMenuItem(title: "Show Invisibles",
                                     action: #selector(EditorWindowController.toggleInvisibles(_:)), keyEquivalent: "")
