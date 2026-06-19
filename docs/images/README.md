@@ -23,26 +23,38 @@ shot is called for.
 ## Status
 
 **Captured (good):**
-- `hero.png` — editor on a Swift file, Folders sidebar, highlighting, status bar.
-- `markdown-preview.png` — README.md rendered (heading rules, bold/italic, table)
-  with the Markdown formatting toolbar visible. (Also serves the toolbar shot.)
-- `settings.png` — the Settings window (Editor/Brackets/Markdown sections, ⓘ help).
-- `block-edit.png` — column/block mode on aligned process output, BLK pill lit.
-
-**Deferred** (need the app driven into a *transient* state, which the current
-capture flow can't reliably hold for a shot — tracked as SC-4 in
-`../autopilot-feedback.md`):
-- `find-replace.png` — the find/replace bar open with Regex + Match Case toggles.
-- `find-in-tabs.png` — Find-in-All-Tabs results across documents.
-- `tabs.png` — a window with several tabs.
-- `text-menu.png` — the Edit ▸ Text submenu open.
+**Captured (16 of 19) — all verified medit-only, no other-window content:**
+- `hero.png` / `window-anatomy.png` — editor on a Swift file, Folders sidebar,
+  highlighting, status bar.
+- `editor.png` / `rainbow-brackets.png` — the code area (crop of hero).
+- `sidebar.png` — the Folders file tree (crop of hero).
+- `status-bar.png` — the status-bar strip (crop of hero).
+- `markdown-preview.png` — README.md rendered (heading rules, table) + the toolbar.
+- `markdown-toolbar.png` — the Markdown formatting toolbar (crop of the above).
+- `settings.png` — the Settings window (sections + ⓘ help buttons).
+- `block-edit.png` — column/block mode on aligned output, BLK pill lit.
+- `find-replace.png` — the find/replace bar (Regex + Match Case, match count).
+- `find-in-tabs.png` — the Find-in-All-Tabs results panel.
 - `recent-files.png` — the sidebar switched to the Recent pane.
-- `language-popup.png` / `encoding-menu.png` — status-bar popups open.
-- `reload-banner.png` — the external-change banner showing.
-- `first-launch.png`, `window-anatomy.png`, `editor.png`,
-  `rainbow-brackets.png`, `status-bar.png`, `sidebar.png` — straightforward
-  full-window or crop shots; capture in the next pass.
+- `tabs.png` — a window with three tabs.
+- `first-launch.png` — a clean Untitled window.
+- `reload-banner.png` — the external-change banner.
 
-When AP's screenshot/transient-state flow improves (or by hand), capture the
-deferred shots into this directory; the doc `![](images/…)` references will then
-resolve. No doc edits needed.
+These were captured via AP `attach: true` (no relaunch) where a transient state
+had to be arranged first, or the **frontmost-gated** method: verify
+`frontmost == medit`, read medit's window frame from `dump-axtree --pid`, then
+`screencapture -R <that frame>`. **Never full-display** — that risks capturing
+other windows (it did, early on), so every capture is bounded to medit's own frame.
+
+**Deferred (3) — open status-bar/menu popups:**
+- `text-menu.png` — the Edit ▸ Text submenu open.
+- `language-popup.png` — the status-bar language menu open.
+- `encoding-menu.png` — the status-bar encoding menu open.
+
+These NSMenus extend **beyond** medit's window frame, so the frontmost-gated
+window crop clips them, and a region large enough to include the menu risks
+catching adjacent windows — not safe to automate. An open menu's own AX frame
+also reported zero-size in the dump, and opening these popups reliably via
+automation was flaky (tracked as SC-4 in `../autopilot-feedback.md`). They're
+small and the menus are fully described in the manual text; capture by hand (open
+the menu, screenshot just the menu) or once AP's transient-menu capture improves.
