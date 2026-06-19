@@ -270,6 +270,7 @@ When block mode is active, a blue **BLK** pill appears in the status bar (next t
 
 <!-- SCREENSHOT: a rectangular block selection over aligned columns of text, with
      the blue BLK pill in the status bar. → images/block-edit.png -->
+![Column (block) editing](images/block-edit.png)
 
 ### Editing the block
 
@@ -305,6 +306,7 @@ medit renders Markdown **natively** — no embedded web view.
 
 <!-- SCREENSHOT: a Markdown document rendered in the preview, showing a table and a
      fenced code block. → images/markdown-preview.png -->
+![Markdown preview](images/markdown-preview.png)
 
 ### Formatting toolbar
 
@@ -514,6 +516,7 @@ button next to a control for a short explanation.
 
 <!-- SCREENSHOT: the Settings window, a couple of sections visible with ⓘ help
      buttons. → images/settings.png -->
+![Settings](images/settings.png)
 
 ---
 

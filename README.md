@@ -97,6 +97,7 @@ Targets **macOS 14 (Sonoma)** and later. Universal — Apple Silicon and Intel.
 
 <!-- SCREENSHOT: a rectangular block selection spanning several rows of aligned
      text, with the blue BLK pill in the status bar. → docs/images/block-edit.png -->
+![Column (block) editing](docs/images/block-edit.png)
 
 ### Markdown
 
@@ -114,6 +115,7 @@ Targets **macOS 14 (Sonoma)** and later. Universal — Apple Silicon and Intel.
 <!-- SCREENSHOT: a Markdown file side-by-side: source on the left, rendered preview
      on the right (or the preview alone), showing a table + code block.
      → docs/images/markdown-preview.png -->
+![Markdown preview](docs/images/markdown-preview.png)
 
 ### Files, sidebar & sessions
 
