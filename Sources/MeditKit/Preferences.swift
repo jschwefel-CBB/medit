@@ -62,6 +62,9 @@ public final class Preferences {
         static let sidebarOnRight = "sidebarOnRight"
         static let confirmBeforeDelete = "confirmBeforeDelete"
         static let sidebarRootBookmarks = "sidebarRootBookmarks"
+        static let recentFilePaths = "recentFilePaths"
+        static let sidebarPane = "sidebarPane"
+        static let windowFrame = "windowFrame"
         static let smartQuotes = "smartQuotes"
         static let smartDashes = "smartDashes"
         static let automaticTextReplacement = "automaticTextReplacement"
@@ -106,6 +109,8 @@ public final class Preferences {
             Key.sidebarOnRight: false,
             Key.confirmBeforeDelete: true,
             Key.sidebarRootBookmarks: [Data](),
+            Key.recentFilePaths: [String](),
+            Key.sidebarPane: "folders",
             Key.smartQuotes: false,
             Key.smartDashes: false,
             Key.automaticTextReplacement: false,
@@ -256,6 +261,20 @@ public final class Preferences {
     }
     /// Security-scoped bookmarks for the sidebar's pinned root folders. Bookmarks
     /// (not plain paths) are what survive the app sandbox across launches.
+    public var recentFilePaths: [String] {
+        get { (defaults.array(forKey: Key.recentFilePaths) as? [String]) ?? [] }
+        set { defaults.set(newValue, forKey: Key.recentFilePaths); didChange() }
+    }
+    /// Which sidebar pane is active: "folders" or "recent".
+    public var sidebarPane: String {
+        get { defaults.string(forKey: Key.sidebarPane) ?? "folders" }
+        set { defaults.set(newValue, forKey: Key.sidebarPane); didChange() }
+    }
+    /// Last window frame (NSStringFromRect), restored on next launch. Empty = none yet.
+    public var windowFrame: String {
+        get { defaults.string(forKey: Key.windowFrame) ?? "" }
+        set { defaults.set(newValue, forKey: Key.windowFrame); didChange() }
+    }
     public var sidebarRootBookmarks: [Data] {
         get { (defaults.array(forKey: Key.sidebarRootBookmarks) as? [Data]) ?? [] }
         set { defaults.set(newValue, forKey: Key.sidebarRootBookmarks); didChange() }

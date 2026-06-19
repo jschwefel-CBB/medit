@@ -34,12 +34,11 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         // A real floor so a window can never be saved/restored absurdly small
         // (the old 360x240 floor is what let it come back tiny).
         window.minSize = EditorWindowController.minWindowSize
-        window.setFrameAutosaveName("medit.editor.window")
-        // Under --reset-state (the GUI test driver), opt the window out of AppKit
-        // state restoration so no previous session's document window comes back.
-        if LaunchReset.isRequested(in: CommandLine.arguments) {
-            window.isRestorable = false
-        }
+        // We manage the window frame ourselves (persisted to the windowFrame
+        // pref and restored in restoreWindowFrame). Opt OUT of AppKit's automatic
+        // window-state restoration so it can't fight our explicit positioning —
+        // that tug-of-war was making windows land in the wrong place / lower-left.
+        window.isRestorable = false
 
         super.init(window: window)
 
@@ -71,11 +70,82 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         window.contentViewController = split
         // Apply initial visibility (default collapsed/off).
         sidebarItem.isCollapsed = !preferences.showSidebar
-        shouldCascadeWindows = true
+        // Don't let AppKit cascade windows to a new spot — that's what made
+        // windows march toward the lower-left on open. We position explicitly
+        // from the saved frame (or center a brand-new window) in restoreWindowFrame().
+        shouldCascadeWindows = false
+        restoreWindowFrame()
 
         NotificationCenter.default.addObserver(self, selector: #selector(applySidebarSideIfChanged),
                                                name: Preferences.didChangeNotification, object: nil)
     }
+
+    // MARK: Window frame persistence (reopen at last size/position)
+
+    /// Set true once the saved frame has been applied, so the construction-time
+    /// flurry of resize/move notifications (which carry transient setup frames)
+    /// can't overwrite the persisted value before we've even restored it.
+    private var frameTrackingEnabled = false
+
+    /// Restore the last-saved window frame, or center a default-sized window the
+    /// first time. Clamped to the visible screen so a frame saved on a now-absent
+    /// external display can't strand the window offscreen.
+    private func restoreWindowFrame() {
+        guard let window else { return }
+        let saved = prefs.windowFrame
+        if !saved.isEmpty {
+            let frame = NSRectFromString(saved)
+            if frame.width >= EditorWindowController.minWindowSize.width,
+               frame.height >= EditorWindowController.minWindowSize.height {
+                window.setFrame(clampToScreen(frame), display: false)
+                enableFrameTrackingAfterSetup()
+                return
+            }
+        }
+        // No saved frame: center the (already default-sized) window. The window
+        // was created at defaultWindowSize, so just position it — no resize, which
+        // keeps us from disturbing content/scroll-view width baselines.
+        window.center()
+        enableFrameTrackingAfterSetup()
+    }
+
+    /// Begin honoring move/resize notifications only after the construction-time
+    /// layout settles, so transient setup frames never get persisted.
+    private func enableFrameTrackingAfterSetup() {
+        DispatchQueue.main.async { [weak self] in self?.frameTrackingEnabled = true }
+    }
+
+    /// Keep a frame within the visible area of some screen (handles a display
+    /// that was unplugged since the frame was saved).
+    private func clampToScreen(_ frame: NSRect) -> NSRect {
+        let screens = NSScreen.screens
+        // If the frame already intersects a screen meaningfully, keep it.
+        if screens.contains(where: { $0.visibleFrame.intersects(frame) }) { return frame }
+        guard let main = NSScreen.main?.visibleFrame else { return frame }
+        var f = frame
+        f.size.width = Swift.min(f.size.width, main.width)
+        f.size.height = Swift.min(f.size.height, main.height)
+        f.origin.x = main.midX - f.size.width / 2
+        f.origin.y = main.midY - f.size.height / 2
+        return f
+    }
+
+    /// Persist the current window frame so the next launch reopens here. Skips
+    /// degenerate frames (zero-size, or smaller than the floor) so a transient
+    /// mid-setup frame can't poison the saved value.
+    private func saveWindowFrame() {
+        guard frameTrackingEnabled, let window else { return }
+        let f = window.frame
+        guard f.width >= EditorWindowController.minWindowSize.width,
+              f.height >= EditorWindowController.minWindowSize.height else { return }
+        prefs.windowFrame = NSStringFromRect(f)
+    }
+
+    public func windowDidResize(_ notification: Notification) { saveWindowFrame() }
+    public func windowDidMove(_ notification: Notification) { saveWindowFrame() }
+
+    /// Test hook: persist the current frame as a move/resize would.
+    func simulateWindowMoveForTesting() { frameTrackingEnabled = true; saveWindowFrame() }
 
     @objc private func applySidebarSideIfChanged() {
         guard let split = splitViewController, let sidebarItem = sidebarItem else { return }
@@ -277,6 +347,13 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         applySidebarVisibility()
     }
 
+    /// Flip the sidebar between the Folders tree and the Recent Files list,
+    /// showing the sidebar first if it's hidden.
+    @IBAction public func toggleSidebarPane(_ sender: Any?) {
+        if !prefs.showSidebar { prefs.showSidebar = true; applySidebarVisibility() }
+        sidebar?.togglePane()
+    }
+
     private func applySidebarVisibility() {
         let show = prefs.showSidebar
         sidebarItem?.isCollapsed = !show
@@ -358,6 +435,9 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         switch menuItem.action {
         case #selector(toggleSidebarVisible(_:)):
             menuItem.state = prefs.showSidebar ? .on : .off
+        case #selector(toggleSidebarPane(_:)):
+            // Checked when the Recent pane is showing.
+            menuItem.state = (prefs.sidebarPane == "recent") ? .on : .off
         case #selector(toggleHiddenFiles(_:)):
             menuItem.state = prefs.showHiddenFiles ? .on : .off
         case #selector(toggleRevealActiveFile(_:)):
