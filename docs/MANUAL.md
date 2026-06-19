@@ -78,6 +78,7 @@ A medit window has, from top to bottom:
 
 <!-- SCREENSHOT: a labeled/annotated window showing tab bar, sidebar, editor,
      gutter, and status bar. → images/window-anatomy.png -->
+![Window anatomy](images/window-anatomy.png)
 
 ---
 
@@ -155,6 +156,7 @@ Brackets** or **Settings**.
 
 <!-- SCREENSHOT: nested brackets in code colored by depth, caret pair emphasized.
      → images/rainbow-brackets.png -->
+![Rainbow brackets](images/rainbow-brackets.png)
 
 ### Show Invisibles
 
@@ -318,6 +320,7 @@ Code block** (prefix the lines). Each button **toggles** — click again to remo
 the syntax. The caret lands in the URL slot when you insert a link.
 
 <!-- SCREENSHOT: the Markdown formatting toolbar above the editor. → images/markdown-toolbar.png -->
+![Markdown toolbar](images/markdown-toolbar.png)
 
 ### Setting medit as the default `.md` app
 
@@ -350,6 +353,7 @@ Sidebar options in **Settings**:
 
 <!-- SCREENSHOT: the sidebar with a multi-folder tree and the right-click context
      menu. → images/sidebar.png -->
+![Sidebar](images/sidebar.png)
 
 ---
 
@@ -385,6 +389,7 @@ Along the bottom of the window (toggle in **View ▸ Show Status Bar**):
   column/block mode is active).
 
 <!-- SCREENSHOT: the status bar in detail, annotated. → images/status-bar.png -->
+![Status bar](images/status-bar.png)
 
 ---
 

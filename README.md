@@ -73,6 +73,7 @@ Targets **macOS 14 (Sonoma)** and later. Universal — Apple Silicon and Intel.
 
 <!-- SCREENSHOT: editor close-up showing syntax highlighting, line-number gutter,
      and rainbow brackets. → docs/images/editor.png -->
+![Editor](docs/images/editor.png)
 
 ### Find, replace & navigate
 
@@ -138,6 +139,7 @@ Targets **macOS 14 (Sonoma)** and later. Universal — Apple Silicon and Intel.
 
 <!-- SCREENSHOT: the sidebar showing the Folders | Recent segmented switcher and a
      file tree, next to the editor. → docs/images/sidebar.png -->
+![Sidebar](docs/images/sidebar.png)
 
 ### Status bar & document info
 
@@ -152,6 +154,7 @@ Targets **macOS 14 (Sonoma)** and later. Universal — Apple Silicon and Intel.
 
 <!-- SCREENSHOT: the status bar in detail, annotated, showing word count + the
      INS / BLK pills. → docs/images/status-bar.png -->
+![Status bar](docs/images/status-bar.png)
 
 ### File handling & robustness
 
