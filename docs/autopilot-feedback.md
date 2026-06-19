@@ -6,15 +6,103 @@
 
 ---
 
+## Screenshot capture for docs — findings (using AP's `screenshot` / `captureTarget`)
+
+Capturing README + manual screenshots from the running app. The `screenshot`
+action works well in the happy path (clean full-window PNGs of medit's editor,
+Markdown preview, and Settings all came out great). But three things tripped up a
+documentation-capture workflow:
+
+**SC-1 (P1) — `screenshot` with `target: { role: "AXWindow" }` fails with no
+message.** A plan step `{ action: "screenshot", target: { role: AXWindow } }`
+returned `result: fail` with `message: null` and wrote **no PNG** — while the
+preceding `waitFor editorTextView` on the *same* window **passed** (so AP resolved
+the window's elements fine). Repro: `bundleId` target, `waitFor editorTextView`
+(pass), then `screenshot` AXWindow (fail, 42ms, no file). **Ask:** when a
+screenshot step fails, populate `message` with the reason (target didn't resolve /
+capture returned empty / window off-screen) — a silent `fail` with no artifact and
+no message is hard to debug. (The full-display fallback path *does* set a message;
+the element-target path doesn't.)
+
+**SC-2 (P2) — `run` with `bundleId` terminates + relaunches the app, then
+`screenshot` races the unrendered window.** AP logged *"terminating 1 existing
+instance(s) of medit.app for a clean relaunch"* — so a `run` plan does **not**
+attach to my already-arranged, already-rendered window; it kills it and launches a
+fresh one. A `screenshot` immediately after `waitFor` then fires ~40ms in, before
+the new window has painted, yielding a blank/failed shot. Plans that added a
+`wait` (2–3s) settle after the element appeared captured fine. **Ask:** either have
+`screenshot` wait for the window to be paintable (non-empty) before capturing, or
+document that a settle is required after launch; and for **doc workflows
+specifically**, a `screenshot --pid <pid>` (attach-and-capture, like
+`dump-axtree --pid`) would let a caller screenshot an app they arranged themselves
+without AP relaunching it.
+
+**SC-3 (P3) — element-scoped crops (`captureTarget` / `screenshot` with a small
+element target) of thin/!solid elements landed empty.** Targeting `positionLabel`
+(a tiny status-bar label) or `sidebarOutline` produced blank/near-empty crops with
+large padding (padding around a 1-line label captures mostly the area *above* it,
+including whatever's behind the window). Big solid elements (`editorTextView`,
+`AXWindow`) crop fine. For thin strips, capturing the full window and cropping
+geometrically was more reliable. Not a bug so much as a sharp edge — element
+captures assume the element's frame is the region of interest, which is wrong for
+1-line labels surrounded by other content. Worth a note in §12a.
+
+**SC-4 (P1, the practical blocker) — no reliable "drive into a transient state,
+then capture" flow.** The genuinely hard part of a documentation run isn't the
+capture — it's getting the app into the *state* you want to shoot (find bar open,
+sidebar switched to the Recent pane, a multi-tab group, a status-bar popup menu
+open, the external-change banner showing) and capturing it before it changes. What
+I hit:
+- AP's **`menu` action opened the find bar reliably** (good — better than my
+  osascript menu-clicking), but the subsequent `screenshot` step then failed
+  (SC-1), so the open bar was never captured in the same plan.
+- A plan can't easily **hold a transient state across the capture**: by the time a
+  follow-on `screenshot` runs (or an external `screencapture` fires), the menu/
+  popover has dismissed or focus moved.
+- There is no **"capture the app exactly as it is right now" attach mode** — `run`
+  relaunches (SC-2), which destroys any state I'd arranged.
+
+What would make doc capture tractable: (a) `screenshot --pid` attach-and-capture
+(see SC-2); (b) a `screenshot` that's robust enough to fire immediately after a
+`menu`/`click` that opened transient UI, *within the same plan*, without a relaunch
+or a long settle; (c) optionally a way to **hold** an opened menu/popover open
+across the next step.
+
+**SC-5 (P2, evidence) — AP `screenshot` failed consistently when medit's window was
+on a secondary display at negative coordinates; `screencapture -R<rect>` did not.**
+On this multi-monitor setup medit's window repeatedly opened at e.g.
+`-1774,235,988,592` (left display, negative x). AP's `screenshot` AXWindow target
+failed there (SC-1), but `/usr/sbin/screencapture -o -x -R"-1774,235,988,592"`
+captured it perfectly every time. **Reliable fallback that worked end-to-end:** get
+the window frame from `dump-axtree --pid` (the AX `frame` field is solid), then
+`screencapture -R` that rect. Worth checking AP's capture path handles negative /
+secondary-display window origins.
+
+**Not AP:** driving medit into transient states via *osascript/System Events*
+keystrokes was flaky on my end (AppleScript timing + an intermittently-empty
+`System Events … window 1` query). AP's `menu` action is the better lever; the
+remaining gap is SC-4 (capture the resulting transient state in the same plan).
+
+**Net:** AP's screenshot **capture** is fine for full-window/large-element shots —
+hero, Markdown preview+toolbar, Settings, block-edit, and the sidebar all came out
+great via either AP `screenshot` (when it didn't hit SC-1) or the
+`dump-axtree --pid` frame → `screencapture -R` fallback. The blockers for a
+*complete* doc set are **SC-1** (silent screenshot failure), **SC-2/SC-5**
+(relaunch race / secondary-display capture), and especially **SC-4** (no
+reliable drive-to-transient-state-then-capture). The medit doc screenshots that
+need transient states (find bar, Recent pane, open menus, multi-tab, reload banner)
+are **deferred** until these are smoother.
+
+---
+
 ## medit 2.4.1 — no new AutoPilot findings
 
-Patch: the column/block-mode **COL** status-bar indicator is now **always
-visible** (dim when off, bright accent pill when on) instead of only appearing
-while block mode was active — so the on/off state is always glanceable, like
-INS/OVR. No AP-side issues; verified both states with real screenshots (`Read` on
-`screencapture` output), which is the reliable check for a "is it visually there"
-question — the AX `value` reported the label text but not its styling/visibility,
-so a screenshot was the right tool.
+Patch: the block-mode status-bar indicator now shows a blue **` BLK `** pill while
+rectangular block editing is active and is **empty (hidden) otherwise** — same
+visual flair as the OVR pill. (Earlier this patch had tried an always-visible
+"COL" variant; the final behavior is empty-off / blue-BLK-on per the requested
+design.) No AP-side issues; `dump-axtree --pid` confirmed the toggle (label empty
+when off → ` BLK ` when block mode is entered, empty again when exited).
 
 ---
 

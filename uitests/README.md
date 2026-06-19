@@ -26,15 +26,35 @@ patterns, and a worked example — see the AutoPilot authoring guide:
 (or https://github.com/jschwefel-CBB/autopilot/blob/main/docs/AUTHORING.md).
 
 Use the MCP `dump_axtree` tool (or read these plans) to discover identifiers.
+For inspecting a *running* medit you launched yourself, attach by pid:
+`autopilot dump-axtree --pid <pid>` (it attaches rather than launching a new
+instance). Element-scoped screenshots and the `captureTarget` step are available
+(see AUTHORING.md §12a) — handy for debugging flaky plans against medit's UI.
 
-Tagged controls (AXIdentifier):
+Tagged controls (AXIdentifier) — current as of v2.4.1:
+
+Editor & status bar
 - `editorTextView` — the editing surface (NSTextView)
 - `positionLabel` — status-bar line/column text
+- `documentStatsLabel` — status-bar word/line/char count
+- `columnModeLabel` — status-bar block-mode (`BLK`) pill (empty when off)
 - `languageButton`, `encodingButton` — status-bar inline buttons
+
+Find / Go to Line / external change
 - `findField`, `replaceField`, `findStatusLabel` — find/replace bar
-- `sidebarOutline` — file-browser outline view
 - `goToLineField` — go-to-line sheet input
 - `reloadButton`, `dismissReloadButton`, `reloadBannerLabel` — external-change banner
+
+Sidebar
+- `sidebarOutline` — folder file-browser outline view
+- `sidebarPaneSwitcher` — Folders | Recent segmented control
+- `recentFilesTable` — the Recent Files list
+
+Markdown
+- `markdownPreviewTextView` — the rendered Markdown preview
+- `mdStyle.bold`, `mdStyle.italic`, `mdStyle.strikethrough`, `mdStyle.code`,
+  `mdStyle.link`, `mdStyle.heading`, `mdStyle.bullet`, `mdStyle.ordered`,
+  `mdStyle.quote`, `mdStyle.codeBlock` — Markdown formatting-toolbar buttons
 
 ## Note on state
 Plans launch medit with `--reset-state`, which clears its UserDefaults domain

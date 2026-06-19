@@ -12,18 +12,25 @@ Mac.
 ![Swift](https://img.shields.io/badge/Swift-AppKit-orange)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
-**Status:** working, v1.4.0. A native tabbed editor with syntax highlighting,
-regex find/replace, find-in-all-tabs, Go to Line, a status bar, auto-indent,
-whitespace hygiene, manual language/encoding control, reload-on-external-change,
-PC-style navigation keys, and an optional multi-root sidebar file browser.
+**Status:** working, **v2.4.1**. A native tabbed editor with syntax highlighting,
+regex find/replace, find-in-all-tabs, Go to Line, a status bar with live word
+count, auto-indent, whitespace hygiene, manual language/encoding control,
+reload-on-external-change, PC-style navigation keys, an optional multi-root
+sidebar file browser with a Recent Files pane, **native Markdown preview &
+printing**, sort/case text transforms, and **column (block) editing**.
 
-Targets **macOS 14 (Sonoma)** and later. Apple Silicon and Intel.
+Targets **macOS 14 (Sonoma)** and later. Universal — Apple Silicon and Intel.
+
+<!-- SCREENSHOT: hero — medit open on a code file with the sidebar visible, syntax
+     highlighting, line numbers, and the status bar. Place here as docs/images/hero.png -->
+![medit](docs/images/hero.png)
 
 ---
 
 ## Table of contents
 
 - [Features](#features)
+- [User Manual](docs/MANUAL.md)
 - [Install](#install)
 - [Build from source](#build-from-source)
 - [Keyboard shortcuts](#keyboard-shortcuts)
@@ -38,55 +45,130 @@ Targets **macOS 14 (Sonoma)** and later. Apple Silicon and Intel.
 
 ## Features
 
+> A full walkthrough — every feature, setting, and shortcut — is in the
+> **[User Manual](docs/MANUAL.md)**. This is the highlights tour.
+
+### Editing core
+
 - **Native window tabs** — macOS tabbing with an always-visible tab bar and **+**
   button. Open a tab via ⌘T, the **File** menu, the **+**, or the editor's
   right-click menu.
-- **Syntax highlighting** — ~190 languages via
+- **Syntax highlighting** — 70+ languages via
   [HighlighterSwift](https://github.com/smittytone/HighlighterSwift) (highlight.js),
-  auto-detected from the file extension. The theme follows the system light/dark
-  appearance automatically.
-- **Line numbers** — a toggleable gutter (⇧⌘L).
-- **Word wrap** — toggleable from the **View** menu.
+  auto-detected from the file extension (and shebang lines for extension-less
+  scripts). The theme follows the system light/dark appearance automatically.
+- **Line numbers** (⇧⌘L) and **word wrap** (toggle in **View**).
+- **Auto-indent & bracket assist** — new lines keep the previous indent (and add a
+  level after `{` or `:`); typing a bracket auto-closes it. Both toggle in
+  **Settings**.
+- **Rainbow brackets** — matching brackets colored by nesting depth, with the
+  caret's enclosing pair emphasized (bold / underline / background). Toggle in
+  **View** / **Settings**.
+- **Whitespace hygiene** — strip trailing whitespace + ensure a final newline on
+  save, plus **Show Invisibles** to render spaces/tabs/line breaks as faint marks.
+- **PC-style navigation keys** — Home/End move to the start/end of the line (Ctrl
+  for the whole document, Shift to extend); **Insert** toggles overwrite mode with
+  a block caret (Shift+Insert pastes, Ctrl+Insert copies). Toggle off in
+  **Settings** for macOS-native Home/End.
+
+<!-- SCREENSHOT: editor close-up showing syntax highlighting, line-number gutter,
+     and rainbow brackets. → docs/images/editor.png -->
+![Editor](docs/images/editor.png)
+
+### Find, replace & navigate
+
 - **Find & Replace** — a custom in-editor bar (⌘F / ⌥⌘F) with **regex** and
   **match-case** toggles, a live match count, and `$1` capture-group replacement.
   (Apple's built-in find bar can't expose regex in its UI; this one can.)
-- **Find in All Tabs** — search across every open document at once (⇧⌘F), with
+- **Find in All Tabs** (⇧⌘F) — search across every open document at once, with
   regex; click a result to jump straight to it.
-- **Go to Line** — jump to any line number (⌘L or ⌃G).
-- **Status bar** — live line:column, language, encoding, and insert/overwrite
-  mode at the bottom of the window (toggle in **View**).
-- **Auto-indent & bracket assist** — new lines keep the previous indent (and add
-  a level after `{` or `:`); typing a bracket auto-closes it and highlights its
-  match. Both toggle in **Settings** (on by default).
-- **Whitespace hygiene** — strip trailing whitespace and ensure a final newline on
-  save (on by default; toggle in **Settings**), plus a **Show Invisibles** view to
-  render spaces and tabs as faint markers.
-- **PC-style navigation keys** — Home/End move to the start/end of the line
-  (Ctrl for the whole document, Shift to extend the selection); **Insert** toggles
-  overwrite ("type-over") mode with a block caret, Shift+Insert pastes, Ctrl+Insert
-  copies. On by default; toggle it off in **Settings** to restore macOS-native
-  Home/End.
-- **Preferences** — font, appearance (System / Light / Dark), default word wrap,
-  line-number visibility, tab width, auto-indent, auto-close brackets,
-  strip-on-save, and the PC-keys toggle (⌘,).
-- **Faithful file handling** — encoding detection on open (UTF-8, UTF-16/32 with
-  BOM, ISO Latin-1 fallback) with faithful round-trip on save; recent files;
-  unsaved-changes prompts; drag-and-drop; session restore. Runs sandboxed with
-  user-selected file access.
-- **Manual language selection** — click the language in the status bar to override
-  syntax highlighting; "Auto-Detect" returns control. Detection also reads shebang
-  lines (e.g. `#!/usr/bin/env python`) for extension-less scripts.
-- **Encoding & line endings** — click the encoding in the status bar to Reinterpret
-  (re-decode the file bytes) or Convert (re-encode on save); choose LF or CRLF.
-- **Reload on external change** — medit notices when an open file changes on disk
-  and offers to reload (a banner by default; Prompt / Auto-reload-if-clean in
-  Settings). A deleted file keeps your buffer so you can re-save it.
+- **Go to Line** (⌘L or ⌃G).
+
+<!-- SCREENSHOT: the Find & Replace bar open with the Regex + Match Case toggles
+     and a match count. → docs/images/find-replace.png -->
+![Find & Replace](docs/images/find-replace.png)
+
+### Text transforms & block editing
+
+- **Sort Lines** (ascending / descending) and **Change Case** (Upper / Lower /
+  Capitalize) on the selected lines — **Edit ▸ Text**.
+- **Column (block) editing** — hold **⌥ and drag** a vertical rectangle, or toggle
+  **Column Selection Mode** (⌥⌘B), then type onto every row at once (or replace the
+  rectangle), delete across rows, and copy/cut/paste as a block. Great for scraping
+  aligned terminal output. A **BLK** pill in the status bar shows when it's active.
+
+<!-- SCREENSHOT: a rectangular block selection spanning several rows of aligned
+     text, with the blue BLK pill in the status bar. → docs/images/block-edit.png -->
+![Column (block) editing](docs/images/block-edit.png)
+
+### Markdown
+
+- **Rendered preview** (⇧⌘V) — natively drawn Markdown (no web view): full
+  GitHub-Flavored Markdown with custom-drawn code panels, bordered tables, heading
+  rules, and blockquote bars. **Auto-show for `.md`** and **auto-refresh** are
+  toggles in **Settings**.
+- **Formatting toolbar** — for Markdown files, a toolbar of one-click Bold / Italic
+  / Strikethrough / Code / Link / Heading / lists / Quote / Code-block that
+  wrap or prefix your selection (each toggles off on a second click). Toggle in
+  **View** / **Settings**.
+- **Printing** — ⌘P prints the **rendered** Markdown; plain text and source files
+  print as monospace with optional line numbers and a filename header.
+
+<!-- SCREENSHOT: a Markdown file side-by-side: source on the left, rendered preview
+     on the right (or the preview alone), showing a table + code block.
+     → docs/images/markdown-preview.png -->
+![Markdown preview](docs/images/markdown-preview.png)
+
+### Files, sidebar & sessions
+
 - **Sidebar file browser** (optional, off by default — ⌘⌃0) — a multi-root file
   tree: **Open Folder…** (⇧⌘O) to add roots, navigate, and manage files (New
-  File/Folder, Rename, Move to Trash, Reveal in Finder, drag-to-move). Double-click
-  to open a file in a tab. Lots of toggles: folders-first sort, sort direction,
-  single-click open, sidebar side (left/right), confirm-before-delete, show hidden
-  files, reveal the active file. Zero overhead when hidden (no watchers, no reads).
+  File/Folder, Rename, Move to Trash, Reveal in Finder, drag-to-move). Toggles for
+  folders-first sort, sort direction, single-click open, sidebar side, confirm
+  before delete, show hidden files, reveal the active file. Zero overhead when
+  hidden.
+- **Recent Files pane** — the sidebar switches between **Folders** and **Recent**
+  (the files you've opened/saved, newest first) via a segmented control at its top
+  or **View ▸ Show Recent Files in Sidebar**.
+- **Session restore** — medit reopens the files you had open when you last quit
+  (toggle in **Settings**).
+- **Reopen at last size/position** — windows come back where you left them, not at
+  the lower-left.
+- **Drag & drop to open** — drag one file or several from Finder onto the editor;
+  each opens in a tab.
+
+<!-- SCREENSHOT: the sidebar showing the Folders | Recent segmented switcher and a
+     file tree, next to the editor. → docs/images/sidebar.png -->
+![Sidebar](docs/images/sidebar.png)
+
+### Status bar & document info
+
+- **Status bar** — live **Ln/Col**, a **word / line / character count** (with a
+  selection count when text is selected), language, encoding, line ending, wrap
+  state, and the **INS/OVR** + **BLK** mode pills. Toggle the bar and the word
+  count independently in **View** / **Settings**.
+- **Manual language selection** — click the language in the status bar to override
+  syntax highlighting; "Auto-Detect" returns control.
+- **Encoding & line endings** — click the encoding to **Reinterpret** (re-decode
+  the bytes) or **Convert** (re-encode on save); choose LF or CRLF.
+
+<!-- SCREENSHOT: the status bar in detail, annotated, showing word count + the
+     INS / BLK pills. → docs/images/status-bar.png -->
+![Status bar](docs/images/status-bar.png)
+
+### File handling & robustness
+
+- **Faithful file handling** — encoding detection on open (UTF-8, UTF-16/32 with
+  BOM, ISO Latin-1 fallback) with faithful round-trip on save; unsaved-changes
+  prompts. Runs sandboxed with user-selected file access.
+- **Reload on external change** — medit notices when an open file changes on disk
+  and offers to reload (a banner by default; Prompt / Auto-reload-if-clean in
+  **Settings**). A deleted file keeps your buffer so you can re-save it.
+- **Preferences** (⌘,) — font, appearance (System / Light / Dark), light/dark
+  syntax themes, word wrap, line numbers, tab width, spaces-vs-tabs, auto-indent,
+  auto-close brackets, strip-on-save, rainbow brackets, Markdown preview/toolbar
+  options, print line numbers, word count, session restore, the full set of sidebar
+  toggles, smart-substitution options, and PC-keys.
 
 ## Install
 
@@ -155,9 +237,13 @@ xattr -dr com.apple.quarantine /Applications/medit.app
 | ⌘G / ⇧⌘G | Find next / previous |
 | ⇧⌘F | Find in all tabs |
 | ⌘L / ⌃G | Go to Line |
+| ⌘P | Print (rendered for Markdown) |
+| ⇧⌘V | Show Markdown preview |
+| ⌥⌘B | Column (block) selection mode |
 | ⌘⌃0 | Toggle sidebar |
 | ⇧⌘O | Open Folder… |
 | ⇧⌘L | Toggle line numbers |
+| Esc | Exit column (block) mode |
 | Home / End | Line start / end |
 | Shift+Home / Shift+End | Extend selection to line start / end |
 | Ctrl+Home / Ctrl+End | Document start / end |
