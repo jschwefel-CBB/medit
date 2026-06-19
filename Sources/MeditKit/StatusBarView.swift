@@ -48,7 +48,6 @@ public final class StatusBarView: NSView {
         languageButton.setAccessibilityIdentifier("languageButton")
         encodingButton.setAccessibilityIdentifier("encodingButton")
 
-        columnModeLabel.isHidden = true
         columnModeLabel.setAccessibilityIdentifier("columnModeLabel")
         let stack = NSStackView(views: [positionLabel, sep(), statsLabel, NSView(), languageButton, sep(), encodingButton, sep(), lineEndingButton, sep(), wrapButton, sep(), columnModeLabel, modeLabel])
         stack.orientation = .horizontal
@@ -72,6 +71,8 @@ public final class StatusBarView: NSView {
             top.trailingAnchor.constraint(equalTo: trailingAnchor),
             top.topAnchor.constraint(equalTo: topAnchor),
         ])
+
+        setColumnMode(false)   // always-visible OFF state by default
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -123,22 +124,35 @@ public final class StatusBarView: NSView {
         }
     }
 
-    /// Show/hide the column-mode indicator — a filled accent "pill" matching the
-    /// OVR styling, shown only while rectangular column editing is active.
+    /// Column-mode indicator. ALWAYS visible (like INS/OVR): a bright filled accent
+    /// "COL" pill when block mode is ON, a dim plain "COL" when OFF — so the state
+    /// is always glanceable.
     public func setColumnMode(_ active: Bool) {
-        columnModeLabel.isHidden = !active
-        guard active else { return }
-        let attrs: [NSAttributedString.Key: Any] = [
-            .foregroundColor: NSColor.white,
-            .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
-        ]
-        columnModeLabel.attributedStringValue = NSAttributedString(string: " COL ", attributes: attrs)
-        columnModeLabel.drawsBackground = true
-        columnModeLabel.backgroundColor = NSColor.controlAccentColor
+        columnModeLabel.isHidden = false
         columnModeLabel.wantsLayer = true
         columnModeLabel.layer?.cornerRadius = 3
         columnModeLabel.layer?.masksToBounds = true
+        if active {
+            let attrs: [NSAttributedString.Key: Any] = [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
+            ]
+            columnModeLabel.attributedStringValue = NSAttributedString(string: " COL ", attributes: attrs)
+            columnModeLabel.drawsBackground = true
+            columnModeLabel.backgroundColor = NSColor.controlAccentColor
+        } else {
+            let attrs: [NSAttributedString.Key: Any] = [
+                .foregroundColor: NSColor.secondaryLabelColor,
+                .font: NSFont.systemFont(ofSize: 10, weight: .regular),
+            ]
+            columnModeLabel.attributedStringValue = NSAttributedString(string: " COL ", attributes: attrs)
+            columnModeLabel.drawsBackground = false
+            columnModeLabel.layer?.backgroundColor = nil
+        }
     }
+
+    /// Test hook: the column indicator's current ON/OFF state by styling.
+    public var columnModeActiveForTesting: Bool { columnModeLabel.drawsBackground }
 
     /// Test hook.
     public var columnModeVisibleForTesting: Bool { !columnModeLabel.isHidden }
