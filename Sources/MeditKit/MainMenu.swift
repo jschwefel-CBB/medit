@@ -232,6 +232,10 @@ public enum MainMenu {
                                      action: #selector(EditorWindowController.toggleAutoShowMarkdownPreview(_:)), keyEquivalent: "")
         menu.addItem(autoPreview)
 
+        let mdToolbar = NSMenuItem(title: "Show Markdown Toolbar",
+                                   action: #selector(EditorWindowController.toggleMarkdownToolbar(_:)), keyEquivalent: "")
+        menu.addItem(mdToolbar)
+
         let hiddenFiles = NSMenuItem(title: "Show Hidden Files",
                                      action: #selector(EditorWindowController.toggleHiddenFiles(_:)), keyEquivalent: "")
         menu.addItem(hiddenFiles)

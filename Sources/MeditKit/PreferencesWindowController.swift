@@ -17,6 +17,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     private var emphasizePairCheck: NSButton!
     private var autoRefreshPreviewCheck: NSButton!
     private var autoShowPreviewCheck: NSButton!
+    private var showMarkdownToolbarCheck: NSButton!
     private var printLineNumbersCheck: NSButton!
     private var emphasisStylePopup: NSPopUpButton!
     private var smartQuotesCheck: NSButton!
@@ -270,6 +271,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         autoRefreshPreviewCheck.toolTip = "Keep the Markdown preview up to date as you edit or the file changes"
         autoShowPreviewCheck = check("Auto-show preview for Markdown", #selector(checkChanged))
         autoShowPreviewCheck.toolTip = "Open the rendered preview automatically when you open a Markdown file"
+        showMarkdownToolbarCheck = check("Show formatting toolbar", #selector(checkChanged))
+        showMarkdownToolbarCheck.toolTip = "Show a formatting toolbar above Markdown documents for one-click bold, lists, headings, and more"
         printLineNumbersCheck = check("Print line numbers (plain text)", #selector(checkChanged))
         printLineNumbersCheck.toolTip = "Add line numbers and a filename header when printing plain or source files"
 
@@ -359,6 +362,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         stack.addRow(label: label("Enclosing-pair emphasis:"), control: emphasisStylePopup, controlWidth: 140)
 
         stack.add(header("Markdown"), gap: 18)
+        stack.add(showMarkdownToolbarCheck, indent: checkIndent)
         stack.add(autoShowPreviewCheck, indent: checkIndent)
         stack.add(autoRefreshPreviewCheck, indent: checkIndent)
 
@@ -488,6 +492,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         emphasizePairCheck.state = prefs.emphasizeEnclosingPair ? .on : .off
         autoRefreshPreviewCheck.state = prefs.autoRefreshPreview ? .on : .off
         autoShowPreviewCheck.state = prefs.autoShowPreviewForMarkdown ? .on : .off
+        showMarkdownToolbarCheck.state = prefs.showMarkdownToolbar ? .on : .off
         printLineNumbersCheck.state = prefs.printLineNumbers ? .on : .off
         switch prefs.enclosingPairEmphasisStyle {
         case .bold: emphasisStylePopup.selectItem(at: 0)
@@ -562,6 +567,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         prefs.emphasizeEnclosingPair = emphasizePairCheck.state == .on
         prefs.autoRefreshPreview = autoRefreshPreviewCheck.state == .on
         prefs.autoShowPreviewForMarkdown = autoShowPreviewCheck.state == .on
+        prefs.showMarkdownToolbar = showMarkdownToolbarCheck.state == .on
         prefs.printLineNumbers = printLineNumbersCheck.state == .on
         prefs.insertSpacesForTab = spacesCheck.state == .on
         prefs.pcStyleNavigationKeys = pcKeysCheck.state == .on

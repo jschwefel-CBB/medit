@@ -75,6 +75,7 @@ public final class Preferences {
         static let autoRefreshPreview = "autoRefreshPreview"
         static let autoShowPreviewForMarkdown = "autoShowPreviewForMarkdown"
         static let printLineNumbers = "printLineNumbers"
+        static let showMarkdownToolbar = "showMarkdownToolbar"
     }
 
     private func registerDefaults() {
@@ -117,7 +118,8 @@ public final class Preferences {
             Key.enclosingPairEmphasisStyle: EnclosingPairEmphasisStyle.bold.rawValue,
             Key.autoRefreshPreview: true,
             Key.autoShowPreviewForMarkdown: false,
-            Key.printLineNumbers: true
+            Key.printLineNumbers: true,
+            Key.showMarkdownToolbar: true
         ])
     }
 
@@ -324,6 +326,11 @@ public final class Preferences {
     public var printLineNumbers: Bool {
         get { defaults.bool(forKey: Key.printLineNumbers) }
         set { defaults.set(newValue, forKey: Key.printLineNumbers); didChange() }
+    }
+    /// Show the Markdown formatting toolbar for Markdown documents.
+    public var showMarkdownToolbar: Bool {
+        get { defaults.bool(forKey: Key.showMarkdownToolbar) }
+        set { defaults.set(newValue, forKey: Key.showMarkdownToolbar); didChange() }
     }
 
     /// The highlight.js theme name to use for the given effective appearance.

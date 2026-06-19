@@ -341,6 +341,11 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         prefs.autoShowPreviewForMarkdown.toggle()
     }
 
+    @IBAction public func toggleMarkdownToolbar(_ sender: Any?) {
+        prefs.showMarkdownToolbar.toggle()
+        editor?.applyStyleBarVisibility()
+    }
+
     // Distinct name (NOT a generic `toggleBrackets`) to avoid any AppKit selector
     // collision — the lesson from the toggleSidebar/NSSplitViewController clash.
     @IBAction public func toggleRainbowBrackets(_ sender: Any?) {
@@ -373,6 +378,9 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
             return textDocument.highlightLanguage == "markdown"
         case #selector(toggleAutoShowMarkdownPreview(_:)):
             menuItem.state = prefs.autoShowPreviewForMarkdown ? .on : .off
+        case #selector(toggleMarkdownToolbar(_:)):
+            menuItem.state = prefs.showMarkdownToolbar ? .on : .off
+            return textDocument.highlightLanguage == "markdown"
         default:
             break
         }

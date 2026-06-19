@@ -15,6 +15,10 @@ public final class EditorViewController: NSViewController {
     private var appearanceObservation: NSKeyValueObservation?
     private var isWrapping = false
 
+    // Markdown formatting toolbar (top of the editor, Markdown docs only).
+    private var markdownStyleBar: MarkdownStyleBar?
+    private var styleBarHeightConstraint: NSLayoutConstraint?
+
     // Markdown preview (per-tab; not a global pref). The preview pane is built
     // lazily and swapped in for the editor scroll view by `showPreview`.
     private var isShowingPreview = false
@@ -145,9 +149,23 @@ public final class EditorViewController: NSViewController {
         self.findReplaceBar = bar
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        // Markdown formatting toolbar at the very top (above the reload banner);
+        // collapses to zero height when hidden, like the find bar.
+        let styleBar = MarkdownStyleBar()
+        styleBar.translatesAutoresizingMaskIntoConstraints = false
+        styleBar.isHidden = true
+        styleBar.delegate = self
+        self.markdownStyleBar = styleBar
+        container.addSubview(styleBar)
+
         container.addSubview(banner)
         container.addSubview(bar)
         container.addSubview(scrollView)
+
+        let styleBarHeight = styleBar.heightAnchor.constraint(equalToConstant: 0)
+        styleBarHeight.isActive = true
+        styleBarHeightConstraint = styleBarHeight
 
         // Collapse the banner to zero height while hidden (starts hidden).
         let bannerHeight = banner.heightAnchor.constraint(equalToConstant: 0)
@@ -161,7 +179,11 @@ public final class EditorViewController: NSViewController {
         barHeightConstraint = heightConstraint
 
         NSLayoutConstraint.activate([
-            banner.topAnchor.constraint(equalTo: container.topAnchor),
+            styleBar.topAnchor.constraint(equalTo: container.topAnchor),
+            styleBar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            styleBar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+
+            banner.topAnchor.constraint(equalTo: styleBar.bottomAnchor),
             banner.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             banner.trailingAnchor.constraint(equalTo: container.trailingAnchor),
 
@@ -242,6 +264,7 @@ public final class EditorViewController: NSViewController {
         if prefs.autoShowPreviewForMarkdown, document?.highlightLanguage == "markdown" {
             showPreview(true)
         }
+        applyStyleBarVisibility()
     }
 
     private func observeResize() {
@@ -273,10 +296,58 @@ public final class EditorViewController: NSViewController {
         bracketColorizer?.refresh()
         ruler?.needsDisplay = true
         if isShowingPreview { renderPreview() }
+        applyStyleBarVisibility()
     }
 
     /// The live text currently in the editor (for saves).
     var currentText: String { textView.string }
+
+    // MARK: Markdown style bar
+
+    private var isMarkdownDocument: Bool { document?.highlightLanguage == "markdown" }
+
+    /// Show the formatting toolbar for Markdown documents when the pref is on.
+    func applyStyleBarVisibility() {
+        let show = isMarkdownDocument && prefs.showMarkdownToolbar
+        markdownStyleBar?.isHidden = !show
+        styleBarHeightConstraint?.constant = show ? 30 : 0
+    }
+
+    /// Apply a style-bar action to the editor's current selection, as a single
+    /// undoable edit, then re-highlight.
+    private func applyStyleAction(_ action: MarkdownStyleBar.Action) {
+        let tv = textView!
+        let full = tv.string
+        let sel = tv.selectedRange()
+        let edit: MarkdownEditing.Edit
+        switch action {
+        case .bold: edit = MarkdownEditing.toggleInline(full, sel, marker: "**")
+        case .italic: edit = MarkdownEditing.toggleInline(full, sel, marker: "*")
+        case .strikethrough: edit = MarkdownEditing.toggleInline(full, sel, marker: "~~")
+        case .code: edit = MarkdownEditing.toggleInline(full, sel, marker: "`")
+        case .link: edit = MarkdownEditing.insertLink(full, sel)
+        case .heading: edit = MarkdownEditing.toggleLinePrefix(full, sel, prefix: .heading(2))
+        case .bullet: edit = MarkdownEditing.toggleLinePrefix(full, sel, prefix: .bullet)
+        case .ordered: edit = MarkdownEditing.toggleLinePrefix(full, sel, prefix: .ordered)
+        case .quote: edit = MarkdownEditing.toggleLinePrefix(full, sel, prefix: .quote)
+        case .codeBlock: edit = MarkdownEditing.toggleCodeBlock(full, sel)
+        }
+        let fullRange = NSRange(location: 0, length: (full as NSString).length)
+        if tv.shouldChangeText(in: fullRange, replacementString: edit.text) {
+            tv.textStorage?.replaceCharacters(in: fullRange, with: edit.text)
+            tv.didChangeText()
+        }
+        tv.setSelectedRange(edit.selectedRange)
+        document?.updateText(tv.string)
+        highlighter?.scheduleHighlight()
+        bracketColorizer?.scheduleRefresh()
+        updateStatusBar()
+        schedulePreviewRefresh()
+    }
+
+    /// Test hook: invoke a style-bar action.
+    public func applyStyleActionForTesting(_ action: MarkdownStyleBar.Action) { applyStyleAction(action) }
+    public var styleBarVisibleForTesting: Bool { markdownStyleBar?.isHidden == false }
 
     // MARK: Markdown preview
 
@@ -562,6 +633,7 @@ public final class EditorViewController: NSViewController {
             previewTextView?.textContainerInset = NSSize(width: pad, height: pad)
             renderPreview()
         }
+        applyStyleBarVisibility()
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -616,6 +688,7 @@ public final class EditorViewController: NSViewController {
         document?.languageOverride = id
         highlighter?.setLanguage(document?.highlightLanguage)
         updateStatusBar()
+        applyStyleBarVisibility()
     }
 
     func setLanguageOverrideForTesting(_ id: String?) { setLanguageOverride(id) }
@@ -790,6 +863,14 @@ public final class EditorViewController: NSViewController {
         guard !query.term.isEmpty else { bar.setStatus(""); return }
         let count = TextSearch.matches(of: query, in: textView.string).count
         bar.setStatus(count == 0 ? "Not found" : "\(count) match\(count == 1 ? "" : "es")")
+    }
+}
+
+// MARK: - MarkdownStyleBarDelegate
+
+extension EditorViewController: MarkdownStyleBarDelegate {
+    public func styleBar(_ bar: MarkdownStyleBar, didInvoke action: MarkdownStyleBar.Action) {
+        applyStyleAction(action)
     }
 }
 
