@@ -219,6 +219,10 @@ public enum MainMenu {
                                    action: #selector(EditorWindowController.toggleStatusBar(_:)), keyEquivalent: "")
         menu.addItem(statusBar)
 
+        let docStats = NSMenuItem(title: "Show Word Count",
+                                  action: #selector(EditorWindowController.toggleDocumentStats(_:)), keyEquivalent: "")
+        menu.addItem(docStats)
+
         let invisibles = NSMenuItem(title: "Show Invisibles",
                                     action: #selector(EditorWindowController.toggleInvisibles(_:)), keyEquivalent: "")
         menu.addItem(invisibles)

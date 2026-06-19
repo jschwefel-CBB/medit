@@ -404,6 +404,12 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         editor?.applyStatusBarVisibility(prefs.showStatusBar)
     }
 
+    @IBAction public func toggleDocumentStats(_ sender: Any?) {
+        // Toggling the pref posts the change notification, which the editor
+        // observes and refreshes the status bar (showing/hiding the count).
+        prefs.showDocumentStats.toggle()
+    }
+
     @IBAction public func toggleInvisibles(_ sender: Any?) {
         prefs.showInvisibles.toggle()
         editor?.applyShowInvisibles(prefs.showInvisibles)
@@ -448,6 +454,8 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
             menuItem.state = prefs.wrapLines ? .on : .off
         case #selector(toggleStatusBar(_:)):
             menuItem.state = prefs.showStatusBar ? .on : .off
+        case #selector(toggleDocumentStats(_:)):
+            menuItem.state = prefs.showDocumentStats ? .on : .off
         case #selector(toggleInvisibles(_:)):
             menuItem.state = prefs.showInvisibles ? .on : .off
         case #selector(toggleRainbowBrackets(_:)):

@@ -680,7 +680,18 @@ public final class EditorViewController: NSViewController {
         let overwrite = (textView as? EditorTextView)?.isOverwriteMode ?? false
         statusBar.update(line: pos.line, column: pos.column, language: language, encoding: encoding,
                          lineEnding: document?.lineEnding ?? .lf, overwrite: overwrite, wrap: prefs.wrapLines)
+        // Live document statistics (word/line/char count), gated on the pref.
+        if prefs.showDocumentStats {
+            let counts = TextStatistics.counts(for: textView.string, selection: sel)
+            statusBar.setStats(TextStatistics.label(for: counts))
+        } else {
+            statusBar.setStats("")
+        }
     }
+
+    /// Test hooks for document statistics.
+    public func refreshStatusBarForTesting() { updateStatusBar() }
+    public var statusBarStatsForTesting: String { statusBar?.statsTextForTesting ?? "" }
 
     /// Apply a manual language override (nil = auto-detect), re-highlight, and
     /// refresh the status bar.
