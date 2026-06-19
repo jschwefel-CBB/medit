@@ -48,7 +48,7 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2026 Jason Schwefel. MIT-licensed.</string>
+	<string>Copyright © 2026 Jason M. Schwefel. MIT-licensed.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSSupportsAutomaticTermination</key>

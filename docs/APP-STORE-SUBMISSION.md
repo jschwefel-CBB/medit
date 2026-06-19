@@ -59,9 +59,12 @@ App Store Connect record. Do them once the account is live:
    - Create the app with bundle ID **`com.jschwefel.medit`** (decided; permanent
      once submitted).
    - **Decision to confirm:** the app ships under the business but the bundle ID +
-     copyright currently name the individual. Decide whether the **copyright /
-     seller name** should be the business (LLC) even though the bundle ID stays
-     `com.jschwefel.*`. If so, update `NSHumanReadableCopyright` accordingly.
+     copyright is **Jason M. Schwefel** (individual — decided). The app ships
+     under the business's developer account, but the copyright/bundle ID stay in
+     the individual's name. (`NSHumanReadableCopyright` = "Copyright © 2026 Jason
+     M. Schwefel. MIT-licensed.", matching `LICENSE`.) The App Store **seller
+     name** shown on the listing is the account holder (the business) — that's
+     separate from the in-app copyright and is fine.
    - Register the bundle ID as an **App ID** with the App Sandbox capability.
 3. **Provisioning** — a Mac App Store provisioning profile (auto-managed via
    `Automatic` signing once the team is set).
@@ -75,7 +78,8 @@ App Store Connect record. Do them once the account is live:
    - **Privacy nutrition label:** "Data Not Collected."
    - **Screenshots** at required resolutions (derive from `docs/images/`).
    - Category: Developer Tools (matches `LSApplicationCategoryType`).
-   - Age rating (4+), pricing (free or paid — TBD).
+   - Age rating (4+); **pricing: Free** (decided — Price Tier 0, no in-app
+     purchases).
 6. **Export compliance** — already pre-answered via `ITSAppUsesNonExemptEncryption
    = false`; confirm in App Store Connect at submission.
 
@@ -107,9 +111,13 @@ xcodebuild -project App/medit.xcodeproj -scheme medit -configuration Release \
 
 ---
 
-## Open decisions for you
+## Decisions
 
-- **Copyright / seller identity** — business (LLC) vs. individual (see #2 above).
-- **Pricing** — free vs. paid.
+- **Copyright** — ✅ Jason M. Schwefel (individual). Set in Info.plist + LICENSE.
+- **Pricing** — ✅ Free (Tier 0, no IAP).
+- **Bundle ID** — ✅ `com.jschwefel.medit` (kept; permanent once submitted).
+- **Build number** — ✅ auto from git commit count (`scripts/set-build-number.sh`).
+
+### Still open
 - **App Store name** — "medit" may be taken; have a fallback (e.g. "medit — Text
-  Editor"). Check availability in App Store Connect when reserving.
+  Editor"). Check availability in App Store Connect when reserving the name.
