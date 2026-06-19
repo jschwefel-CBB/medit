@@ -218,6 +218,7 @@ straight to it in the right tab.
 
 <!-- SCREENSHOT: the Find-in-All-Tabs results listing matches across documents.
      → images/find-in-tabs.png -->
+![Find in All Tabs](images/find-in-tabs.png)
 
 ### Go to Line
 
@@ -421,6 +422,7 @@ When a file open in medit changes on disk, medit notices and responds based on y
 If the file is **deleted** on disk, medit keeps your buffer so you can re-save it.
 
 <!-- SCREENSHOT: the reload banner across the top of the editor. → images/reload-banner.png -->
+![External-change banner](images/reload-banner.png)
 
 ---
 
