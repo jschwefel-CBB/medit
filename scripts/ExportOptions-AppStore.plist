@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Export options for a Mac App Store upload. Fill teamID with the business's
+     Apple Developer Team ID once the account is live. Used by:
+     xcodebuild -exportArchive -exportOptionsPlist scripts/ExportOptions-AppStore.plist -->
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store-connect</string>
+    <key>teamID</key>
+    <string>REPLACE_WITH_TEAM_ID</string>
+    <!-- Automatic signing: Xcode/altool manage the distribution cert + profile. -->
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>destination</key>
+    <string>export</string>
+    <!-- Strip Swift symbols / leave debugging symbols out of the uploaded build. -->
+    <key>uploadSymbols</key>
+    <true/>
+</dict>
+</plist>
