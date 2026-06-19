@@ -8,13 +8,12 @@
 
 ## medit 2.4.1 — no new AutoPilot findings
 
-Patch: the column/block-mode **COL** status-bar indicator is now **always
-visible** (dim when off, bright accent pill when on) instead of only appearing
-while block mode was active — so the on/off state is always glanceable, like
-INS/OVR. No AP-side issues; verified both states with real screenshots (`Read` on
-`screencapture` output), which is the reliable check for a "is it visually there"
-question — the AX `value` reported the label text but not its styling/visibility,
-so a screenshot was the right tool.
+Patch: the block-mode status-bar indicator now shows a blue **` BLK `** pill while
+rectangular block editing is active and is **empty (hidden) otherwise** — same
+visual flair as the OVR pill. (Earlier this patch had tried an always-visible
+"COL" variant; the final behavior is empty-off / blue-BLK-on per the requested
+design.) No AP-side issues; `dump-axtree --pid` confirmed the toggle (label empty
+when off → ` BLK ` when block mode is entered, empty again when exited).
 
 ---
 
