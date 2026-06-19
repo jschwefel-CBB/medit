@@ -148,6 +148,11 @@ public enum MainMenu {
                                     action: #selector(EditorWindowController.makeTitleCase(_:)), keyEquivalent: ""))
         textItem.submenu = textMenu
         menu.addItem(textItem)
+
+        let columnMode = NSMenuItem(title: "Column Selection Mode",
+                                    action: #selector(EditorWindowController.toggleColumnSelectionMode(_:)), keyEquivalent: "b")
+        columnMode.keyEquivalentModifierMask = [.command, .option]
+        menu.addItem(columnMode)
         menu.addItem(.separator())
 
         // Spelling & substitutions submenu (native).
