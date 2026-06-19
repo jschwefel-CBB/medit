@@ -418,6 +418,10 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     @IBAction public func makeLowerCase(_ sender: Any?) { editor?.changeCaseOfSelection(to: .lower) }
     @IBAction public func makeTitleCase(_ sender: Any?) { editor?.changeCaseOfSelection(to: .title) }
 
+    @IBAction public func toggleColumnSelectionMode(_ sender: Any?) {
+        (editor?.textView as? EditorTextView)?.toggleColumnMode()
+    }
+
     @IBAction public func toggleInvisibles(_ sender: Any?) {
         prefs.showInvisibles.toggle()
         editor?.applyShowInvisibles(prefs.showInvisibles)
@@ -464,6 +468,8 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
             menuItem.state = prefs.showStatusBar ? .on : .off
         case #selector(toggleDocumentStats(_:)):
             menuItem.state = prefs.showDocumentStats ? .on : .off
+        case #selector(toggleColumnSelectionMode(_:)):
+            menuItem.state = ((editor?.textView as? EditorTextView)?.isColumnEditing ?? false) ? .on : .off
         case #selector(toggleInvisibles(_:)):
             menuItem.state = prefs.showInvisibles ? .on : .off
         case #selector(toggleRainbowBrackets(_:)):

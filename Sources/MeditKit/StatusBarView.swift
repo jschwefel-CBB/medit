@@ -23,6 +23,7 @@ public final class StatusBarView: NSView {
     private let encodingButton = StatusBarView.makeInlineButton()
     private let lineEndingButton = StatusBarView.makeInlineButton()
     private let wrapButton = StatusBarView.makeInlineButton()
+    private let columnModeLabel = StatusBarView.makeLabel(align: .right)
     private let modeLabel = StatusBarView.makeLabel(align: .right)
 
     public override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: 22) }
@@ -47,7 +48,9 @@ public final class StatusBarView: NSView {
         languageButton.setAccessibilityIdentifier("languageButton")
         encodingButton.setAccessibilityIdentifier("encodingButton")
 
-        let stack = NSStackView(views: [positionLabel, sep(), statsLabel, NSView(), languageButton, sep(), encodingButton, sep(), lineEndingButton, sep(), wrapButton, sep(), modeLabel])
+        columnModeLabel.isHidden = true
+        columnModeLabel.setAccessibilityIdentifier("columnModeLabel")
+        let stack = NSStackView(views: [positionLabel, sep(), statsLabel, NSView(), languageButton, sep(), encodingButton, sep(), lineEndingButton, sep(), wrapButton, sep(), columnModeLabel, modeLabel])
         stack.orientation = .horizontal
         stack.spacing = 8
         stack.alignment = .centerY
@@ -119,6 +122,26 @@ public final class StatusBarView: NSView {
             modeLabel.font = .systemFont(ofSize: 11)
         }
     }
+
+    /// Show/hide the column-mode indicator — a filled accent "pill" matching the
+    /// OVR styling, shown only while rectangular column editing is active.
+    public func setColumnMode(_ active: Bool) {
+        columnModeLabel.isHidden = !active
+        guard active else { return }
+        let attrs: [NSAttributedString.Key: Any] = [
+            .foregroundColor: NSColor.white,
+            .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
+        ]
+        columnModeLabel.attributedStringValue = NSAttributedString(string: " COL ", attributes: attrs)
+        columnModeLabel.drawsBackground = true
+        columnModeLabel.backgroundColor = NSColor.controlAccentColor
+        columnModeLabel.wantsLayer = true
+        columnModeLabel.layer?.cornerRadius = 3
+        columnModeLabel.layer?.masksToBounds = true
+    }
+
+    /// Test hook.
+    public var columnModeVisibleForTesting: Bool { !columnModeLabel.isHidden }
 
     @objc private func languageButtonClicked() {
         let menu = NSMenu()

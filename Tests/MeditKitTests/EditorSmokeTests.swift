@@ -166,6 +166,57 @@ final class EditorSmokeTests: XCTestCase {
                           "should restore the saved width, not the default")
     }
 
+    func testColumnModeShowsStatusBarIndicator() {
+        let wc = makeWindowController(text: "abc\ndef\nghi")
+        guard let editor = wc.editorForTesting,
+              let tv = wc.focusedTextView as? EditorTextView else { return XCTFail("no editor") }
+        XCTAssertFalse(editor.columnModeIndicatorVisibleForTesting, "COL indicator hidden by default")
+        tv.toggleColumnMode()
+        XCTAssertTrue(editor.columnModeIndicatorVisibleForTesting, "COL indicator shows in column mode")
+        tv.exitColumnMode()
+        XCTAssertFalse(editor.columnModeIndicatorVisibleForTesting, "COL indicator hidden after exit")
+    }
+
+    func testColumnTypeAcrossRowsZeroWidth() {
+        // Zero-width block at column 2, rows 0..2 → typing inserts on every row.
+        let wc = makeWindowController(text: "abcd\nefgh\nijkl")
+        guard let tv = wc.focusedTextView as? EditorTextView else { return XCTFail("no text view") }
+        tv.beginColumnBlockForTesting(anchorLine: 0, anchorColumn: 2, caretLine: 2, caretColumn: 2)
+        tv.columnTypeForTesting("X")
+        XCTAssertEqual(tv.string, "abXcd\nefXgh\nijXkl")
+    }
+
+    func testColumnReplaceAcrossRowsWithWidth() {
+        // Block covering columns 1..3 on all rows → typing replaces the rectangle.
+        let wc = makeWindowController(text: "abcd\nefgh\nijkl")
+        guard let tv = wc.focusedTextView as? EditorTextView else { return XCTFail("no text view") }
+        tv.beginColumnBlockForTesting(anchorLine: 0, anchorColumn: 1, caretLine: 2, caretColumn: 3)
+        tv.columnTypeForTesting("-")
+        XCTAssertEqual(tv.string, "a-d\ne-h\ni-l")
+    }
+
+    func testColumnDeleteBackwardZeroWidth() {
+        let wc = makeWindowController(text: "abcd\nefgh\nijkl")
+        guard let tv = wc.focusedTextView as? EditorTextView else { return XCTFail("no text view") }
+        // Zero-width caret at column 2 → backspace removes column 1 on every row.
+        tv.beginColumnBlockForTesting(anchorLine: 0, anchorColumn: 2, caretLine: 2, caretColumn: 2)
+        tv.columnDeleteForTesting()
+        XCTAssertEqual(tv.string, "acd\negh\nikl")
+    }
+
+    func testColumnCopyAndPasteBlock() {
+        let wc = makeWindowController(text: "abcd\nefgh\nijkl")
+        guard let tv = wc.focusedTextView as? EditorTextView else { return XCTFail("no text view") }
+        // Copy columns 1..3 ("bc","fg","jk").
+        tv.beginColumnBlockForTesting(anchorLine: 0, anchorColumn: 1, caretLine: 2, caretColumn: 3)
+        XCTAssertTrue(tv.columnCopyForTesting())
+        XCTAssertEqual(NSPasteboard.general.string(forType: .string), "bc\nfg\njk")
+        // Now zero-width block at end column and paste back as a block.
+        tv.beginColumnBlockForTesting(anchorLine: 0, anchorColumn: 4, caretLine: 2, caretColumn: 4)
+        tv.columnPasteForTesting()
+        XCTAssertEqual(tv.string, "abcdbc\nefghfg\nijkljk")
+    }
+
     func testSortLinesThroughEditor() {
         let wc = makeWindowController(text: "banana\napple\ncherry")
         guard let editor = wc.editorForTesting, let tv = wc.focusedTextView else { return XCTFail("no editor") }

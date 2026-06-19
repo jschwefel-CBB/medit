@@ -6,6 +6,24 @@
 
 ---
 
+## medit 2.4.0 — no new AutoPilot findings
+
+**AutoPilot commit in use:** `730f6d3` (R4). Work this release: column/block
+(rectangular) editing — a custom multi-row caret model on `EditorTextView` (the
+feature deferred from 2.3 because NSTextView can't hold multi-row zero-width
+carets), plus a status-bar COL indicator.
+
+- **No AP-side issues.** Editing logic was verified by the headless suite (350
+  tests, incl. the pure ColumnSelection model + view-level column smoke tests via
+  test hooks that bypass mouse geometry). The geometry-dependent parts (Option-drag
+  rectangle, multi-row caret drawing) were verified by the user visually — that's
+  inherently outside AutoPilot's action model (native drag + custom drawing).
+- `dump-axtree --pid` again served well: confirmed the COL status-bar pill toggles
+  correctly (`columnModeLabel` absent when off → " COL " present after ⌥⌘B).
+- Nothing for AutoPilot to fix this release.
+
+---
+
 ## medit 2.3.0 — no new AutoPilot findings
 
 **AutoPilot commit in use:** `730f6d3` (R4). Work this release: session restore

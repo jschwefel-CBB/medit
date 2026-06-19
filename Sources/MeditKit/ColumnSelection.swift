@@ -74,6 +74,40 @@ public enum ColumnSelection {
                     caretColumn: col + (string as NSString).length)
     }
 
+    /// Replace the block on every row with `string`: delete the rectangle, then
+    /// insert `string` at the (now-collapsed) left column on each affected row.
+    public static func replaceBlock(_ string: String, in text: String,
+                                    startLine: Int, endLine: Int,
+                                    startColumn: Int, endColumn: Int) -> Edit {
+        let deleted = deleteBlock(in: text, startLine: startLine, endLine: endLine,
+                                  startColumn: startColumn, endColumn: endColumn)
+        let col = min(startColumn, endColumn)
+        return insertIntoBlock(string, in: deleted.text,
+                               startLine: startLine, endLine: endLine,
+                               startColumn: col, endColumn: col)
+    }
+
+    /// Paste `clipboardLines` as a block: line *i* goes to row `startLine + i`,
+    /// inserted at `column` (short rows space-padded). Lines that would fall past
+    /// the last existing row are dropped (no new lines created in this cut).
+    public static func pasteBlock(_ clipboardLines: [String], in text: String,
+                                  startLine: Int, column: Int) -> Edit {
+        var allLines = lines(text)
+        // Apply bottom-up so insertions don't disturb earlier line offsets (line
+        // indexing is by array position, so order doesn't matter, but keep it tidy).
+        for (i, piece) in clipboardLines.enumerated() {
+            let row = startLine + i
+            guard row >= 0, row < allLines.count else { continue }   // stop at last line
+            var line = allLines[row]
+            let lineLen = (line as NSString).length
+            if lineLen < column { line += String(repeating: " ", count: column - lineLen) }
+            let ns = NSMutableString(string: line)
+            ns.insert(piece, at: min(column, ns.length))
+            allLines[row] = ns as String
+        }
+        return Edit(text: allLines.joined(separator: "\n"), caretColumn: column)
+    }
+
     /// The block's text, rows joined by newlines (for copy).
     public static func copyBlock(in text: String, startLine: Int, endLine: Int,
                                  startColumn: Int, endColumn: Int) -> String {

@@ -33,6 +33,40 @@ public final class EditorTextView: NSTextView {
         didSet { needsDisplay = true; onOverwriteModeChange?(isOverwriteMode) }
     }
 
+    // MARK: Column / block editing state
+
+    /// A rectangular selection. Line/column are 0-based (column = character index
+    /// within the line), matching the pure `ColumnSelection` model. NSTextView
+    /// can't represent multi-row zero-width carets, so we own this state.
+    struct ColumnBlock: Equatable {
+        var anchorLine: Int, anchorColumn: Int
+        var caretLine: Int, caretColumn: Int
+        var topLine: Int { min(anchorLine, caretLine) }
+        var bottomLine: Int { max(anchorLine, caretLine) }
+        var leftColumn: Int { min(anchorColumn, caretColumn) }
+        var rightColumn: Int { max(anchorColumn, caretColumn) }
+        var isZeroWidth: Bool { leftColumn == rightColumn }
+    }
+
+    /// Called when column-edit mode turns on/off (so the status bar can update).
+    public var onColumnModeChange: ((Bool) -> Void)?
+
+    /// Non-nil while column mode is active.
+    private(set) var columnBlock: ColumnBlock? {
+        didSet {
+            needsDisplay = true
+            if (oldValue == nil) != (columnBlock == nil) {
+                onColumnModeChange?(columnBlock != nil)
+            }
+        }
+    }
+    /// Sticky column mode toggled from the menu (⌥⌘B): subsequent clicks start
+    /// blocks without needing the Option key.
+    public private(set) var stickyColumnMode = false
+
+    /// Whether column editing is currently driving the view.
+    var isColumnEditing: Bool { columnBlock != nil }
+
     private var homeChar: unichar { unichar(NSHomeFunctionKey) }
     private var endChar: unichar { unichar(NSEndFunctionKey) }
 
@@ -43,6 +77,22 @@ public final class EditorTextView: NSTextView {
     private static let insertKeyCode: UInt16 = 114
 
     public override func keyDown(with event: NSEvent) {
+        // Column-edit mode handles Escape (exit) and arrows (move/extend the block)
+        // before anything else.
+        if columnBlock != nil {
+            if let chars = event.charactersIgnoringModifiers, chars.utf16.count == 1,
+               let first = chars.utf16.first {
+                if first == 0x1B {   // Escape
+                    exitColumnMode()
+                    return
+                }
+                if [NSUpArrowFunctionKey, NSDownArrowFunctionKey,
+                    NSLeftArrowFunctionKey, NSRightArrowFunctionKey].contains(Int(first)) {
+                    if columnArrow(first, shift: event.modifierFlags.contains(.shift)) { return }
+                }
+            }
+        }
+
         // Ctrl+G -> Go to Line (routes up the responder chain to the controller).
         if event.modifierFlags.contains(.control),
            event.charactersIgnoringModifiers?.lowercased() == "g" {
@@ -151,6 +201,10 @@ public final class EditorTextView: NSTextView {
     }
 
     public override func insertText(_ string: Any, replacementRange: NSRange) {
+        // Column / block editing: type into every row of the active block.
+        if columnBlock != nil, let typed = (string as? String) ?? (string as? NSAttributedString)?.string {
+            if columnInsert(typed) { return }
+        }
         if autoCloseBracketsEnabled, let typed = (string as? String) ?? (string as? NSAttributedString)?.string,
            typed.count == 1, let ch = typed.first {
             let openers: [Character: Character] = ["(": ")", "[": "]", "{": "}"]
@@ -203,7 +257,15 @@ public final class EditorTextView: NSTextView {
         super.insertText(string, replacementRange: replacementRange)
     }
 
+    public override func deleteBackward(_ sender: Any?) {
+        if columnBlock != nil { columnDeleteBackward(); return }
+        super.deleteBackward(sender)
+    }
+
     public override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
+        // Suppress the normal caret while a column block is active (we draw our own
+        // multi-row carets in drawColumnBlock).
+        if columnBlock != nil { return }
         guard isOverwriteMode else {
             super.drawInsertionPoint(in: rect, color: color, turnedOn: flag)
             return
@@ -232,6 +294,325 @@ public final class EditorTextView: NSTextView {
 
     /// Test hook: flip overwrite mode.
     func toggleOverwriteForTesting() { isOverwriteMode.toggle() }
+
+    // MARK: Column / block editing
+
+    /// 0-based (line, column) for a character offset.
+    private func lineColumn(forOffset offset: Int) -> (line: Int, column: Int) {
+        let ns = string as NSString
+        let clamped = max(0, min(offset, ns.length))
+        var line = 0
+        var idx = 0
+        while idx < clamped {
+            let r = ns.lineRange(for: NSRange(location: idx, length: 0))
+            let next = NSMaxRange(r)
+            if next <= idx { break }
+            if next <= clamped { line += 1; idx = next } else { break }
+        }
+        let lineStart = ns.lineRange(for: NSRange(location: clamped, length: 0)).location
+        return (line, clamped - lineStart)
+    }
+
+    /// Character offset for a 0-based (line, column). Column is clamped to the
+    /// line's content length (not past the newline).
+    private func offset(forLine line: Int, column: Int) -> Int {
+        let ns = string as NSString
+        var idx = 0
+        var current = 0
+        while current < line {
+            let r = ns.lineRange(for: NSRange(location: idx, length: 0))
+            let next = NSMaxRange(r)
+            if next <= idx { return ns.length }   // past last line
+            idx = next; current += 1
+        }
+        // idx is the start of `line`. Its content length excludes the terminator.
+        var lineEnd = 0, contentsEnd = 0
+        ns.getLineStart(nil, end: &lineEnd, contentsEnd: &contentsEnd, for: NSRange(location: idx, length: 0))
+        let contentLen = contentsEnd - idx
+        return idx + min(column, contentLen)
+    }
+
+    /// The number of lines in the document (0-based last line = count-1).
+    private var lineCount: Int {
+        let ns = string as NSString
+        if ns.length == 0 { return 1 }
+        var n = 1, idx = 0
+        while idx < ns.length {
+            let r = ns.lineRange(for: NSRange(location: idx, length: 0))
+            let next = NSMaxRange(r)
+            if next <= idx { break }
+            if next < ns.length { n += 1 }
+            idx = next
+        }
+        return n
+    }
+
+    private var charAdvance: CGFloat {
+        let w = (font ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)).maximumAdvancement.width
+        return w > 1 ? w : 8
+    }
+
+    /// Map a point (view coords) to a 0-based (line, column), allowing columns
+    /// beyond a short line's text (extrapolated by character advance) so a
+    /// rectangle can be dragged wider than the text.
+    private func lineColumn(at point: NSPoint) -> (line: Int, column: Int) {
+        guard let lm = layoutManager, let tc = textContainer else { return (0, 0) }
+        let inset = textContainerInset
+        let p = NSPoint(x: point.x - inset.width, y: point.y - inset.height)
+        let glyph = lm.glyphIndex(for: p, in: tc)
+        let charIndex = lm.characterIndexForGlyph(at: glyph)
+        let (line, _) = lineColumn(forOffset: charIndex)
+        // Compute column from x relative to the line's start x.
+        let ns = string as NSString
+        let lineStartOffset = offset(forLine: line, column: 0)
+        let startPoint = self.point(forLine: line, column: 0)
+        let col = max(0, Int(((point.x - startPoint.x) / charAdvance).rounded()))
+        _ = ns; _ = lineStartOffset
+        return (line, col)
+    }
+
+    /// The point (view coords) at the top-left of a 0-based (line, column),
+    /// extrapolating past a short line's end by character advance.
+    private func point(forLine line: Int, column: Int) -> NSPoint {
+        guard let lm = layoutManager else { return .zero }
+        let inset = textContainerInset
+        let ns = string as NSString
+        let lineStart = offset(forLine: line, column: 0)
+        var lineEnd = 0, contentsEnd = 0
+        ns.getLineStart(nil, end: &lineEnd, contentsEnd: &contentsEnd, for: NSRange(location: lineStart, length: 0))
+        let contentLen = contentsEnd - lineStart
+        let withinCol = min(column, contentLen)
+        // Rect of the glyph at the within-content column.
+        let probeOffset = lineStart + withinCol
+        let glyphRange = lm.glyphRange(forCharacterRange: NSRange(location: min(probeOffset, max(0, ns.length)), length: 0), actualCharacterRange: nil)
+        var frag = lm.lineFragmentRect(forGlyphAt: min(glyphRange.location, max(0, lm.numberOfGlyphs - 1)), effectiveRange: nil)
+        // x within the fragment for the within-content column.
+        let loc = lm.location(forGlyphAt: min(glyphRange.location, max(0, lm.numberOfGlyphs - 1)))
+        var x = frag.minX + loc.x
+        if column > contentLen { x += CGFloat(column - contentLen) * charAdvance }
+        frag.origin.y += inset.height
+        return NSPoint(x: x + inset.width, y: frag.minY)
+    }
+
+    /// The rect for a row from leftColumn..rightColumn (view coords).
+    private func rowRect(line: Int, left: Int, right: Int) -> NSRect {
+        let p0 = point(forLine: line, column: left)
+        let p1 = point(forLine: line, column: right)
+        let h = (layoutManager?.defaultLineHeight(for: font ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular))) ?? 16
+        let w = max(right > left ? (p1.x - p0.x) : 1.5, 1.5)
+        return NSRect(x: p0.x, y: p0.y, width: w, height: h)
+    }
+
+    /// Re-sync NSTextView's own selection to the block's per-line ranges (for
+    /// non-zero-width blocks) or a single caret (zero-width) so AppKit stays
+    /// coherent. The block remains the source of truth.
+    private func syncSelectionToBlock() {
+        guard let b = columnBlock else { return }
+        if b.isZeroWidth {
+            super.setSelectedRange(NSRange(location: offset(forLine: b.caretLine, column: b.caretColumn), length: 0))
+        } else {
+            let ranges = ColumnSelection.perLineRanges(in: string, startLine: b.topLine, endLine: b.bottomLine,
+                                                       startColumn: b.leftColumn, endColumn: b.rightColumn)
+            setSelectedRanges(ranges.map { NSValue(range: $0) }, affinity: .downstream, stillSelecting: false)
+        }
+    }
+
+    /// Exit column mode, leaving a single normal caret at the current corner.
+    func exitColumnMode() {
+        guard let b = columnBlock else { return }
+        let off = offset(forLine: b.caretLine, column: b.caretColumn)
+        columnBlock = nil
+        stickyColumnMode = false
+        super.setSelectedRange(NSRange(location: off, length: 0))
+    }
+
+    /// Toggle sticky column mode (from the menu). Seeds a zero-width block at the
+    /// current caret when turning on.
+    public func toggleColumnMode() {
+        if columnBlock != nil { exitColumnMode(); return }
+        stickyColumnMode = true
+        let (line, col) = lineColumn(forOffset: selectedRange().location)
+        columnBlock = ColumnBlock(anchorLine: line, anchorColumn: col, caretLine: line, caretColumn: col)
+        syncSelectionToBlock()
+    }
+
+    // Mouse: Option-drag (or sticky mode) drives a rectangular block.
+
+    public override func mouseDown(with event: NSEvent) {
+        let wantsColumn = event.modifierFlags.contains(.option) || stickyColumnMode
+        guard wantsColumn else {
+            if columnBlock != nil { exitColumnMode() }
+            super.mouseDown(with: event)
+            return
+        }
+        let p = convert(event.locationInWindow, from: nil)
+        let (line, col) = lineColumn(at: p)
+        columnBlock = ColumnBlock(anchorLine: line, anchorColumn: col, caretLine: line, caretColumn: col)
+        syncSelectionToBlock()
+    }
+
+    public override func mouseDragged(with event: NSEvent) {
+        guard columnBlock != nil else { super.mouseDragged(with: event); return }
+        let p = convert(event.locationInWindow, from: nil)
+        let (line, col) = lineColumn(at: p)
+        columnBlock?.caretLine = max(0, min(line, lineCount - 1))
+        columnBlock?.caretColumn = max(0, col)
+        syncSelectionToBlock()
+    }
+
+    public override func mouseUp(with event: NSEvent) {
+        guard columnBlock != nil else { super.mouseUp(with: event); return }
+        // Keep the block so the user can type into it.
+    }
+
+    /// Apply a column edit (insert/replace/delete/paste) as one undoable
+    /// whole-text replacement, then update the block to the post-edit caret.
+    private func applyColumnText(_ newText: String, caretLine: Int, caretColumn: Int) {
+        let full = NSRange(location: 0, length: (string as NSString).length)
+        guard shouldChangeText(in: full, replacementString: newText) else { return }
+        replaceCharacters(in: full, with: newText)
+        didChangeText()
+        let line = max(0, min(caretLine, lineCount - 1))
+        columnBlock = ColumnBlock(anchorLine: line, anchorColumn: caretColumn,
+                                  caretLine: line, caretColumn: caretColumn)
+        syncSelectionToBlock()
+    }
+
+    /// Handle a typed string in column mode (zero-width → insert on each row;
+    /// width → replace the block on each row). Returns true if handled.
+    private func columnInsert(_ text: String) -> Bool {
+        guard let b = columnBlock else { return false }
+        let e: ColumnSelection.Edit
+        if b.isZeroWidth {
+            e = ColumnSelection.insertIntoBlock(text, in: string, startLine: b.topLine, endLine: b.bottomLine,
+                                                startColumn: b.leftColumn, endColumn: b.leftColumn)
+        } else {
+            e = ColumnSelection.replaceBlock(text, in: string, startLine: b.topLine, endLine: b.bottomLine,
+                                             startColumn: b.leftColumn, endColumn: b.rightColumn)
+        }
+        // Caret collapses just after the inserted text, anchored on every row.
+        applyColumnText(e.text, caretLine: b.caretLine, caretColumn: e.caretColumn)
+        // Anchor the block across all rows at the new zero-width column.
+        columnBlock = ColumnBlock(anchorLine: b.topLine, anchorColumn: e.caretColumn,
+                                  caretLine: b.bottomLine, caretColumn: e.caretColumn)
+        syncSelectionToBlock()
+        return true
+    }
+
+    private func columnDeleteBackward() {
+        guard let b = columnBlock else { return }
+        if b.isZeroWidth {
+            guard b.leftColumn > 0 else { return }
+            let e = ColumnSelection.deleteBlock(in: string, startLine: b.topLine, endLine: b.bottomLine,
+                                                startColumn: b.leftColumn - 1, endColumn: b.leftColumn)
+            applyColumnText(e.text, caretLine: b.caretLine, caretColumn: b.leftColumn - 1)
+            columnBlock = ColumnBlock(anchorLine: b.topLine, anchorColumn: b.leftColumn - 1,
+                                      caretLine: b.bottomLine, caretColumn: b.leftColumn - 1)
+        } else {
+            let e = ColumnSelection.deleteBlock(in: string, startLine: b.topLine, endLine: b.bottomLine,
+                                                startColumn: b.leftColumn, endColumn: b.rightColumn)
+            applyColumnText(e.text, caretLine: b.caretLine, caretColumn: b.leftColumn)
+            columnBlock = ColumnBlock(anchorLine: b.topLine, anchorColumn: b.leftColumn,
+                                      caretLine: b.bottomLine, caretColumn: b.leftColumn)
+        }
+        syncSelectionToBlock()
+    }
+
+    /// Move/extend the block corner with arrow keys. Returns true if handled.
+    private func columnArrow(_ key: unichar, shift: Bool) -> Bool {
+        guard var b = columnBlock else { return false }
+        switch Int(key) {
+        case NSUpArrowFunctionKey:    b.caretLine = max(0, b.caretLine - 1)
+        case NSDownArrowFunctionKey:  b.caretLine = min(lineCount - 1, b.caretLine + 1)
+        case NSLeftArrowFunctionKey:  b.caretColumn = max(0, b.caretColumn - 1)
+        case NSRightArrowFunctionKey: b.caretColumn += 1
+        default: return false
+        }
+        if !shift { b.anchorLine = b.caretLine; b.anchorColumn = b.caretColumn }
+        columnBlock = b
+        syncSelectionToBlock()
+        return true
+    }
+
+    // Clipboard.
+
+    /// Copy the block (rows joined by newlines). Returns true if a block was copied.
+    @discardableResult
+    private func columnCopy() -> Bool {
+        guard let b = columnBlock, !b.isZeroWidth else { return false }
+        let text = ColumnSelection.copyBlock(in: string, startLine: b.topLine, endLine: b.bottomLine,
+                                             startColumn: b.leftColumn, endColumn: b.rightColumn)
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        return true
+    }
+
+    public override func copy(_ sender: Any?) {
+        if columnCopy() { return }
+        super.copy(sender)
+    }
+
+    public override func cut(_ sender: Any?) {
+        if let b = columnBlock, !b.isZeroWidth, columnCopy() {
+            columnDeleteBackward()   // width block → deletes the block
+            return
+        }
+        super.cut(sender)
+    }
+
+    public override func paste(_ sender: Any?) {
+        guard let b = columnBlock,
+              let clip = NSPasteboard.general.string(forType: .string) else {
+            super.paste(sender); return
+        }
+        let pieces = clip.components(separatedBy: "\n")
+        // Paste as a block at the block's top-left; if the block has width, replace
+        // it first (delete), then paste at the left column.
+        var working = string
+        let top = b.topLine
+        let col = b.leftColumn
+        if !b.isZeroWidth {
+            let del = ColumnSelection.deleteBlock(in: working, startLine: b.topLine, endLine: b.bottomLine,
+                                                  startColumn: b.leftColumn, endColumn: b.rightColumn)
+            working = del.text
+        }
+        let e = ColumnSelection.pasteBlock(pieces, in: working, startLine: top, column: col)
+        applyColumnText(e.text, caretLine: top + max(0, pieces.count - 1), caretColumn: col)
+        _ = top
+    }
+
+    /// Draw the rectangular selection / multi-row carets.
+    private func drawColumnBlock() {
+        guard let b = columnBlock else { return }
+        let color = NSColor.selectedTextBackgroundColor
+        for line in b.topLine...b.bottomLine {
+            let rect = rowRect(line: line, left: b.leftColumn, right: b.rightColumn)
+            if b.isZeroWidth {
+                NSColor.textColor.withAlphaComponent(0.85).setFill()
+                NSRect(x: rect.minX, y: rect.minY, width: 1.5, height: rect.height).fill()
+            } else {
+                color.withAlphaComponent(0.45).setFill()
+                rect.fill()
+            }
+        }
+    }
+
+    public override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        if columnBlock != nil { drawColumnBlock() }
+    }
+
+    // Test hooks (drive column editing without a rendered view / mouse).
+    func beginColumnBlockForTesting(anchorLine: Int, anchorColumn: Int, caretLine: Int, caretColumn: Int) {
+        columnBlock = ColumnBlock(anchorLine: anchorLine, anchorColumn: anchorColumn,
+                                  caretLine: caretLine, caretColumn: caretColumn)
+    }
+    var columnBlockForTesting: ColumnBlock? { columnBlock }
+    func columnTypeForTesting(_ s: String) { _ = columnInsert(s) }
+    func columnDeleteForTesting() { columnDeleteBackward() }
+    func columnCopyForTesting() -> Bool { columnCopy() }
+    func columnPasteForTesting() { paste(nil) }
 
     // MARK: Drag & drop — open dragged files, don't paste their paths
 

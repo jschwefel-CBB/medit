@@ -53,4 +53,44 @@ final class ColumnSelectionTests: XCTestCase {
         let e = ColumnSelection.deleteBlock(in: uniform, startLine: 1, endLine: 1, startColumn: 1, endColumn: 3)
         XCTAssertEqual(e.text, "abcd\neh\nijkl")
     }
+
+    // MARK: replaceBlock
+
+    func testReplaceBlockUniform() {
+        // Replace columns 1..3 ("bc","fg","jk") with "X" on every row.
+        let e = ColumnSelection.replaceBlock("X", in: uniform, startLine: 0, endLine: 2, startColumn: 1, endColumn: 3)
+        XCTAssertEqual(e.text, "aXd\neXh\niXl")
+        XCTAssertEqual(e.caretColumn, 2)   // left column (1) + len("X") (1)
+    }
+
+    func testReplaceBlockRaggedPadsShortLine() {
+        // Replace cols 2..5 with "##"; "xy" (len 2) has nothing there → padded to col 2 then inserted.
+        let e = ColumnSelection.replaceBlock("##", in: ragged, startLine: 0, endLine: 2, startColumn: 2, endColumn: 5)
+        XCTAssertEqual(e.text, "ab##f\nxy##\nAB##F")
+    }
+
+    // MARK: pasteBlock
+
+    func testPasteBlockEqualLines() {
+        // Paste ["1","2","3"] at column 2 of each of the 3 rows.
+        let e = ColumnSelection.pasteBlock(["1", "2", "3"], in: uniform, startLine: 0, column: 2)
+        XCTAssertEqual(e.text, "ab1cd\nef2gh\nij3kl")
+    }
+
+    func testPasteBlockFewerLinesThanRows() {
+        // Only two clipboard lines → only first two rows get content.
+        let e = ColumnSelection.pasteBlock(["X", "Y"], in: uniform, startLine: 0, column: 2)
+        XCTAssertEqual(e.text, "abXcd\nefYgh\nijkl")
+    }
+
+    func testPasteBlockStopsAtLastLine() {
+        // More clipboard lines than remaining rows → extra lines dropped (don't create new lines).
+        let e = ColumnSelection.pasteBlock(["A", "B", "C"], in: uniform, startLine: 1, column: 1)
+        XCTAssertEqual(e.text, "abcd\neAfgh\niBjkl")   // rows 1 and 2 get A, B; C dropped
+    }
+
+    func testPasteBlockShortRowPadded() {
+        let e = ColumnSelection.pasteBlock(["#"], in: ragged, startLine: 1, column: 4)
+        XCTAssertEqual(e.text, "abcdef\nxy  #\nABCDEF")
+    }
 }
