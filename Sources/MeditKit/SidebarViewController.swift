@@ -11,6 +11,8 @@ public final class SidebarViewController: NSViewController {
 
     private var scrollView: NSScrollView!
     private(set) var outlineView: NSOutlineView!
+    private var recentFilesView: RecentFilesView!
+    private var paneSwitcher: NSSegmentedControl!
     private let dataSource = FileTreeDataSource()
     private var active = false
     private var watchers: [DirectoryWatcher] = []
@@ -65,18 +67,73 @@ public final class SidebarViewController: NSViewController {
         self.scrollView = scroll
         self.outlineView = outline
 
+        // Recent Files list (alternate sidebar pane).
+        let recent = RecentFilesView(preferences: prefs)
+        recent.delegate = self
+        self.recentFilesView = recent
+
+        // Pane switcher: Folders | Recent.
+        let switcher = NSSegmentedControl(labels: ["Folders", "Recent"],
+                                          trackingMode: .selectOne,
+                                          target: self, action: #selector(paneSwitcherChanged))
+        switcher.translatesAutoresizingMaskIntoConstraints = false
+        switcher.segmentStyle = .automatic
+        switcher.setAccessibilityIdentifier("sidebarPaneSwitcher")
+        self.paneSwitcher = switcher
+
         let container = NSView()
         container.translatesAutoresizingMaskIntoConstraints = false
         container.widthAnchor.constraint(greaterThanOrEqualToConstant: 180).isActive = true
+        container.addSubview(switcher)
         container.addSubview(scroll)
+        container.addSubview(recent)
         NSLayoutConstraint.activate([
-            scroll.topAnchor.constraint(equalTo: container.topAnchor),
+            switcher.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
+            switcher.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
+            switcher.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
+
+            scroll.topAnchor.constraint(equalTo: switcher.bottomAnchor, constant: 6),
             scroll.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             scroll.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+
+            recent.topAnchor.constraint(equalTo: scroll.topAnchor),
+            recent.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            recent.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            recent.trailingAnchor.constraint(equalTo: container.trailingAnchor),
         ])
         self.view = container
+        applyPane(prefs.sidebarPane == "recent" ? .recent : .folders)
     }
+
+    // MARK: Pane switching (Folders | Recent)
+
+    public enum Pane: String { case folders, recent }
+    private(set) var pane: Pane = .folders
+
+    @objc private func paneSwitcherChanged() {
+        let idx = paneSwitcher?.selectedSegment ?? 0
+        setPane(idx == 1 ? .recent : .folders)
+    }
+
+    /// Switch the sidebar between the folder tree and the recent-files list.
+    public func setPane(_ pane: Pane) {
+        guard pane != self.pane else { return }
+        applyPane(pane)
+        prefs.sidebarPane = pane.rawValue
+    }
+
+    private func applyPane(_ pane: Pane) {
+        self.pane = pane
+        paneSwitcher?.selectedSegment = (pane == .recent) ? 1 : 0
+        scrollView?.isHidden = (pane == .recent)
+        recentFilesView?.isHidden = (pane != .recent)
+        if pane == .recent { recentFilesView?.reload() }
+    }
+
+    public func togglePane() { setPane(pane == .folders ? .recent : .folders) }
+    public var currentPaneForTesting: Pane { pane }
+    public var folderPaneHiddenForTesting: Bool { scrollView?.isHidden ?? false }
 
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -327,6 +384,12 @@ public final class SidebarViewController: NSViewController {
     }
 
     var watcherCountForTesting: Int { watchers.count }
+}
+
+extension SidebarViewController: RecentFilesViewDelegate {
+    public func recentFiles(_ view: RecentFilesView, didActivate url: URL) {
+        windowController?.openFile(at: url)
+    }
 }
 
 extension SidebarViewController: NSOutlineViewDelegate {

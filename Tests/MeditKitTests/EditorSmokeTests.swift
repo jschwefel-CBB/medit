@@ -473,6 +473,42 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertEqual(sb.outlineView.numberOfRows, 0, "deactivate should clear the tree (zero overhead)")
     }
 
+    func testSidebarSwitchesBetweenFoldersAndRecent() {
+        let sb = SidebarViewController(preferences: Preferences(defaults: UserDefaults(suiteName: "medit.sbp.\(UUID().uuidString)")!))
+        sb.loadViewIfNeeded()
+        XCTAssertEqual(sb.currentPaneForTesting, .folders, "defaults to folders")
+        XCTAssertFalse(sb.folderPaneHiddenForTesting, "folder outline visible in folders pane")
+
+        sb.setPane(.recent)
+        XCTAssertEqual(sb.currentPaneForTesting, .recent)
+        XCTAssertTrue(sb.folderPaneHiddenForTesting, "folder outline hidden in recent pane")
+
+        sb.setPane(.folders)
+        XCTAssertEqual(sb.currentPaneForTesting, .folders)
+        XCTAssertFalse(sb.folderPaneHiddenForTesting)
+    }
+
+    func testSidebarPanePersists() {
+        let prefs = Preferences(defaults: UserDefaults(suiteName: "medit.sbpp.\(UUID().uuidString)")!)
+        let sb1 = SidebarViewController(preferences: prefs)
+        sb1.loadViewIfNeeded()
+        sb1.setPane(.recent)
+        XCTAssertEqual(prefs.sidebarPane, "recent", "pane choice persisted")
+
+        let sb2 = SidebarViewController(preferences: prefs)  // fresh, same prefs
+        sb2.loadViewIfNeeded()
+        XCTAssertEqual(sb2.currentPaneForTesting, .recent, "reopens in last-used pane")
+    }
+
+    func testSidebarTogglePaneFlips() {
+        let sb = SidebarViewController(preferences: Preferences(defaults: UserDefaults(suiteName: "medit.sbt.\(UUID().uuidString)")!))
+        sb.loadViewIfNeeded()
+        sb.togglePane()
+        XCTAssertEqual(sb.currentPaneForTesting, .recent)
+        sb.togglePane()
+        XCTAssertEqual(sb.currentPaneForTesting, .folders)
+    }
+
     func testSidebarDeactivateStopsWatchers() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("medit-sbw-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)

@@ -200,6 +200,10 @@ public enum MainMenu {
                                  action: #selector(EditorWindowController.toggleSidebarVisible(_:)), keyEquivalent: "0")
         sidebar.keyEquivalentModifierMask = [.command, .control]
         menu.addItem(sidebar)
+
+        let recentPane = NSMenuItem(title: "Show Recent Files in Sidebar",
+                                    action: #selector(EditorWindowController.toggleSidebarPane(_:)), keyEquivalent: "")
+        menu.addItem(recentPane)
         menu.addItem(.separator())
 
         let lineNumbers = NSMenuItem(title: "Show Line Numbers",

@@ -277,6 +277,13 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         applySidebarVisibility()
     }
 
+    /// Flip the sidebar between the Folders tree and the Recent Files list,
+    /// showing the sidebar first if it's hidden.
+    @IBAction public func toggleSidebarPane(_ sender: Any?) {
+        if !prefs.showSidebar { prefs.showSidebar = true; applySidebarVisibility() }
+        sidebar?.togglePane()
+    }
+
     private func applySidebarVisibility() {
         let show = prefs.showSidebar
         sidebarItem?.isCollapsed = !show
@@ -358,6 +365,9 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         switch menuItem.action {
         case #selector(toggleSidebarVisible(_:)):
             menuItem.state = prefs.showSidebar ? .on : .off
+        case #selector(toggleSidebarPane(_:)):
+            // Checked when the Recent pane is showing.
+            menuItem.state = (prefs.sidebarPane == "recent") ? .on : .off
         case #selector(toggleHiddenFiles(_:)):
             menuItem.state = prefs.showHiddenFiles ? .on : .off
         case #selector(toggleRevealActiveFile(_:)):
