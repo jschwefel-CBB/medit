@@ -40,11 +40,15 @@
 	<key>CFBundleShortVersionString</key>
 	<string>2.4.1</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>152</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.developer-tools</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>A native macOS text editor.</string>
+	<string>Copyright © 2026 Jason Schwefel. MIT-licensed.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSSupportsAutomaticTermination</key>
