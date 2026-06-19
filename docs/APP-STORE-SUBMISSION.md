@@ -88,15 +88,14 @@ App Store Connect record. Do them once the account is live:
 ## Pre-submission verification (run before each upload)
 
 ```sh
-# 1. Stamp the build number from commit count
-scripts/set-build-number.sh
+# Pre-flight: verify everything App Store review checks that doesn't need an
+# account (plist keys, sandbox, hardened runtime, no private/forbidden APIs).
+scripts/appstore-preflight.sh
 
-# 2. Full test gate
-swift test
-
-# 3. Archive for App Store (once a team is set)
-xcodebuild -project App/medit.xcodeproj -scheme medit -configuration Release \
-  -archivePath build/medit.xcarchive archive
+# Build the App Store archive + export an uploadable package. Stamps the build
+# number, runs tests, archives universal. Stops before export until the Team ID
+# is filled into scripts/ExportOptions-AppStore.plist.
+scripts/build-appstore.sh
 
 # 4. Validate the archive against App Store rules (catches most rejections early)
 #    (via Xcode Organizer “Validate App”, or xcodebuild -exportArchive then altool)
