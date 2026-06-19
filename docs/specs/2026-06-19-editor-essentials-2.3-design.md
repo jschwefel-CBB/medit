@@ -86,7 +86,25 @@ selection).
 newline preserved, single-line no-op, change-case on selection vs empty-selection
 word, title case word boundaries.
 
-## 4. Column / block (rectangular) editing
+## 4. Column / block (rectangular) editing — DEFERRED to a future version
+
+**Status (2026-06-19): deferred.** The pure `ColumnSelection` model below was built
+and is fully tested (7 tests, kept in the tree as the foundation). But the
+**NSTextView wiring does not work as hoped**: NSTextView **collapses multiple
+zero-width selection ranges to a single caret** on assignment, so "click a column
+and type down every row" (the multi-insertion-point case) is impossible through
+the public selection API. Only *non-empty* rectangular ranges survive — so block
+*replace*/*delete* could work, but block *typing into empty columns* needs a custom
+rectangular-caret model maintained independently of NSTextView (intercept all
+keystrokes, draw a multi-row ribbon caret). That's a real sub-project.
+
+**Decision:** ship 2.3 with features 1–3; do column editing properly in a later
+version (e.g. 2.4) with the full custom caret model. The tested `ColumnSelection`
+model stays in place to build on.
+
+Original design retained below for that future work:
+
+### (deferred) design
 
 Rectangular selection that spans rows and lets you **type / delete across all
 selected rows at once** — the terminal-output-scraping tool.

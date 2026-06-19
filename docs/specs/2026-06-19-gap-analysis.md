@@ -99,11 +99,12 @@ Two table-stakes gaps stand out (below).
 
 ### Tier 4 — differentiators
 
-- **Column/rectangular block editing** — **PROMOTED to a wanted feature** (decided
-  2026-06-19): genuinely useful for scraping aligned terminal output. N++, Kate,
-  Geany, CotEditor, BBEdit have it; NSTextView gives basic option-drag rectangular
-  *selection* but not multi-row *editing*, so we build the editing behavior. See
-  the 2.3 Editor Essentials spec.
+- **Column/rectangular block editing** — **wanted, but DEFERRED to a future
+  version** (decided 2026-06-19): genuinely useful for scraping aligned terminal
+  output. NSTextView collapses multiple zero-width carets to one, so block *typing
+  into empty columns* needs a custom rectangular-caret model (a real sub-project) —
+  deferred out of 2.3. The pure `ColumnSelection` model + tests are in the tree as
+  the foundation. See the 2.3 Editor Essentials spec.
 - **Multi-cursor** — only Notepad++ & Kate (and gedit *lost* it in v49). Not
   expected of a gedit-class app. **Deliberate non-goal.**
 - **Minimap** — essentially no simple editor in-tier has it (a VS Code/Sublime
