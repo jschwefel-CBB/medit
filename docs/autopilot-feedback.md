@@ -1,7 +1,38 @@
 # Field Report for the AutoPilot Agent
 
-> **Round 3 (commit `76e3261`) is at the very top, then Round 2 (`7a577f1`), then
-> the original Round 1 (`3d7b5cb`) — newest first, older rounds left intact.**
+> **Per-release log at the very top (newest first), then the older numbered Rounds
+> (3 → 2 → 1). A short entry is added here before every medit merge — even when
+> there's nothing new — so there's an auditable per-release trail.**
+
+---
+
+## medit 2.2.0 — no new AutoPilot findings
+
+**AutoPilot commit in use:** `730f6d3` (the R4 fixes). Work this release: Recent
+Files sidebar pane + three UX fixes (drag-to-open, window cascade-to-lower-left,
+persist/restore window frame).
+
+- **No AP-side issues surfaced.** This release's hard bug (file drag-to-open, esp.
+  multi-file) was entirely **medit-side** — the editor's `NSTextView` wasn't
+  registered for file drag types; multi-file Finder drags additionally require
+  `NSFilenamesPboardType`. Native Finder drags are an OS-level drag gesture
+  outside AutoPilot's AX-action model, so there is **no AP feature gap to file**
+  here; the diagnosis used stderr tracing + manual drags, the right tools for a
+  drag-drop bug.
+- **The R4 fixes held up well.** `dump-axtree --pid <pid>` (attach-to-running)
+  reliably verified real app state this session: it confirmed the restored window
+  frame (`640,420,1080,720` for a seeded `{640,300,1080,720}` — the y-flip is AX
+  top-left vs AppKit bottom-left) and the populated `recentFilesTable` after a
+  pane switch. No phantom-window behavior recurred.
+- **Caveat (not AP):** `defaults read` (cfprefsd caching) and `osascript get
+  position` intermittently returned stale/empty values during verification —
+  macOS CLI quirks, not AutoPilot. `plutil` on the plist and the `--pid` dump were
+  the reliable witnesses.
+
+---
+
+> Older numbered rounds: Round 3 (`76e3261`), Round 2 (`7a577f1`), Round 1
+> (`3d7b5cb`) — newest first, left intact.
 
 ---
 
