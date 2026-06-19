@@ -99,6 +99,17 @@ public final class TextDocument: NSDocument {
         lastKnownModificationDate = currentFileModificationDate()
     }
 
+    /// AppKit sets the document's URL on open, save-as, and move. Whenever a real
+    /// file URL is established, add it to the Recent Files list. This one hook
+    /// covers open-from-anywhere (Finder, File ▸ Open, sidebar, drag) and save-as.
+    public override var fileURL: URL? {
+        didSet {
+            if let url = fileURL, url.isFileURL, url != oldValue {
+                RecentFilesStore.shared.record(url)
+            }
+        }
+    }
+
     private func currentFileModificationDate() -> Date? {
         guard let url = fileURL else { return nil }
         return (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
