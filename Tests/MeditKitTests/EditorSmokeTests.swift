@@ -175,7 +175,11 @@ final class EditorSmokeTests: XCTestCase {
         // loadViewIfNeededForTesting (in makeWindowController) puts the text view in
         // a window, so viewDidMoveToWindow has already registered the drag types.
         XCTAssertTrue(tv.registeredDraggedTypes.contains(.fileURL),
-                      "editor must accept file-URL drags so dropped files open")
+                      "editor must accept file-URL drags (single file)")
+        // Multi-file Finder drags advertise the legacy filenames type; without it
+        // the view never even receives draggingEntered for a multi-file drop.
+        XCTAssertTrue(tv.registeredDraggedTypes.contains(NSPasteboard.PasteboardType("NSFilenamesPboardType")),
+                      "editor must accept NSFilenamesPboardType so MULTI-file drags open")
     }
 
     func testDraggedFileOpensEvenWhenEditorHasContent() {

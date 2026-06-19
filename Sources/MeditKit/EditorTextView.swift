@@ -235,33 +235,39 @@ public final class EditorTextView: NSTextView {
 
     // MARK: Drag & drop — open dragged files, don't paste their paths
 
-    /// Register file-URL drags so the OS routes dragged files to our drag
-    /// overrides. A plain-text NSTextView (isRichText = false) otherwise does NOT
-    /// accept file URLs, so dragged files were silently rejected before they ever
-    /// reached `performDragOperation`. Registering `.fileURL` (in addition to
-    /// whatever the superclass registers for text) makes file drops work whether
-    /// the editor is empty or full.
+    /// Register the drag types dropped FILES advertise so the OS routes file
+    /// drags to our overrides. A plain-text NSTextView (isRichText = false) does
+    /// not accept file drops by default. Crucially we register BOTH `.fileURL`
+    /// (single-file drags) AND the classic `NSFilenamesPboardType` — a multi-file
+    /// Finder drag advertises the filenames type, and a view registered only for
+    /// `.fileURL` never even receives `draggingEntered` for a multi-file drag.
+    /// We append to (not replace) the superclass's text drag types.
+    private static let filenamesType = NSPasteboard.PasteboardType("NSFilenamesPboardType")
     private func registerFileDragTypes() {
         var types = registeredDraggedTypes
-        if !types.contains(.fileURL) { types.append(.fileURL) }
+        for t in [NSPasteboard.PasteboardType.fileURL, EditorTextView.filenamesType] where !types.contains(t) {
+            types.append(t)
+        }
         registerForDraggedTypes(types)
     }
 
-    /// Register file-URL drags once the view is in a window (by which point the
-    /// superclass has registered its own text drag types, so we append rather
-    /// than clobber).
     public override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if window != nil { registerFileDragTypes() }
     }
 
-    /// File URLs on a dragging pasteboard (empty for a plain-text drag).
+    /// File URLs on a dragging pasteboard (empty for a plain-text drag). Reads
+    /// both the modern URL representation and the legacy filenames array so both
+    /// single- and multi-file drags resolve.
     private static func fileURLs(on pasteboard: NSPasteboard) -> [URL] {
-        let opts: [NSPasteboard.ReadingOptionKey: Any] = [
-            .urlReadingFileURLsOnly: true,
-        ]
-        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: opts) as? [URL] ?? []
-        return urls.filter { $0.isFileURL }
+        let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        var urls = (pasteboard.readObjects(forClasses: [NSURL.self], options: opts) as? [URL] ?? [])
+            .filter { $0.isFileURL }
+        if urls.isEmpty,
+           let names = pasteboard.propertyList(forType: filenamesType) as? [String] {
+            urls = names.map { URL(fileURLWithPath: $0) }
+        }
+        return urls
     }
 
     public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
