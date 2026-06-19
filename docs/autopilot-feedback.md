@@ -47,16 +47,51 @@ geometrically was more reliable. Not a bug so much as a sharp edge — element
 captures assume the element's frame is the region of interest, which is wrong for
 1-line labels surrounded by other content. Worth a note in §12a.
 
-**Not AP:** driving medit into *transient* states for a shot (open the find bar,
-open a status-bar popup, show the reload banner) via osascript/System Events
-keystrokes was flaky on my end — AppleScript timing, unrelated to AutoPilot. AP's
-own `menu` action would likely be more reliable than my osascript menu-clicking for
-those; that's a workflow fix on the medit side, not an AP gap.
+**SC-4 (P1, the practical blocker) — no reliable "drive into a transient state,
+then capture" flow.** The genuinely hard part of a documentation run isn't the
+capture — it's getting the app into the *state* you want to shoot (find bar open,
+sidebar switched to the Recent pane, a multi-tab group, a status-bar popup menu
+open, the external-change banner showing) and capturing it before it changes. What
+I hit:
+- AP's **`menu` action opened the find bar reliably** (good — better than my
+  osascript menu-clicking), but the subsequent `screenshot` step then failed
+  (SC-1), so the open bar was never captured in the same plan.
+- A plan can't easily **hold a transient state across the capture**: by the time a
+  follow-on `screenshot` runs (or an external `screencapture` fires), the menu/
+  popover has dismissed or focus moved.
+- There is no **"capture the app exactly as it is right now" attach mode** — `run`
+  relaunches (SC-2), which destroys any state I'd arranged.
 
-**Net:** AP's screenshot capability is solid for full-window/large-element captures
-(which covers most doc needs). SC-1 (silent failure) and SC-2 (relaunch race / no
-attach-and-capture) are the two worth addressing for a smooth documentation
-workflow.
+What would make doc capture tractable: (a) `screenshot --pid` attach-and-capture
+(see SC-2); (b) a `screenshot` that's robust enough to fire immediately after a
+`menu`/`click` that opened transient UI, *within the same plan*, without a relaunch
+or a long settle; (c) optionally a way to **hold** an opened menu/popover open
+across the next step.
+
+**SC-5 (P2, evidence) — AP `screenshot` failed consistently when medit's window was
+on a secondary display at negative coordinates; `screencapture -R<rect>` did not.**
+On this multi-monitor setup medit's window repeatedly opened at e.g.
+`-1774,235,988,592` (left display, negative x). AP's `screenshot` AXWindow target
+failed there (SC-1), but `/usr/sbin/screencapture -o -x -R"-1774,235,988,592"`
+captured it perfectly every time. **Reliable fallback that worked end-to-end:** get
+the window frame from `dump-axtree --pid` (the AX `frame` field is solid), then
+`screencapture -R` that rect. Worth checking AP's capture path handles negative /
+secondary-display window origins.
+
+**Not AP:** driving medit into transient states via *osascript/System Events*
+keystrokes was flaky on my end (AppleScript timing + an intermittently-empty
+`System Events … window 1` query). AP's `menu` action is the better lever; the
+remaining gap is SC-4 (capture the resulting transient state in the same plan).
+
+**Net:** AP's screenshot **capture** is fine for full-window/large-element shots —
+hero, Markdown preview+toolbar, Settings, block-edit, and the sidebar all came out
+great via either AP `screenshot` (when it didn't hit SC-1) or the
+`dump-axtree --pid` frame → `screencapture -R` fallback. The blockers for a
+*complete* doc set are **SC-1** (silent screenshot failure), **SC-2/SC-5**
+(relaunch race / secondary-display capture), and especially **SC-4** (no
+reliable drive-to-transient-state-then-capture). The medit doc screenshots that
+need transient states (find bar, Recent pane, open menus, multi-tab, reload banner)
+are **deferred** until these are smoother.
 
 ---
 
