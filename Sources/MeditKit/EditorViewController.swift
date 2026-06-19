@@ -729,7 +729,7 @@ public final class EditorViewController: NSViewController {
     /// Test hooks for document statistics.
     public func refreshStatusBarForTesting() { updateStatusBar() }
     public var statusBarStatsForTesting: String { statusBar?.statsTextForTesting ?? "" }
-    public var columnModeIndicatorVisibleForTesting: Bool { statusBar?.columnModeVisibleForTesting ?? false }
+    public var columnModeIndicatorVisibleForTesting: Bool { statusBar?.columnModeActiveForTesting ?? false }
 
     /// Apply a manual language override (nil = auto-detect), re-highlight, and
     /// refresh the status bar.
