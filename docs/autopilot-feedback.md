@@ -1,9 +1,91 @@
 # Field Report for the AutoPilot Agent
 
-> **Round 2 addendum (commit `7a577f1`) is at the top — the original round-1 report
-> (commit `3d7b5cb`) follows below and is left intact for history.**
+> **Round 3 (commit `76e3261`) is at the very top, then Round 2 (`7a577f1`), then
+> the original Round 1 (`3d7b5cb`) — newest first, older rounds left intact.**
 
 ---
+
+## ROUND 3 — `dump_axtree` reports a phantom window, not the real running app
+
+**AutoPilot commit:** `76e3261`. Found while building medit's Markdown features
+(v2). This one cost real time: **every state I set up in a running medit instance,
+`dump_axtree` reported incorrectly**, sending me chasing bugs that didn't exist.
+
+### R3-1 (P0) — `dump_axtree` does not report the actual running instance's window
+
+**Repro (captured side by side):** launch medit directly with a file, then compare
+the OS's own window list against what `dump_axtree` returns for the same bundle id,
+*without* AutoPilot launching anything:
+
+```
+$ /Applications/medit.app/Contents/MacOS/medit /tmp/sb-test.md &   # one instance
+$ osascript -e 'tell application "System Events" to tell process "medit" \
+      to get name of every window'
+  sb-test.md                      # TRUTH: the file is open, titled sb-test.md
+$ pgrep -f medit.app | wc -l
+  1                               # exactly one process
+
+# now dump_axtree against the SAME running instance:
+$ printf '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":\
+      "dump_axtree","arguments":{"bundleId":"com.jschwefel.medit"}}}' \
+      | AutopilotMCP
+  windows: ['Untitled']           # WRONG: reports an Untitled window
+  style-bar buttons: 0            # WRONG: the toolbar is plainly on screen
+$ pgrep -f medit.app | wc -l
+  1                               # still ONE process — it didn't spawn a 2nd
+```
+
+So `dump_axtree`:
+- **does NOT spawn a second process** (process count is 1 before and after — I
+  initially suspected this and it's false), yet
+- **reports a different window** (`Untitled`, empty, no Markdown toolbar) than the
+  one the app is actually displaying (`sb-test.md`, with the toolbar), and
+- a side effect of the dump leaves the app's AppleScript window list momentarily
+  empty (the real window list, queried again right after, returned nothing).
+
+**Impact:** every verification I attempted against a running instance this session
+was misleading — "file didn't open" (it had), "preview pane absent" (it was
+shown), "0 style-bar buttons" (10 were on screen). I repeatedly concluded medit had
+bugs it did not have; the real app was always correct when checked via `osascript`
+or stderr logging. A state-inspection tool that disagrees with the running app is
+worse than no tool, because it manufactures false negatives.
+
+**Likely cause (for you to confirm):** the MCP server appears to resolve the bundle
+id to a *fresh/launched* AX context (or a default/last window, or its own
+hidden window) rather than attaching to the AXUIElement tree of the
+already-frontmost running instance. Whatever the mechanism, the returned tree is
+not the on-screen one.
+
+**Asks:**
+1. `dump_axtree` (and `run` with `bundleId`) should **attach to the running
+   instance** and report **its key/front window's** AX tree — the same tree a user
+   sees. If multiple windows/instances exist, prefer the frontmost, or expose
+   `windowTitle` / `pid` to disambiguate.
+2. Add a self-check: if no running instance matches the bundle id, **say so**
+   rather than returning a default/blank tree that looks like real data.
+3. A way to dump **by pid** (`{"pid": 81256}`) would let a caller inspect exactly
+   the process they launched — the reliable escape hatch.
+
+### R3-2 (P1) — `run` with `target.path` + `launchFiles` opened the file elsewhere
+
+When I tried `{ "path": "/Applications/medit.app", "launchFiles": ["…/x.md"] }`,
+the run failed at `waitFor editorTextView` ("element did not appear"). The `.md`
+appears to have been routed to the **OS default handler** for the type (another
+app) instead of opening in the app at `target.path`. `launchFiles` should open the
+files **in the specified target**, not defer to LaunchServices' default-handler
+resolution. (Workaround: none via AutoPilot; I launched medit's binary directly and
+checked state with `osascript`.)
+
+### Round-3 net
+The Markdown work (rendered preview, print, the formatting toolbar) is all verified
+correct via `osascript` + stderr + the headless test suite — but **not via
+AutoPilot**, because `dump_axtree` couldn't see the real windows. Fixing R3-1 would
+restore AutoPilot as a trustworthy verifier; right now its state reports can't be
+relied on for an app the caller launched.
+
+---
+
+## ROUND 2 — retest against commit `7a577f1`
 
 ## ROUND 2 — retest against commit `7a577f1`
 

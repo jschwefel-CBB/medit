@@ -729,6 +729,39 @@ final class EditorSmokeTests: XCTestCase {
                       "preview toggle should be enabled for Markdown documents")
     }
 
+    func testStyleBarShownForMarkdownHiddenOtherwise() {
+        let md = makeWindowController(text: "hello")
+        md.documentForTesting?.languageOverride = "markdown"
+        md.editorForTesting?.applyStyleBarVisibility()
+        XCTAssertTrue(md.editorForTesting?.styleBarVisibleForTesting == true,
+                      "style bar should show for Markdown documents")
+
+        let plain = makeWindowController(text: "hello")
+        plain.editorForTesting?.applyStyleBarVisibility()
+        XCTAssertFalse(plain.editorForTesting?.styleBarVisibleForTesting == true,
+                       "style bar should be hidden for non-Markdown documents")
+    }
+
+    func testStyleBarBoldActionWrapsSelection() {
+        let wc = makeWindowController(text: "make me bold")
+        wc.documentForTesting?.languageOverride = "markdown"
+        let editor = wc.editorForTesting!
+        // Select "bold".
+        let r = ("make me bold" as NSString).range(of: "bold")
+        editor.textView.setSelectedRange(r)
+        editor.applyStyleActionForTesting(.bold)
+        XCTAssertEqual(editor.textView.string, "make me **bold**")
+    }
+
+    func testStyleBarBulletActionPrefixesLines() {
+        let wc = makeWindowController(text: "one\ntwo")
+        wc.documentForTesting?.languageOverride = "markdown"
+        let editor = wc.editorForTesting!
+        editor.textView.setSelectedRange(NSRange(location: 0, length: ("one\ntwo" as NSString).length))
+        editor.applyStyleActionForTesting(.bullet)
+        XCTAssertEqual(editor.textView.string, "- one\n- two")
+    }
+
     func testAutoShowPreviewOpensPreviewForMarkdown() {
         let prefs = Preferences(defaults: UserDefaults(suiteName: "medit.smoke.\(UUID().uuidString)")!)
         prefs.autoShowPreviewForMarkdown = true
