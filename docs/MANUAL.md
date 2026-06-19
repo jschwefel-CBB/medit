@@ -204,6 +204,7 @@ Toggles in the bar:
 
 <!-- SCREENSHOT: the find bar with Regex + Match Case toggles, a query, and a match
      count; the replacement row visible. → images/find-replace.png -->
+![Find & Replace](images/find-replace.png)
 
 ### Find in All Tabs
 
@@ -365,6 +366,7 @@ Files that no longer exist are dimmed.
 
 <!-- SCREENSHOT: the sidebar switched to the Recent pane with a list of files.
      → images/recent-files.png -->
+![Recent files](images/recent-files.png)
 
 ---
 

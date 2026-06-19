@@ -85,6 +85,7 @@ Targets **macOS 14 (Sonoma)** and later. Universal — Apple Silicon and Intel.
 
 <!-- SCREENSHOT: the Find & Replace bar open with the Regex + Match Case toggles
      and a match count. → docs/images/find-replace.png -->
+![Find & Replace](docs/images/find-replace.png)
 
 ### Text transforms & block editing
 
