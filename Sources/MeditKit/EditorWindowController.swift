@@ -410,6 +410,14 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         prefs.showDocumentStats.toggle()
     }
 
+    // MARK: Text transforms
+
+    @IBAction public func sortLinesAscending(_ sender: Any?) { editor?.sortSelectedLines(ascending: true) }
+    @IBAction public func sortLinesDescending(_ sender: Any?) { editor?.sortSelectedLines(ascending: false) }
+    @IBAction public func makeUpperCase(_ sender: Any?) { editor?.changeCaseOfSelection(to: .upper) }
+    @IBAction public func makeLowerCase(_ sender: Any?) { editor?.changeCaseOfSelection(to: .lower) }
+    @IBAction public func makeTitleCase(_ sender: Any?) { editor?.changeCaseOfSelection(to: .title) }
+
     @IBAction public func toggleInvisibles(_ sender: Any?) {
         prefs.showInvisibles.toggle()
         editor?.applyShowInvisibles(prefs.showInvisibles)

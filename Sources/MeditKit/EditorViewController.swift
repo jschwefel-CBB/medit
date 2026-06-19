@@ -349,6 +349,41 @@ public final class EditorViewController: NSViewController {
     public func applyStyleActionForTesting(_ action: MarkdownStyleBar.Action) { applyStyleAction(action) }
     public var styleBarVisibleForTesting: Bool { markdownStyleBar?.isHidden == false }
 
+    // MARK: Text transforms (sort lines / change case)
+
+    /// Replace the whole document with `newText`, reselecting `newSelection`, as a
+    /// single undoable edit, then refresh highlighting/status.
+    private func applyWholeTextEdit(_ newText: String, select newSelection: NSRange) {
+        let tv = textView!
+        let fullRange = NSRange(location: 0, length: (tv.string as NSString).length)
+        guard tv.shouldChangeText(in: fullRange, replacementString: newText) else { return }
+        tv.textStorage?.replaceCharacters(in: fullRange, with: newText)
+        tv.didChangeText()
+        let len = (tv.string as NSString).length
+        tv.setSelectedRange(NSRange(location: min(newSelection.location, len),
+                                    length: min(newSelection.length, len - min(newSelection.location, len))))
+        document?.updateText(tv.string)
+        highlighter?.scheduleHighlight()
+        bracketColorizer?.scheduleRefresh()
+        updateStatusBar()
+        schedulePreviewRefresh()
+    }
+
+    public func sortSelectedLines(ascending: Bool) {
+        let e = TextTransforms.sortLines(textView.string, range: textView.selectedRange(),
+                                         ascending: ascending, caseInsensitive: false)
+        applyWholeTextEdit(e.text, select: e.selectedRange)
+    }
+
+    public func changeCaseOfSelection(to mode: TextTransforms.Case) {
+        let e = TextTransforms.changeCase(textView.string, range: textView.selectedRange(), to: mode)
+        applyWholeTextEdit(e.text, select: e.selectedRange)
+    }
+
+    /// Test hooks.
+    public func sortSelectedLinesForTesting(ascending: Bool) { sortSelectedLines(ascending: ascending) }
+    public func changeCaseForTesting(_ mode: TextTransforms.Case) { changeCaseOfSelection(to: mode) }
+
     // MARK: Markdown preview
 
     /// Whether the rendered Markdown preview is currently shown (per-tab state).
