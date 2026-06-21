@@ -29,12 +29,21 @@ public struct MarkdownRenderer {
         }
     }
 
+    /// How tables are emitted. `.interactive` (the preview) emits a
+    /// `MarkdownTableAttachmentCell` whose live view is selectable + scrollable;
+    /// `.static` (printing) rasterizes a full-width drawn grid (paper can't scroll).
+    public enum TableMode { case interactive, `static` }
+
     private let theme: Theme
-    public init(theme: Theme) { self.theme = theme }
+    private let tableMode: TableMode
+    public init(theme: Theme, tableMode: TableMode = .interactive) {
+        self.theme = theme
+        self.tableMode = tableMode
+    }
 
     public func render(_ markdown: String) -> NSAttributedString {
         let document = Document(parsing: markdown)
-        var builder = AttributedStringBuilder(theme: theme)
+        var builder = AttributedStringBuilder(theme: theme, tableMode: tableMode)
         return builder.build(document)
     }
 }
@@ -44,6 +53,7 @@ public struct MarkdownRenderer {
 private struct AttributedStringBuilder: MarkupVisitor {
     typealias Result = Void
     let theme: MarkdownRenderer.Theme
+    let tableMode: MarkdownRenderer.TableMode
     let out = NSMutableAttributedString()
 
     // Inline style state, pushed/popped as we descend.
@@ -52,7 +62,11 @@ private struct AttributedStringBuilder: MarkupVisitor {
     private var link: URL?
     private var listDepth = 0
 
-    init(theme: MarkdownRenderer.Theme) { self.theme = theme }
+    init(theme: MarkdownRenderer.Theme,
+         tableMode: MarkdownRenderer.TableMode = .interactive) {
+        self.theme = theme
+        self.tableMode = tableMode
+    }
 
     mutating func build(_ doc: Document) -> NSAttributedString {
         visit(doc)
@@ -266,10 +280,16 @@ private struct AttributedStringBuilder: MarkupVisitor {
             for cell in row.children { r.append(renderCell(cell, bold: false)) }
             rows.append(r)
         }
-        let image = MarkdownTableRenderer.image(header: headerCells, rows: rows, theme: theme)
         let attachment = NSTextAttachment()
-        attachment.image = image
-        attachment.bounds = NSRect(origin: .zero, size: image.size)
+        switch tableMode {
+        case .interactive:
+            attachment.attachmentCell = MarkdownTableAttachmentCell(
+                header: headerCells, rows: rows, theme: theme)
+        case .static:
+            let image = MarkdownTableRenderer.image(header: headerCells, rows: rows, theme: theme)
+            attachment.image = image
+            attachment.bounds = NSRect(origin: .zero, size: image.size)
+        }
         let para = bodyParagraph(spacingAfter: 14, spacingBefore: 6)
         let attStr = NSMutableAttributedString(attachment: attachment)
         attStr.addAttribute(.paragraphStyle, value: para,
