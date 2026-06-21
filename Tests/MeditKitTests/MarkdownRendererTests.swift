@@ -41,9 +41,13 @@ final class MarkdownRendererTests: XCTestCase {
         let out = renderer().render("a ~~gone~~ b")
         XCTAssertNotNil(attrs(out, at: offset(out, of: "gone"))[.strikethroughStyle])
     }
-    func testInlineCodeHasBackground() {
+    func testInlineCodeIsMarkedForBoxDrawing() {
+        // Inline code is marked with the inlineCode attribute (the layout manager
+        // draws a tight rounded box behind it), not a line-height background fill.
         let out = renderer().render("a `code` b")
-        XCTAssertNotNil(attrs(out, at: offset(out, of: "code"))[.backgroundColor])
+        let at = attrs(out, at: offset(out, of: "code"))
+        XCTAssertNotNil(at[MarkdownBlockAttribute.inlineCode], "inline code is marked")
+        XCTAssertNil(at[.backgroundColor], "no line-height background fill")
     }
     func testLinkCarriesURL() {
         let out = renderer().render("[txt](https://example.com)")
@@ -106,13 +110,14 @@ final class MarkdownRendererTests: XCTestCase {
                        MarkdownBlockAttribute.Kind.blockQuote.rawValue)
     }
 
-    func testTableRendersAsAnAttachmentImage() {
-        // Tables render to a drawn bordered-grid image wrapped in a text attachment.
+    func testTableRendersAsImage() {
+        // MarkdownRenderer now serves printing only (the preview is a WKWebView):
+        // tables rasterize to a drawn bordered-grid image attachment.
         let out = renderer().render("| H |\n|---|\n| c |")
-        var foundAttachment = false
+        var foundImage = false
         out.enumerateAttribute(.attachment, in: NSRange(location: 0, length: out.length)) { value, _, _ in
-            if let att = value as? NSTextAttachment, att.image != nil { foundAttachment = true }
+            if let att = value as? NSTextAttachment, att.image != nil { foundImage = true }
         }
-        XCTAssertTrue(foundAttachment, "a GFM table should render as an image attachment")
+        XCTAssertTrue(foundImage, "a GFM table renders as an image attachment for print")
     }
 }

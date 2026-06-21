@@ -8,17 +8,15 @@ public enum MarkdownBlockAttribute {
     public static let blockKind = NSAttributedString.Key("medit.md.blockKind")
     /// For headings: the level (1–6), used to size the underline rule.
     public static let headingLevel = NSAttributedString.Key("medit.md.headingLevel")
-    /// For table rows: the x positions (in text-container points) of column
-    /// dividers, as an [CGFloat] in an NSValue-wrapped array (stored as [NSNumber]).
-    public static let tableColumns = NSAttributedString.Key("medit.md.tableColumns")
-    /// Marks the table header row (shaded background).
-    public static let tableHeader = NSAttributedString.Key("medit.md.tableHeader")
+    /// Marks an inline-code run so the layout manager can draw a tight rounded box
+    /// behind its glyphs (symmetric padding), instead of `.backgroundColor` which
+    /// fills the whole 1.35× line height and looks top-heavy.
+    public static let inlineCode = NSAttributedString.Key("medit.md.inlineCode")
 
     public enum Kind: Int {
         case codeBlock = 1
         case blockQuote = 2
         case headingRule = 3      // heading that gets an underline rule (h1/h2)
-        case tableRow = 4
         case thematicBreak = 5
     }
 }
@@ -33,16 +31,15 @@ public final class MarkdownPreviewLayoutManager: NSLayoutManager {
         public var codePanel: NSColor
         public var quoteBar: NSColor
         public var rule: NSColor
-        public var tableBorder: NSColor
-        public var tableHeaderFill: NSColor
+        /// Fill behind inline-code spans (the tight rounded box).
+        public var inlineCodeFill: NSColor
         public init(codePanel: NSColor, quoteBar: NSColor, rule: NSColor,
-                    tableBorder: NSColor, tableHeaderFill: NSColor) {
+                    inlineCodeFill: NSColor = .clear) {
             self.codePanel = codePanel; self.quoteBar = quoteBar; self.rule = rule
-            self.tableBorder = tableBorder; self.tableHeaderFill = tableHeaderFill
+            self.inlineCodeFill = inlineCodeFill
         }
     }
-    public var palette = Palette(codePanel: .clear, quoteBar: .gray, rule: .separatorColor,
-                                 tableBorder: .separatorColor, tableHeaderFill: .clear)
+    public var palette = Palette(codePanel: .clear, quoteBar: .gray, rule: .separatorColor)
 
     public override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
         super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
@@ -64,9 +61,40 @@ public final class MarkdownPreviewLayoutManager: NSLayoutManager {
                 self.drawHeadingRule(blockRect)
             case .thematicBreak:
                 self.drawThematicBreak(blockRect)
-            case .tableRow:
-                self.drawTableRow(storage: storage, charRange: range, blockRect: blockRect, origin: origin)
             }
+        }
+
+        // Inline-code spans: a tight rounded box hugging the glyphs (symmetric top/
+        // bottom), drawn per line fragment so a wrapped code span boxes each piece.
+        guard palette.inlineCodeFill != NSColor.clear else { return }
+        storage.enumerateAttribute(MarkdownBlockAttribute.inlineCode, in: charRange,
+                                   options: []) { value, range, _ in
+            guard value != nil else { return }
+            self.drawInlineCode(charRange: range, origin: origin)
+        }
+    }
+
+    private func drawInlineCode(charRange: NSRange, origin: NSPoint) {
+        let glyphRange = self.glyphRange(forCharacterRange: charRange, actualCharacterRange: nil)
+        guard let container = textContainers.first,
+              let font = textStorage?.attribute(.font, at: charRange.location, effectiveRange: nil) as? NSFont
+        else { return }
+        palette.inlineCodeFill.setFill()
+        // Box height is keyed to the FONT (ascender..descender), centred on the
+        // glyphs with symmetric vertical padding — not the tall 1.35× line box (which
+        // seated the text low and looked top-heavy). Geometry verified by spike.
+        let vPad: CGFloat = 2
+        let textHeight = font.ascender - font.descender
+        enumerateLineFragments(forGlyphRange: glyphRange) { _, usedRect, _, lineGlyphRange, _ in
+            let piece = NSIntersectionRange(glyphRange, lineGlyphRange)
+            guard piece.length > 0 else { return }
+            let runRect = self.boundingRect(forGlyphRange: piece, in: container)
+            let baseline = usedRect.maxY + font.descender   // text baseline (flipped y)
+            let top = baseline - font.ascender              // top of the glyphs
+            let boxRect = NSRect(x: runRect.minX - 3, y: top - vPad,
+                                 width: runRect.width + 6, height: textHeight + vPad * 2)
+                .offsetBy(dx: origin.x, dy: origin.y)
+            NSBezierPath(roundedRect: boxRect, xRadius: 4, yRadius: 4).fill()
         }
     }
 
@@ -97,30 +125,6 @@ public final class MarkdownPreviewLayoutManager: NSLayoutManager {
         let line = NSRect(x: rect.minX, y: y, width: max(rect.width, containerWidth()), height: 1)
         palette.rule.setFill()
         line.fill()
-    }
-
-    private func drawTableRow(storage: NSTextStorage, charRange: NSRange, blockRect: NSRect, origin: NSPoint) {
-        // Header shading.
-        if storage.attribute(MarkdownBlockAttribute.tableHeader, at: charRange.location, effectiveRange: nil) != nil {
-            palette.tableHeaderFill.setFill()
-            blockRect.fill()
-        }
-        // Outer + column borders.
-        palette.tableBorder.setStroke()
-        let border = NSBezierPath(rect: blockRect)
-        border.lineWidth = 1
-        border.stroke()
-        if let cols = storage.attribute(MarkdownBlockAttribute.tableColumns, at: charRange.location,
-                                        effectiveRange: nil) as? [NSNumber] {
-            for c in cols {
-                let x = blockRect.minX + CGFloat(c.doubleValue)
-                let v = NSBezierPath()
-                v.move(to: NSPoint(x: x, y: blockRect.minY))
-                v.line(to: NSPoint(x: x, y: blockRect.maxY))
-                v.lineWidth = 1
-                v.stroke()
-            }
-        }
     }
 
     private func containerWidth() -> CGFloat {

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0",
+  "name": "markdown preview renders in the web view",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchFiles": ["/tmp/table-test.md"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+
+    { "id": "wait-editor-loaded", "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "Table test" } },
+
+    { "id": "focus-editor", "action": "click",
+      "target": { "identifier": "editorTextView" } },
+
+    { "id": "show-preview", "action": "menu",
+      "args": { "menuPath": ["View", "Show Markdown Preview"] } },
+
+    { "id": "wait-preview", "action": "waitFor",
+      "target": { "role": "AXWebArea" }, "args": { "present": true } },
+
+    { "id": "shot-preview", "action": "screenshot",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "path": "/tmp/apshots/table-preview.png", "padding": 0 } }
+  ]
+}

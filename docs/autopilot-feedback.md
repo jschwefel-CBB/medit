@@ -6,6 +6,72 @@
 
 ---
 
+## Markdown preview → WKWebView (HTML+CSS) — AP findings
+
+The Markdown **preview** was rewritten from TextKit (`NSTextView` + custom
+`NSLayoutManager` + `NSTextTable`) to a **WKWebView** rendering HTML+CSS — the way
+MacDown/Typora/Marked do it. This fixed a long run of table problems (multi-column
+wrap gaps, no horizontal scroll, words splitting at narrow widths, copy/AX
+fragility) that were all fights against `NSTextTable`'s limits; the browser does all
+of it natively.
+
+**AP-relevant changes:**
+- New AX id `markdownPreviewWebView`; the preview content is now an **`AXWebArea`**
+  (real, queryable) instead of the old opaque `AXUnknown` table subviews. AP can
+  see/inspect the web area; table cell text is selectable browser-native.
+- The old preview AX id `markdownPreviewTextView` is **gone** — any AP plan
+  asserting it must target `markdownPreviewWebView` / the web area instead.
+- `uitests/markdown-table-preview.json` targets the deleted `markdownPreviewTextView`
+  and the element-scoped screenshot of it — **update it** to the web view, or assert
+  via the web area. (Left for the next AP pass.)
+
+**Recurring AP flakiness (unchanged, still worth a fix on the AP side):** the
+`menu` action for "View ▸ Show Markdown Preview" intermittently fails to toggle
+unless the window is first made key (a `click` on `editorTextView` before the
+`menu` step works around it). Seen across many runs this session.
+
+**Verification done without AP screenshots of the toggle** (the menu flakiness +
+the need to flip system appearance) — used direct launch + osascript menu-press +
+window-bounded captures (frontmost-gated, never full-display). Light/dark both
+verified.
+
+---
+
+## selectable Markdown tables (feature branch) — AP deliberately NOT used; verified headlessly
+
+This cycle made Markdown-preview tables selectable/copyable (real text in a
+per-table scrollable subview, replacing the image attachment). **No AutoPilot run
+was performed, by design**, and it's worth recording why:
+
+- At verification time the **installed** medit (v2.5.0, separate from the Debug
+  build under test) had a **ColdBoreBallistics document open**
+  (`CBB_Object_Taxonomy.md`). Per the standing rule that CBB windows are 100% off
+  limits and the screenshot-safety rule (never full-display; only window-bounded,
+  frontmost-gated capture), **any** screen capture was unsafe — a window-bounded
+  shot still risks the wrong window when two medit instances and a private doc are
+  in play. So I took **zero** screenshots and drove **no** GUI capture.
+- `open file.md` also routed the test file to the **installed** app via bundle-ID
+  registration, not the Debug build — the same "wrong instance" hazard the Round-3
+  `dump_axtree` phantom-window finding warned about. Lesson reinforced: when two
+  builds of the same bundle id are running, GUI tooling can't be trusted to target
+  the right one without explicit pid attach.
+
+**What replaced the GUI check:** a headless integration smoke test
+(`MarkdownTablePreviewSmokeTests`) that drives the real `EditorViewController`,
+shows the preview, and asserts a live, **selectable** `MarkdownTableView` subview is
+placed at a **real non-zero frame**. This caught a genuine bug a pure unit test
+would have missed: on first preview show, `placeTableSubviews()` ran while the
+preview view was still hidden/unsized, producing a 0×0 table frame. Fixed by
+un-hiding + sizing the preview before render, and forcing layout before reading
+attachment glyph rects.
+
+**AP suggestion (for when a CBB window is NOT open):** the clean way to verify this
+feature visually is `autopilot ... --pid <debug-build-pid>` attach (never `open`,
+which hits the installed bundle), then a window-bounded capture gated on the Debug
+build being frontmost. Until then, the headless test is the trustworthy gate.
+
+---
+
 ## medit 2.5.0 — AP findings: screenshot capture (mostly resolved by the AUTHORING.md update)
 
 Docs release (full User Manual + 16 screenshots + App Store prep). The AP work

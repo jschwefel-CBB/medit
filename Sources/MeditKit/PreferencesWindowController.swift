@@ -633,11 +633,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
     /// Apply the chosen appearance to the whole app.
     private func applyAppAppearance() {
-        switch prefs.appearance {
-        case .system: NSApp.appearance = nil
-        case .light: NSApp.appearance = NSAppearance(named: .aqua)
-        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
-        }
+        AppAppearance.applyToApp(prefs.appearance)
     }
 
     // MARK: Testing

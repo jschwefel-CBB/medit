@@ -40,8 +40,7 @@ enum MarkdownPrinter {
         let layout = MarkdownPreviewLayoutManager()
         let theme = printTheme()
         layout.palette = .init(codePanel: theme.codeBackground, quoteBar: theme.quoteBarColor,
-                               rule: theme.tableBorderColor, tableBorder: theme.tableBorderColor,
-                               tableHeaderFill: theme.codeBackground)
+                               rule: theme.tableBorderColor, inlineCodeFill: theme.codeBackground)
         storage.addLayoutManager(layout)
         let container = NSTextContainer(size: NSSize(width: pageWidth, height: .greatestFiniteMagnitude))
         container.widthTracksTextView = true
@@ -52,8 +51,19 @@ enum MarkdownPrinter {
         textView.isHorizontallyResizable = false
         textView.backgroundColor = .white
         textView.drawsBackground = true
-        textView.textStorage?.setAttributedString(MarkdownRenderer(theme: theme).render(markdown))
-        textView.sizeToFit()
+        textView.textStorage?.setAttributedString(
+            MarkdownRenderer(theme: theme).render(markdown))
+        // Force a full layout pass BEFORE sizing: NSTextView layout is lazy, so
+        // sizeToFit() alone runs before tables/attachments are laid out and leaves
+        // the view at its tiny initial height — which made the print engine clip
+        // everything but the first ~100pt. Size the view to the real content height.
+        layout.ensureLayout(for: container)
+        // usedRect's maxY already includes the top container inset, so add only the
+        // BOTTOM inset (one inset, not two) to avoid an extra band of trailing
+        // whitespace / a near-empty final page.
+        let used = layout.usedRect(for: container)
+        textView.setFrameSize(NSSize(width: pageWidth,
+                                     height: ceil(used.maxY) + textView.textContainerInset.height))
 
         let op = NSPrintOperation(view: textView, printInfo: printInfo)
         op.jobTitle = "Markdown"

@@ -51,7 +51,8 @@ Sidebar
 - `recentFilesTable` — the Recent Files list
 
 Markdown
-- `markdownPreviewTextView` — the rendered Markdown preview
+- `markdownPreviewWebView` — the rendered Markdown preview (a WKWebView; its
+  content shows as an `AXWebArea` in the tree)
 - `mdStyle.bold`, `mdStyle.italic`, `mdStyle.strikethrough`, `mdStyle.code`,
   `mdStyle.link`, `mdStyle.heading`, `mdStyle.bullet`, `mdStyle.ordered`,
   `mdStyle.quote`, `mdStyle.codeBlock` — Markdown formatting-toolbar buttons

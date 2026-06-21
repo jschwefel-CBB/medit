@@ -30,7 +30,9 @@ public struct MarkdownRenderer {
     }
 
     private let theme: Theme
-    public init(theme: Theme) { self.theme = theme }
+    public init(theme: Theme) {
+        self.theme = theme
+    }
 
     public func render(_ markdown: String) -> NSAttributedString {
         let document = Document(parsing: markdown)
@@ -52,7 +54,9 @@ private struct AttributedStringBuilder: MarkupVisitor {
     private var link: URL?
     private var listDepth = 0
 
-    init(theme: MarkdownRenderer.Theme) { self.theme = theme }
+    init(theme: MarkdownRenderer.Theme) {
+        self.theme = theme
+    }
 
     mutating func build(_ doc: Document) -> NSAttributedString {
         visit(doc)
@@ -98,8 +102,11 @@ private struct AttributedStringBuilder: MarkupVisitor {
         ]
         if strike { a[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
         if code {
-            a[.backgroundColor] = theme.codeBackground
-            a[.foregroundColor] = theme.secondary
+            // Marker only — the layout manager draws a tight rounded box behind the
+            // glyphs (symmetric padding), instead of a line-height background fill.
+            // This renderer is print-only (white paper), so keep inline-code text the
+            // theme foreground (dark) for legibility rather than light steel.
+            a[MarkdownBlockAttribute.inlineCode] = true
         }
         if let link {
             a[.link] = link
@@ -123,7 +130,9 @@ private struct AttributedStringBuilder: MarkupVisitor {
     mutating func visitSoftBreak(_ softBreak: SoftBreak) { emit(" ") }
     mutating func visitLineBreak(_ lineBreak: LineBreak) { emit("\n") }
     mutating func visitInlineCode(_ inlineCode: InlineCode) {
-        let was = code; code = true; emit(" " + inlineCode.code + " "); code = was
+        // Thin hair-spaces give a snug background box instead of the loose padding a
+        // full space produced.
+        let was = code; code = true; emit("\u{2009}" + inlineCode.code + "\u{2009}"); code = was
     }
     mutating func visitEmphasis(_ emphasis: Emphasis) {
         let was = italic; italic = true; defaultVisit(emphasis); italic = was
@@ -266,6 +275,9 @@ private struct AttributedStringBuilder: MarkupVisitor {
             for cell in row.children { r.append(renderCell(cell, bold: false)) }
             rows.append(r)
         }
+        // `MarkdownRenderer` now serves only PRINTING (the on-screen preview is a
+        // WKWebView). Tables print as a drawn bordered-grid image — paper can't
+        // scroll or select, so the static grid is correct.
         let image = MarkdownTableRenderer.image(header: headerCells, rows: rows, theme: theme)
         let attachment = NSTextAttachment()
         attachment.image = image

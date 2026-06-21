@@ -1,4 +1,5 @@
 import AppKit
+import WebKit
 
 /// The editing surface for one document: an `NSTextView` inside a scroll view,
 /// with a line-number ruler and a syntax-highlighting controller. One of these
@@ -22,9 +23,10 @@ public final class EditorViewController: NSViewController {
     // Markdown preview (per-tab; not a global pref). The preview pane is built
     // lazily and swapped in for the editor scroll view by `showPreview`.
     private var isShowingPreview = false
-    private var previewScrollView: NSScrollView?
-    private var previewTextView: NSTextView?
-    private var previewLayoutManager: MarkdownPreviewLayoutManager?
+    /// The Markdown preview is a WKWebView rendering HTML+CSS — like every other
+    /// Markdown editor — so tables/wrapping/scrolling/selection/copy are browser
+    /// native instead of hand-built in TextKit.
+    private var previewWebView: WKWebView?
     private var previewRefreshWorkItem: DispatchWorkItem?
 
     /// The window controller that handles "New Tab" from our context menu.
@@ -392,95 +394,67 @@ public final class EditorViewController: NSViewController {
 
     /// Show or hide the read-only Markdown preview, swapping it for the editor.
     public func showPreview(_ show: Bool) {
-        if show {
-            buildPreviewIfNeeded()
-            renderPreview()
-        }
+        if show { buildPreviewIfNeeded() }
         isShowingPreview = show
-        previewScrollView?.isHidden = !show
+        previewWebView?.isHidden = !show
         scrollView.isHidden = show
+        if show { renderPreview() }
     }
 
+    /// Whether the preview shell (the full HTML document with CSS) has been loaded.
+    /// After the first load, edits update only the <body> via JS so the scroll
+    /// position is kept and the CSS isn't re-parsed. Reset when the theme flips
+    /// (the CSS palette depends on dark/light) to force a fresh shell.
+    private var previewShellLoadedDark: Bool?
+
     private func buildPreviewIfNeeded() {
-        guard previewScrollView == nil else { return }
-        // Build a TextKit stack with our custom layout manager so block
-        // decorations (code panels, rules, quote bar) draw behind the text.
-        let storage = NSTextStorage()
-        let layout = MarkdownPreviewLayoutManager()
-        storage.addLayoutManager(layout)
-        // Container tracks the text view's WIDTH but grows unbounded in height so
-        // the text view becomes as tall as the content — which is what lets the
-        // enclosing scroll view scroll.
-        let textContainer = NSTextContainer(size: NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude))
-        textContainer.widthTracksTextView = true
-        textContainer.heightTracksTextView = false
-        layout.addTextContainer(textContainer)
-        previewLayoutManager = layout
-        let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 100), textContainer: textContainer)
-        tv.isEditable = false
-        tv.isSelectable = true
-        tv.drawsBackground = true
-        tv.backgroundColor = .textBackgroundColor
-        tv.textContainerInset = NSSize(width: CGFloat(prefs.editorPadding), height: CGFloat(prefs.editorPadding))
-        tv.setAccessibilityIdentifier("markdownPreviewTextView")
-        // Vertical-scroll configuration (NSTextView(frame:textContainer:) doesn't
-        // set these the way scrollableTextView() would).
-        tv.minSize = NSSize(width: 0, height: 0)
-        tv.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        tv.isVerticallyResizable = true
-        tv.isHorizontallyResizable = false
-        tv.autoresizingMask = [.width]
-        let sv = NSScrollView()
-        sv.translatesAutoresizingMaskIntoConstraints = false
-        sv.hasVerticalScroller = true
-        sv.hasHorizontalScroller = false
-        sv.autohidesScrollers = true
-        sv.borderType = .noBorder
-        sv.documentView = tv
-        sv.isHidden = true
-        let container = view
-        container.addSubview(sv)
+        guard previewWebView == nil else { return }
+        let config = WKWebViewConfiguration()
+        // Block PAGE/content JavaScript (security): scripts in the rendered document
+        // never run. App-initiated evaluateJavaScript (used to update the body in
+        // place) still works — it is not "content JS".
+        config.defaultWebpagePreferences.allowsContentJavaScript = false
+        let wv = WKWebView(frame: .zero, configuration: config)
+        wv.translatesAutoresizingMaskIntoConstraints = false
+        wv.navigationDelegate = self
+        wv.setAccessibilityIdentifier("markdownPreviewWebView")
+        wv.isHidden = true
+        view.addSubview(wv)
         // Occupy the exact band the editor scroll view occupies.
         NSLayoutConstraint.activate([
-            sv.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            sv.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            sv.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            sv.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            wv.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            wv.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            wv.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            wv.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
         ])
-        previewScrollView = sv
-        previewTextView = tv
+        previewWebView = wv
     }
 
     private func renderPreview() {
-        guard let tv = previewTextView else { return }
+        guard let wv = previewWebView else { return }
         let dark = view.effectiveAppearance.isDark
-        // Rendered prose reads best in a proportional system font (the editor's
-        // monospace is only used for code). A comfortable reading size.
-        let bodySize: CGFloat = 15
-        let theme = MarkdownRenderer.Theme(
-            baseFont: NSFont.systemFont(ofSize: bodySize),
-            monoFont: NSFont.monospacedSystemFont(ofSize: bodySize - 1, weight: .regular),
-            foreground: EditorColors.foreground,
-            secondary: .secondaryLabelColor,
-            codeBackground: dark ? NSColor.white.withAlphaComponent(0.06)
-                                 : NSColor.black.withAlphaComponent(0.05),
-            headingColor: dark ? NSColor(srgbRed: 0.60, green: 0.78, blue: 1.0, alpha: 1)
-                               : NSColor(srgbRed: 0.10, green: 0.40, blue: 0.80, alpha: 1),
-            quoteBarColor: dark ? NSColor(srgbRed: 0.85, green: 0.45, blue: 0.35, alpha: 1)
-                                : NSColor(srgbRed: 0.80, green: 0.35, blue: 0.25, alpha: 1),
-            tableBorderColor: .separatorColor,
-            linkColor: .linkColor,
-            isDark: dark)
-        // Palette for the layout manager's block decorations.
-        previewLayoutManager?.palette = MarkdownPreviewLayoutManager.Palette(
-            codePanel: theme.codeBackground,
-            quoteBar: theme.quoteBarColor,
-            rule: theme.tableBorderColor,
-            tableBorder: theme.tableBorderColor,
-            tableHeaderFill: theme.codeBackground)
-        let rendered = MarkdownRenderer(theme: theme).render(currentText)
-        tv.textStorage?.setAttributedString(rendered)
-        tv.textContainerInset = NSSize(width: 24, height: 20)   // comfortable reading margins
+        // Match the web view's appearance to the actual mode so native controls (GFM
+        // task-list checkboxes, scrollbars) render correctly. The original "header
+        // dimmed to grey" bug came from CSS `color-scheme: dark`, which the template
+        // no longer sets — so a mode-matched appearance keeps the steel header AND
+        // gives correctly-themed controls (pinning to aqua broke dark checkboxes).
+        wv.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+
+        let body = MarkdownHTMLRenderer.renderBody(currentText)
+        // First load (or after a theme flip) needs the full shell + CSS. Subsequent
+        // edits replace only the body via JS, preserving scroll position and avoiding
+        // a full page reparse/flash.
+        if previewShellLoadedDark != dark {
+            wv.loadHTMLString(PreviewHTMLTemplate.htmlDocument(body: body, isDark: dark),
+                              baseURL: nil)
+            previewShellLoadedDark = dark
+        } else {
+            let json = String(data: (try? JSONSerialization.data(withJSONObject: [body])) ?? Data(),
+                              encoding: .utf8) ?? "[\"\"]"
+            // json is a 1-element array literal; index [0] yields a safely-escaped
+            // JS string of the body HTML.
+            wv.evaluateJavaScript("document.body.innerHTML = \(json)[0];")
+        }
     }
 
     /// Debounced re-render while preview is visible and auto-refresh is on.
@@ -666,8 +640,7 @@ public final class EditorViewController: NSViewController {
         applyShowInvisibles(prefs.showInvisibles)
         configureBracketColorizer()
         if isShowingPreview {
-            previewTextView?.textContainerInset = NSSize(width: pad, height: pad)
-            renderPreview()
+            renderPreview()   // the web view re-renders with current theme/padding (CSS)
         }
         applyStyleBarVisibility()
     }
@@ -900,7 +873,8 @@ public final class EditorViewController: NSViewController {
     func applyPreferencesForTesting() { preferencesChanged() }
     var isPreviewVisibleForTesting: Bool { isShowingPreview }
     func togglePreviewForTesting() { showPreview(!isShowingPreview) }
-    var previewAttributedStringForTesting: NSAttributedString? { previewTextView?.attributedString() }
+    var previewWebViewForTesting: WKWebView? { previewWebView }
+    func refreshPreviewForTesting() { renderPreview() }
 
     private func updateMatchStatus(for query: SearchQuery) {
         guard let bar = findReplaceBar else { return }
@@ -916,6 +890,32 @@ public final class EditorViewController: NSViewController {
 }
 
 // MARK: - MarkdownStyleBarDelegate
+
+extension EditorViewController: WKNavigationDelegate {
+    /// Schemes a clicked link in the preview is allowed to open in the default app.
+    /// Document content is untrusted, so a link must NOT be able to launch arbitrary
+    /// `file:`, `data:`, or custom-scheme handlers — only web/mail links are opened.
+    private static let allowedLinkSchemes: Set<String> = ["http", "https", "mailto"]
+
+    /// Allow only the in-app HTML load; open clicked web/mail links in the default
+    /// browser, and ignore links of any other scheme.
+    public func webView(_ webView: WKWebView,
+                        decidePolicyFor navigationAction: WKNavigationAction,
+                        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if navigationAction.navigationType == .linkActivated {
+            // Never navigate the preview itself; open safe schemes externally, drop
+            // everything else (file:/data:/custom: from untrusted document content).
+            if let url = navigationAction.request.url,
+               let scheme = url.scheme?.lowercased(),
+               Self.allowedLinkSchemes.contains(scheme) {
+                NSWorkspace.shared.open(url)
+            }
+            decisionHandler(.cancel)
+            return
+        }
+        decisionHandler(.allow)
+    }
+}
 
 extension EditorViewController: MarkdownStyleBarDelegate {
     public func styleBar(_ bar: MarkdownStyleBar, didInvoke action: MarkdownStyleBar.Action) {
