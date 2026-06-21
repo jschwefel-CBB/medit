@@ -35,10 +35,15 @@ public final class MarkdownPreviewLayoutManager: NSLayoutManager {
         public var rule: NSColor
         public var tableBorder: NSColor
         public var tableHeaderFill: NSColor
+        /// Subtle shade behind the table's first column (row-label column), like the
+        /// PDF reference. `.clear` to disable.
+        public var tableFirstColFill: NSColor
         public init(codePanel: NSColor, quoteBar: NSColor, rule: NSColor,
-                    tableBorder: NSColor, tableHeaderFill: NSColor) {
+                    tableBorder: NSColor, tableHeaderFill: NSColor,
+                    tableFirstColFill: NSColor = .clear) {
             self.codePanel = codePanel; self.quoteBar = quoteBar; self.rule = rule
             self.tableBorder = tableBorder; self.tableHeaderFill = tableHeaderFill
+            self.tableFirstColFill = tableFirstColFill
         }
     }
     public var palette = Palette(codePanel: .clear, quoteBar: .gray, rule: .separatorColor,
@@ -100,27 +105,73 @@ public final class MarkdownPreviewLayoutManager: NSLayoutManager {
     }
 
     private func drawTableRow(storage: NSTextStorage, charRange: NSRange, blockRect: NSRect, origin: NSPoint) {
-        // Header shading.
-        if storage.attribute(MarkdownBlockAttribute.tableHeader, at: charRange.location, effectiveRange: nil) != nil {
-            palette.tableHeaderFill.setFill()
-            blockRect.fill()
+        // NOTE: `enumerateAttribute(blockKind)` merges ALL table rows into a single
+        // run (they share `.tableRow`), so `charRange`/`blockRect` cover the WHOLE
+        // table. We therefore walk the rows ourselves (by paragraph / line) and draw
+        // each: header fill only on the header row, a horizontal divider between
+        // rows, and the column verticals + outer box once for the whole table.
+        let cols = (storage.attribute(MarkdownBlockAttribute.tableColumns, at: charRange.location,
+                                      effectiveRange: nil) as? [NSNumber]) ?? []
+
+        // Build one rect per ROW (newline-terminated paragraph). A wrapped cell
+        // spans multiple line fragments in the same paragraph, so we union the
+        // bounding rects of each paragraph's character range.
+        let nsText = storage.string as NSString
+        var rowRects: [(rect: NSRect, isHeader: Bool)] = []
+        var i = charRange.location
+        let end = NSMaxRange(charRange)
+        while i < end {
+            let paraRange = nsText.paragraphRange(for: NSRange(location: i, length: 0))
+            // Clamp the paragraph range to the table's char range.
+            let lo = max(paraRange.location, charRange.location)
+            let hi = min(NSMaxRange(paraRange), end)
+            let rowCharRange = NSRange(location: lo, length: hi - lo)
+            let g = self.glyphRange(forCharacterRange: rowCharRange, actualCharacterRange: nil)
+            let rect = self.boundingRect(forGlyphRange: g, in: self.textContainers[0])
+                .offsetBy(dx: origin.x, dy: origin.y)
+            let isHeader = storage.attribute(MarkdownBlockAttribute.tableHeader,
+                                             at: rowCharRange.location, effectiveRange: nil) != nil
+            if rect.height > 0 { rowRects.append((rect, isHeader)) }
+            i = NSMaxRange(paraRange)
         }
-        // Outer + column borders.
-        palette.tableBorder.setStroke()
-        let border = NSBezierPath(rect: blockRect)
-        border.lineWidth = 1
-        border.stroke()
-        if let cols = storage.attribute(MarkdownBlockAttribute.tableColumns, at: charRange.location,
-                                        effectiveRange: nil) as? [NSNumber] {
-            for c in cols {
-                let x = blockRect.minX + CGFloat(c.doubleValue)
-                let v = NSBezierPath()
-                v.move(to: NSPoint(x: x, y: blockRect.minY))
-                v.line(to: NSPoint(x: x, y: blockRect.maxY))
-                v.lineWidth = 1
-                v.stroke()
+        guard !rowRects.isEmpty else { return }
+
+        let left = (rowRects[0].rect.minX).rounded() + 0.5
+        let right = cols.last.map { left + CGFloat($0.doubleValue) } ?? rowRects[0].rect.maxX
+        let topAll = (rowRects.first!.rect.minY).rounded() + 0.5
+        let bottomAll = (rowRects.last!.rect.maxY).rounded() + 0.5
+
+        // First-column shade on BODY rows (the row-label column), like the PDF.
+        if palette.tableFirstColFill != NSColor.clear, let firstDivider = cols.first {
+            let colRight = (left + CGFloat(firstDivider.doubleValue)).rounded() + 0.5
+            palette.tableFirstColFill.setFill()
+            for row in rowRects where !row.isHeader {
+                NSRect(x: left, y: row.rect.minY, width: colRight - left, height: row.rect.height).fill()
             }
         }
+
+        // Header fill — ONLY the header row(s), full width.
+        for row in rowRects where row.isHeader {
+            palette.tableHeaderFill.setFill()
+            NSRect(x: left, y: row.rect.minY, width: right - left, height: row.rect.height).fill()
+        }
+
+        palette.tableBorder.setStroke()
+        let path = NSBezierPath()
+        path.lineWidth = 1
+        // Horizontal line above each row + the final bottom line.
+        for row in rowRects {
+            let y = (row.rect.minY).rounded() + 0.5
+            path.move(to: NSPoint(x: left, y: y)); path.line(to: NSPoint(x: right, y: y))
+        }
+        path.move(to: NSPoint(x: left, y: bottomAll)); path.line(to: NSPoint(x: right, y: bottomAll))
+        // Verticals: left outer + every column edge (incl. outer right), full height.
+        path.move(to: NSPoint(x: left, y: topAll)); path.line(to: NSPoint(x: left, y: bottomAll))
+        for c in cols {
+            let x = (left + CGFloat(c.doubleValue)).rounded() + 0.5
+            path.move(to: NSPoint(x: x, y: topAll)); path.line(to: NSPoint(x: x, y: bottomAll))
+        }
+        path.stroke()
     }
 
     private func containerWidth() -> CGFloat {

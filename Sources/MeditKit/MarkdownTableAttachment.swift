@@ -18,7 +18,9 @@ public final class MarkdownTableAttachmentCell: NSTextAttachmentCell {
         self.theme = theme
         let widths = MarkdownTableLayout.columnWidths(header: header, rows: rows)
         var h: CGFloat = 1
-        for row in ([header] + rows) { h += MarkdownTableLayout.rowHeight(row, columnWidths: widths) }
+        for row in ([header] + rows) {
+            h += MarkdownTableLayout.rowHeight(row, columnWidths: widths, baseFont: theme.baseFont)
+        }
         self.tableSize = NSSize(width: MarkdownTableLayout.totalWidth(columnWidths: widths), height: h)
         super.init()
     }

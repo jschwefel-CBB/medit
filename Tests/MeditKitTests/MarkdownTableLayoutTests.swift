@@ -17,26 +17,31 @@ final class MarkdownTableLayoutTests: XCTestCase {
         XCTAssertEqual(widths[1], MarkdownTableLayout.maxColumnWidth, accuracy: 0.5)
     }
 
-    func testDividerXsAreCumulativePaddedWidths() {
+    func testDividerXsAreCumulativePaddedWidthsIncludingRightEdge() {
         let widths: [CGFloat] = [50, 80]
         let xs = MarkdownTableLayout.dividerXs(columnWidths: widths)
-        // One interior divider, after the first padded column.
-        let firstPadded = 50 + 2 * MarkdownTableLayout.cellPaddingX
-        XCTAssertEqual(xs, [firstPadded])
+        // Every column edge to the right of the first: the interior divider after
+        // column 0, then the outer right edge after column 1.
+        let pad = 2 * MarkdownTableLayout.cellPaddingX
+        let firstEdge = 50 + pad
+        let rightEdge = firstEdge + 80 + pad
+        XCTAssertEqual(xs, [firstEdge, rightEdge])
     }
 
     func testRowHeightGrowsWhenCellWraps() {
         let widths: [CGFloat] = [MarkdownTableLayout.maxColumnWidth]
-        let oneLine = MarkdownTableLayout.rowHeight([cell("short")], columnWidths: widths)
+        let f = NSFont.systemFont(ofSize: 15)
+        let oneLine = MarkdownTableLayout.rowHeight([cell("short")], columnWidths: widths, baseFont: f)
         let manyLines = MarkdownTableLayout.rowHeight(
-            [cell(String(repeating: "word ", count: 200))], columnWidths: widths)
+            [cell(String(repeating: "word ", count: 200))], columnWidths: widths, baseFont: f)
         XCTAssertGreaterThan(manyLines, oneLine)
     }
 
     func testTotalWidthSumsPaddedColumnsPlusBorder() {
         let widths: [CGFloat] = [50, 80]
         let total = MarkdownTableLayout.totalWidth(columnWidths: widths)
-        let expected: CGFloat = (50 + 24) + (80 + 24) + 1
+        let pad = MarkdownTableLayout.cellPaddingX * 2
+        let expected: CGFloat = (50 + pad) + (80 + pad) + 1
         XCTAssertEqual(total, expected, accuracy: 0.5)
     }
 

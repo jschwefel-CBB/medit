@@ -438,7 +438,7 @@ public final class EditorViewController: NSViewController {
         textContainer.heightTracksTextView = false
         layout.addTextContainer(textContainer)
         previewLayoutManager = layout
-        let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 100), textContainer: textContainer)
+        let tv = MarkdownPreviewTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 100), textContainer: textContainer)
         tv.isEditable = false
         tv.isSelectable = true
         tv.drawsBackground = true

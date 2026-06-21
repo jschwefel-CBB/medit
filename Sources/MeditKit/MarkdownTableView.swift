@@ -19,7 +19,7 @@ public final class MarkdownTableView: NSView {
         let totalWidth = MarkdownTableLayout.totalWidth(columnWidths: widths)
         var totalHeight: CGFloat = 1   // bottom border
         for row in ([header] + rows) {
-            totalHeight += MarkdownTableLayout.rowHeight(row, columnWidths: widths)
+            totalHeight += MarkdownTableLayout.rowHeight(row, columnWidths: widths, baseFont: theme.baseFont)
         }
         self.intrinsicTableSize = NSSize(width: totalWidth, height: totalHeight)
 
@@ -35,19 +35,29 @@ public final class MarkdownTableView: NSView {
                             textContainer: container)
         tv.isEditable = false
         tv.isSelectable = true
+        // Transparent body so cells sit on the SAME surface as the surrounding
+        // preview — only the Cold Bore Blue header band stands out, not the whole
+        // table. (An opaque .textBackgroundColor resolved to the editor's navy,
+        // which made the entire table look blue.)
         tv.drawsBackground = false
         tv.isHorizontallyResizable = true
         tv.isVerticallyResizable = true
         tv.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude,
                             height: CGFloat.greatestFiniteMagnitude)
         tv.textContainerInset = .zero
+        tv.setAccessibilityIdentifier("markdownTableTextView")
         self.textView = tv
 
         super.init(frame: NSRect(origin: .zero, size: intrinsicTableSize))
 
+        // Distinct header band + thin uniform gridlines on every cell (no special
+        // column shading).
+        let border = theme.isDark
+            ? NSColor.white.withAlphaComponent(0.16)
+            : NSColor.black.withAlphaComponent(0.14)
         tableLayoutManager.palette = MarkdownPreviewLayoutManager.Palette(
-            codePanel: .clear, quoteBar: theme.quoteBarColor, rule: theme.tableBorderColor,
-            tableBorder: theme.tableBorderColor, tableHeaderFill: theme.codeBackground)
+            codePanel: .clear, quoteBar: theme.quoteBarColor, rule: border,
+            tableBorder: border, tableHeaderFill: CBBColors.steel)
         tv.textStorage?.setAttributedString(attr)
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -55,7 +65,10 @@ public final class MarkdownTableView: NSView {
         scrollView.hasVerticalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
+        // Scroll/clip views transparent; the table's own light body surface (the
+        // text view's backgroundColor) is the visible slab.
         scrollView.drawsBackground = false
+        scrollView.contentView.drawsBackground = false
         scrollView.documentView = tv
         addSubview(scrollView)
         NSLayoutConstraint.activate([
@@ -68,4 +81,26 @@ public final class MarkdownTableView: NSView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+/// The Markdown preview's text view. Embedded `MarkdownTableView` subviews are added
+/// on top of it; a plain `NSTextView` swallows mouse events across its whole bounds,
+/// so clicks never reach an embedded table (no selection, no copy). Overriding
+/// `hitTest` to defer to a table subview when the point lands inside one lets the
+/// table's own text view become first responder and handle selection/copy.
+public final class MarkdownPreviewTextView: NSTextView {
+    public override func hitTest(_ point: NSPoint) -> NSView? {
+        // `point` is in OUR superview's coordinate system. Convert it into our own
+        // coordinates, then ask each table subview whether it contains it; if so,
+        // route the hit into that subview so its text view handles the click.
+        let localPoint = convert(point, from: superview)
+        for sub in subviews where sub is MarkdownTableView {
+            if sub.frame.contains(localPoint) {
+                // NSView.hitTest takes a point in the receiver's SUPERVIEW coords;
+                // sub's superview is self, so localPoint is already correct.
+                return sub.hitTest(localPoint) ?? sub
+            }
+        }
+        return super.hitTest(point)
+    }
 }
