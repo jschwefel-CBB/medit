@@ -480,13 +480,12 @@ public final class EditorViewController: NSViewController {
             tableBorderColor: .separatorColor,
             linkColor: .linkColor,
             isDark: dark)
-        // Palette for the layout manager's block decorations.
+        // Palette for the layout manager's block decorations (code panels, quote
+        // bar, heading/thematic rules). Tables draw themselves via NSTextTable.
         previewLayoutManager?.palette = MarkdownPreviewLayoutManager.Palette(
             codePanel: theme.codeBackground,
             quoteBar: theme.quoteBarColor,
-            rule: theme.tableBorderColor,
-            tableBorder: theme.tableBorderColor,
-            tableHeaderFill: theme.codeBackground)
+            rule: theme.tableBorderColor)
         let rendered = MarkdownRenderer(theme: theme).render(currentText)
         tv.textStorage?.setAttributedString(rendered)
         tv.textContainerInset = NSSize(width: 24, height: 20)   // comfortable reading margins
