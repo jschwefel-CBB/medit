@@ -54,7 +54,14 @@ enum MarkdownPrinter {
         textView.drawsBackground = true
         textView.textStorage?.setAttributedString(
             MarkdownRenderer(theme: theme, tableMode: .static).render(markdown))
-        textView.sizeToFit()
+        // Force a full layout pass BEFORE sizing: NSTextView layout is lazy, so
+        // sizeToFit() alone runs before tables/attachments are laid out and leaves
+        // the view at its tiny initial height — which made the print engine clip
+        // everything but the first ~100pt. Size the view to the real content height.
+        layout.ensureLayout(for: container)
+        let used = layout.usedRect(for: container)
+        textView.setFrameSize(NSSize(width: pageWidth,
+                                     height: ceil(used.height) + textView.textContainerInset.height * 2))
 
         let op = NSPrintOperation(view: textView, printInfo: printInfo)
         op.jobTitle = "Markdown"
