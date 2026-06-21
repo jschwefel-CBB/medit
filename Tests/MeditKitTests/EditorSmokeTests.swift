@@ -885,12 +885,13 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertFalse(editor.isPreviewVisibleForTesting)
         editor.togglePreviewForTesting()
         XCTAssertTrue(editor.isPreviewVisibleForTesting)
-        let rendered = editor.previewAttributedStringForTesting
-        XCTAssertTrue(rendered?.string.contains("Title") == true,
-                      "preview should render the heading text")
-        XCTAssertTrue(rendered?.string.contains("a") == true)
+        // The preview is a WKWebView rendering HTML; it exists and is shown. (The
+        // HTML content itself is covered by MarkdownHTMLRendererTests.)
+        XCTAssertNotNil(editor.previewWebViewForTesting)
+        XCTAssertEqual(editor.previewWebViewForTesting?.isHidden, false)
         editor.togglePreviewForTesting()
         XCTAssertFalse(editor.isPreviewVisibleForTesting)
+        XCTAssertEqual(editor.previewWebViewForTesting?.isHidden, true)
     }
 
     func testMarkdownPreviewMenuGatedToMarkdown() {
