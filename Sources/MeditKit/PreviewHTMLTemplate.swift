@@ -7,10 +7,10 @@ import Foundation
 /// blockquote bars; headings; and light/dark theming. This is what makes the
 /// preview behave like every other Markdown viewer (which all use a web view).
 public enum PreviewHTMLTemplate {
-    /// CBB brand colors as hex (must match `CBBColors`).
-    private static let steel = "#4a9fc8"      // Cold Bore Steel — table header band
-    private static let blue = "#0a2351"       // Cold Bore Blue — table header text
-    private static let steelText = "#4a9fc8"  // inline-code text
+    // CBB brand colors come straight from CBBColors (single source of truth) —
+    // steel = table header band + inline-code text, blue = header text.
+    private static let steel = CBBColors.steel.cssHex
+    private static let blue = CBBColors.blue.cssHex
 
     public static func htmlDocument(body: String, isDark: Bool) -> String {
         let bg        = isDark ? "#1e1e1e" : "#ffffff"
@@ -46,7 +46,7 @@ public enum PreviewHTMLTemplate {
           font-family: "SF Mono", ui-monospace, Menlo, monospace;
           font-size: 0.88em;
           background: \(codeBg);
-          color: \(steelText);
+          color: \(steel);
           border-radius: 4px;
           padding: 1px 5px;
         }

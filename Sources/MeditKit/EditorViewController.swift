@@ -401,18 +401,21 @@ public final class EditorViewController: NSViewController {
         if show { renderPreview() }
     }
 
+    /// Whether the preview shell (the full HTML document with CSS) has been loaded.
+    /// After the first load, edits update only the <body> via JS so the scroll
+    /// position is kept and the CSS isn't re-parsed. Reset when the theme flips
+    /// (the CSS palette depends on dark/light) to force a fresh shell.
+    private var previewShellLoadedDark: Bool?
+
     private func buildPreviewIfNeeded() {
         guard previewWebView == nil else { return }
         let config = WKWebViewConfiguration()
-        // The preview is static HTML+CSS — no JavaScript needed; disabling it
-        // removes a class of risk.
+        // Block PAGE/content JavaScript (security): scripts in the rendered document
+        // never run. App-initiated evaluateJavaScript (used to update the body in
+        // place) still works — it is not "content JS".
         config.defaultWebpagePreferences.allowsContentJavaScript = false
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.translatesAutoresizingMaskIntoConstraints = false
-        // Pin the web view to the light (aqua) appearance so WebKit renders our CSS
-        // colors literally instead of auto-applying dark-mode adjustment (which dimmed
-        // the steel header to grey). The CSS itself provides the dark/light palette.
-        wv.appearance = NSAppearance(named: .aqua)
         wv.navigationDelegate = self
         wv.setAccessibilityIdentifier("markdownPreviewWebView")
         wv.isHidden = true
@@ -430,9 +433,28 @@ public final class EditorViewController: NSViewController {
     private func renderPreview() {
         guard let wv = previewWebView else { return }
         let dark = view.effectiveAppearance.isDark
+        // Match the web view's appearance to the actual mode so native controls (GFM
+        // task-list checkboxes, scrollbars) render correctly. The original "header
+        // dimmed to grey" bug came from CSS `color-scheme: dark`, which the template
+        // no longer sets — so a mode-matched appearance keeps the steel header AND
+        // gives correctly-themed controls (pinning to aqua broke dark checkboxes).
+        wv.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+
         let body = MarkdownHTMLRenderer.renderBody(currentText)
-        let html = PreviewHTMLTemplate.htmlDocument(body: body, isDark: dark)
-        wv.loadHTMLString(html, baseURL: nil)
+        // First load (or after a theme flip) needs the full shell + CSS. Subsequent
+        // edits replace only the body via JS, preserving scroll position and avoiding
+        // a full page reparse/flash.
+        if previewShellLoadedDark != dark {
+            wv.loadHTMLString(PreviewHTMLTemplate.htmlDocument(body: body, isDark: dark),
+                              baseURL: nil)
+            previewShellLoadedDark = dark
+        } else {
+            let json = String(data: (try? JSONSerialization.data(withJSONObject: [body])) ?? Data(),
+                              encoding: .utf8) ?? "[\"\"]"
+            // json is a 1-element array literal; index [0] yields a safely-escaped
+            // JS string of the body HTML.
+            wv.evaluateJavaScript("document.body.innerHTML = \(json)[0];")
+        }
     }
 
     /// Debounced re-render while preview is visible and auto-refresh is on.
@@ -852,6 +874,7 @@ public final class EditorViewController: NSViewController {
     var isPreviewVisibleForTesting: Bool { isShowingPreview }
     func togglePreviewForTesting() { showPreview(!isShowingPreview) }
     var previewWebViewForTesting: WKWebView? { previewWebView }
+    func refreshPreviewForTesting() { renderPreview() }
 
     private func updateMatchStatus(for query: SearchQuery) {
         guard let bar = findReplaceBar else { return }
@@ -869,14 +892,24 @@ public final class EditorViewController: NSViewController {
 // MARK: - MarkdownStyleBarDelegate
 
 extension EditorViewController: WKNavigationDelegate {
-    /// Allow only the initial in-app HTML load; open clicked links in the default
-    /// browser instead of navigating the preview web view.
+    /// Schemes a clicked link in the preview is allowed to open in the default app.
+    /// Document content is untrusted, so a link must NOT be able to launch arbitrary
+    /// `file:`, `data:`, or custom-scheme handlers — only web/mail links are opened.
+    private static let allowedLinkSchemes: Set<String> = ["http", "https", "mailto"]
+
+    /// Allow only the in-app HTML load; open clicked web/mail links in the default
+    /// browser, and ignore links of any other scheme.
     public func webView(_ webView: WKWebView,
                         decidePolicyFor navigationAction: WKNavigationAction,
                         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        if navigationAction.navigationType == .linkActivated,
-           let url = navigationAction.request.url {
-            NSWorkspace.shared.open(url)
+        if navigationAction.navigationType == .linkActivated {
+            // Never navigate the preview itself; open safe schemes externally, drop
+            // everything else (file:/data:/custom: from untrusted document content).
+            if let url = navigationAction.request.url,
+               let scheme = url.scheme?.lowercased(),
+               Self.allowedLinkSchemes.contains(scheme) {
+                NSWorkspace.shared.open(url)
+            }
             decisionHandler(.cancel)
             return
         }

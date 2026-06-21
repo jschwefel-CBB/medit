@@ -35,6 +35,12 @@ func htmlEscape(_ s: String) -> String {
 private struct HTMLVisitor: MarkupVisitor {
     typealias Result = String
 
+    // SECURITY INVARIANT: every visitor returns already-HTML-safe output. Leaf text
+    // nodes go through `htmlEscape`; raw-HTML nodes are escaped; element nodes wrap
+    // already-safe child output. So assembled strings (e.g. image alt, table cells,
+    // the final body) are safe to interpolate without a second escape. When adding a
+    // new visitor, escape any text it introduces — that is what keeps document
+    // content from injecting markup/script into the preview.
     mutating func defaultVisit(_ markup: Markup) -> String {
         markup.children.map { visit($0) }.joined()
     }
@@ -45,7 +51,13 @@ private struct HTMLVisitor: MarkupVisitor {
     // Raw HTML embedded in the Markdown is ESCAPED, not passed through — the preview
     // must never render arbitrary markup/script from document content.
     mutating func visitInlineHTML(_ h: InlineHTML) -> String { htmlEscape(h.rawHTML) }
-    mutating func visitHTMLBlock(_ h: HTMLBlock) -> String { "<p>\(htmlEscape(h.rawHTML))</p>\n" }
+    // A raw-HTML block is shown verbatim (escaped) in a <pre> so its line structure
+    // is preserved, rather than collapsed into one run-on <p>.
+    mutating func visitHTMLBlock(_ h: HTMLBlock) -> String {
+        var raw = h.rawHTML
+        if raw.hasSuffix("\n") { raw.removeLast() }
+        return "<pre class=\"raw-html\">\(htmlEscape(raw))</pre>\n"
+    }
     mutating func visitSoftBreak(_ s: SoftBreak) -> String { " " }
     mutating func visitLineBreak(_ l: LineBreak) -> String { "<br>" }
     mutating func visitInlineCode(_ c: InlineCode) -> String { "<code>\(htmlEscape(c.code))</code>" }

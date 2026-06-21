@@ -58,9 +58,12 @@ enum MarkdownPrinter {
         // the view at its tiny initial height — which made the print engine clip
         // everything but the first ~100pt. Size the view to the real content height.
         layout.ensureLayout(for: container)
+        // usedRect's maxY already includes the top container inset, so add only the
+        // BOTTOM inset (one inset, not two) to avoid an extra band of trailing
+        // whitespace / a near-empty final page.
         let used = layout.usedRect(for: container)
         textView.setFrameSize(NSSize(width: pageWidth,
-                                     height: ceil(used.height) + textView.textContainerInset.height * 2))
+                                     height: ceil(used.maxY) + textView.textContainerInset.height))
 
         let op = NSPrintOperation(view: textView, printInfo: printInfo)
         op.jobTitle = "Markdown"

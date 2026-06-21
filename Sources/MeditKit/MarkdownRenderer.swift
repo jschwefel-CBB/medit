@@ -104,8 +104,9 @@ private struct AttributedStringBuilder: MarkupVisitor {
         if code {
             // Marker only — the layout manager draws a tight rounded box behind the
             // glyphs (symmetric padding), instead of a line-height background fill.
+            // This renderer is print-only (white paper), so keep inline-code text the
+            // theme foreground (dark) for legibility rather than light steel.
             a[MarkdownBlockAttribute.inlineCode] = true
-            a[.foregroundColor] = CBBColors.steel   // colored code text, not grey
         }
         if let link {
             a[.link] = link
