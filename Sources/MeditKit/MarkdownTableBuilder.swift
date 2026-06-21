@@ -20,13 +20,15 @@ public enum MarkdownTableBuilder {
 
         let table = NSTextTable()
         table.numberOfColumns = columnCount
-        // Fixed: columns honor the per-cell widths we compute from content, instead
-        // of stretching to fill the available width.
-        table.layoutAlgorithm = .fixedLayoutAlgorithm
+        // Automatic layout with ABSOLUTE per-column content widths: the table is
+        // content-sized (compact) when it fits, and only shrinks/wraps when the
+        // content exceeds the viewport — i.e. it grows only if needed, rather than
+        // always stretching to fill the width.
+        table.layoutAlgorithm = .automaticLayoutAlgorithm
 
-        // Column widths = widest cell content in that column (capped). Long content
-        // wraps within the capped width rather than stretching the table.
         let allRows = [header] + rows
+        // Per-column width = widest cell content in that column, capped (long content
+        // wraps within the cap).
         var colWidths = [CGFloat](repeating: 24, count: columnCount)
         for row in allRows {
             for (c, cell) in row.enumerated() where c < columnCount {
@@ -59,7 +61,8 @@ public enum MarkdownTableBuilder {
         block.setBorderColor(border)
         block.setWidth(borderWidth, type: .absoluteValueType, for: .border)
         block.setWidth(cellPadding, type: .absoluteValueType, for: .padding)
-        // Content-fit width (the content area, inside padding+border).
+        // Absolute content width: compact when it fits, shrinks/wraps when the
+        // table would exceed the viewport. Does not stretch to fill extra width.
         block.setContentWidth(columnWidth, type: .absoluteValueType)
         if isHeader {
             block.backgroundColor = CBBColors.steel
