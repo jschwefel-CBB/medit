@@ -6,6 +6,37 @@
 
 ---
 
+## Markdown preview → WKWebView (HTML+CSS) — AP findings
+
+The Markdown **preview** was rewritten from TextKit (`NSTextView` + custom
+`NSLayoutManager` + `NSTextTable`) to a **WKWebView** rendering HTML+CSS — the way
+MacDown/Typora/Marked do it. This fixed a long run of table problems (multi-column
+wrap gaps, no horizontal scroll, words splitting at narrow widths, copy/AX
+fragility) that were all fights against `NSTextTable`'s limits; the browser does all
+of it natively.
+
+**AP-relevant changes:**
+- New AX id `markdownPreviewWebView`; the preview content is now an **`AXWebArea`**
+  (real, queryable) instead of the old opaque `AXUnknown` table subviews. AP can
+  see/inspect the web area; table cell text is selectable browser-native.
+- The old preview AX id `markdownPreviewTextView` is **gone** — any AP plan
+  asserting it must target `markdownPreviewWebView` / the web area instead.
+- `uitests/markdown-table-preview.json` targets the deleted `markdownPreviewTextView`
+  and the element-scoped screenshot of it — **update it** to the web view, or assert
+  via the web area. (Left for the next AP pass.)
+
+**Recurring AP flakiness (unchanged, still worth a fix on the AP side):** the
+`menu` action for "View ▸ Show Markdown Preview" intermittently fails to toggle
+unless the window is first made key (a `click` on `editorTextView` before the
+`menu` step works around it). Seen across many runs this session.
+
+**Verification done without AP screenshots of the toggle** (the menu flakiness +
+the need to flip system appearance) — used direct launch + osascript menu-press +
+window-bounded captures (frontmost-gated, never full-display). Light/dark both
+verified.
+
+---
+
 ## selectable Markdown tables (feature branch) — AP deliberately NOT used; verified headlessly
 
 This cycle made Markdown-preview tables selectable/copyable (real text in a
