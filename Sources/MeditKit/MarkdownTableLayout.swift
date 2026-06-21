@@ -4,7 +4,7 @@ import AppKit
 /// per-row heights (with cell wrapping), and vertical-divider x-positions. Shared
 /// by `MarkdownTableView` and its tests so layout math has one source of truth.
 public enum MarkdownTableLayout {
-    public static let maxColumnWidth: CGFloat = 280
+    public static let maxColumnWidth: CGFloat = 420
     public static let minColumnWidth: CGFloat = 36
     public static let cellPaddingX: CGFloat = 14
     public static let cellPaddingY: CGFloat = 10
@@ -98,16 +98,21 @@ public enum MarkdownTableLayout {
             edge += w + cellPaddingX * 2
         }
 
+        // The last column's text-start x; wrapped body lines indent here so a long
+        // value (almost always the rightmost column, PDF-style) wraps WITHIN its
+        // column instead of spilling back under the first column.
+        let lastColLeft = leftStops.last?.location ?? cellPaddingX
+
         func rowParagraph(header: Bool) -> NSMutableParagraphStyle {
             let p = NSMutableParagraphStyle()
             p.tabStops = header ? centerStops : leftStops
             p.defaultTabInterval = 0
             p.lineBreakMode = .byWordWrapping
-            // Body text hangs at the first column's left padding. Header rows start
-            // with a leading tab (so even the first cell hits a center tab), so no
-            // head indent for them.
+            // First line of a body row hangs at the first column's left padding;
+            // wrapped continuation lines indent to the LAST column so long values
+            // stay within their column. Header rows start with a leading tab.
             p.firstLineHeadIndent = header ? 0 : cellPaddingX
-            p.headIndent = header ? 0 : cellPaddingX
+            p.headIndent = header ? 0 : lastColLeft
             // Vertical breathing room: enlarge the line box by 2×padding. Text is
             // nudged toward the vertical centre via a baselineOffset on the cells.
             let f = theme.baseFont
