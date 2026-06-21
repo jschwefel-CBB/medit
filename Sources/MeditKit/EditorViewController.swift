@@ -393,15 +393,34 @@ public final class EditorViewController: NSViewController {
     /// Whether the rendered Markdown preview is currently shown (per-tab state).
     public var isPreviewVisible: Bool { isShowingPreview }
 
+    /// Number of live table subviews currently placed in the preview (testing).
+    public var tableSubviewCountForTesting: Int { tableSubviews.count }
+    /// Frame of the first placed table subview, or nil if none (testing).
+    public var firstTableSubviewFrameForTesting: NSRect? { tableSubviews.first?.frame }
+    /// Whether the first placed table subview is a `MarkdownTableView` whose text is
+    /// selectable real text (testing).
+    public var firstTableIsSelectableForTesting: Bool {
+        (tableSubviews.first as? MarkdownTableView)?.textView.isSelectable ?? false
+    }
+
     /// Show or hide the read-only Markdown preview, swapping it for the editor.
     public func showPreview(_ show: Bool) {
         if show {
             buildPreviewIfNeeded()
-            renderPreview()
         }
+        // Toggle visibility BEFORE rendering so the preview view has its real frame
+        // when table subviews are placed (a hidden, unsized view yields zero-rect
+        // placements). The editor and preview swap occupancy of the same band.
         isShowingPreview = show
         previewScrollView?.isHidden = !show
         scrollView.isHidden = show
+        if show {
+            // Force the preview to adopt the editor's current width before layout so
+            // the first render places tables at real frames, not zero.
+            previewScrollView?.frame = scrollView.frame
+            previewScrollView?.layoutSubtreeIfNeeded()
+            renderPreview()
+        }
     }
 
     private func buildPreviewIfNeeded() {
@@ -501,6 +520,9 @@ public final class EditorViewController: NSViewController {
         guard let tv = previewTextView else { return }
         tableSubviews.forEach { $0.removeFromSuperview() }
         tableSubviews.removeAll()
+        // Ensure layout is current at the text view's real width before reading the
+        // attachment glyph rects (otherwise placements come back zero-sized).
+        if let container = tv.textContainer { tv.layoutManager?.ensureLayout(for: container) }
         for placement in MarkdownTablePlacement.placements(in: tv) {
             let view = placement.cell.makeTableView()
             // Clamp the visible frame to the available content width so a wide table
