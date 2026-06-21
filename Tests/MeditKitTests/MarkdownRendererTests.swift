@@ -110,29 +110,14 @@ final class MarkdownRendererTests: XCTestCase {
                        MarkdownBlockAttribute.Kind.blockQuote.rawValue)
     }
 
-    func testTableRendersAsTableAttachmentCellByDefault() {
-        // Interactive (default, preview) mode reserves a slot via a table attachment
-        // cell (the view controller places a scrollable MarkdownTableView over it),
-        // NOT an image.
+    func testTableRendersAsImage() {
+        // MarkdownRenderer now serves printing only (the preview is a WKWebView):
+        // tables rasterize to a drawn bordered-grid image attachment.
         let out = renderer().render("| H |\n|---|\n| c |")
-        var cell: MarkdownTableAttachmentCell?
-        out.enumerateAttribute(.attachment, in: NSRange(location: 0, length: out.length)) { value, _, stop in
-            if let att = value as? NSTextAttachment,
-               let c = att.attachmentCell as? MarkdownTableAttachmentCell { cell = c; stop.pointee = true }
-        }
-        XCTAssertNotNil(cell, "a GFM table reserves a table attachment cell by default")
-        XCTAssertTrue(cell?.makeTableView().textView.string.contains("c") ?? false,
-                      "the cell carries real, selectable table text")
-    }
-
-    func testTableRendersAsImageInStaticMode() {
-        // Static (print) mode rasterizes the table to a drawn bordered-grid image.
-        let r = MarkdownRenderer(theme: MarkdownTableLayoutTestsTheme.theme(), tableMode: .static)
-        let out = r.render("| H |\n|---|\n| c |")
         var foundImage = false
         out.enumerateAttribute(.attachment, in: NSRange(location: 0, length: out.length)) { value, _, _ in
             if let att = value as? NSTextAttachment, att.image != nil { foundImage = true }
         }
-        XCTAssertTrue(foundImage, "static mode should render a table as an image attachment")
+        XCTAssertTrue(foundImage, "a GFM table renders as an image attachment for print")
     }
 }

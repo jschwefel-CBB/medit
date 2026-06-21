@@ -52,7 +52,7 @@ enum MarkdownPrinter {
         textView.backgroundColor = .white
         textView.drawsBackground = true
         textView.textStorage?.setAttributedString(
-            MarkdownRenderer(theme: theme, tableMode: .static).render(markdown))
+            MarkdownRenderer(theme: theme).render(markdown))
         // Force a full layout pass BEFORE sizing: NSTextView layout is lazy, so
         // sizeToFit() alone runs before tables/attachments are laid out and leaves
         // the view at its tiny initial height — which made the print engine clip
