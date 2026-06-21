@@ -57,4 +57,59 @@ public enum MarkdownTableLayout {
     public static func totalWidth(columnWidths: [CGFloat]) -> CGFloat {
         columnWidths.reduce(0) { $0 + paddedWidth($1) } + 1
     }
+
+    /// Build the tab-separated, decoration-tagged attributed string a table view's
+    /// text storage holds. One line per row (cells joined by `\t`, terminated by
+    /// `\n`). The header row carries `.tableHeader`; every row carries
+    /// `blockKind = .tableRow` and `.tableColumns` (divider x-positions), so the
+    /// `MarkdownPreviewLayoutManager` draws the grid + header shading behind the text.
+    public static func attributedRows(header: [NSAttributedString],
+                                      rows: [[NSAttributedString]],
+                                      columnWidths: [CGFloat],
+                                      theme: MarkdownRenderer.Theme) -> NSAttributedString {
+        let dividers = dividerXs(columnWidths: columnWidths)
+        let dividerNumbers = dividers.map { NSNumber(value: Double($0)) }
+        // Tab stops sit at each column's text start: first cell after the left
+        // border + padding, each subsequent cell after the previous padded column.
+        var stops: [NSTextTab] = []
+        var x: CGFloat = cellPaddingX
+        stops.append(NSTextTab(textAlignment: .left, location: x))
+        for w in columnWidths.dropLast() {
+            x += w + cellPaddingX * 2
+            stops.append(NSTextTab(textAlignment: .left, location: x))
+        }
+
+        func rowParagraph() -> NSMutableParagraphStyle {
+            let p = NSMutableParagraphStyle()
+            p.tabStops = stops
+            p.defaultTabInterval = 0
+            p.lineBreakMode = .byWordWrapping
+            p.firstLineHeadIndent = cellPaddingX
+            p.headIndent = cellPaddingX
+            return p
+        }
+
+        func line(_ cells: [NSAttributedString], isHeader: Bool) -> NSAttributedString {
+            let out = NSMutableAttributedString()
+            for (i, cell) in cells.enumerated() {
+                if i > 0 { out.append(NSAttributedString(string: "\t")) }
+                out.append(cell)
+            }
+            out.append(NSAttributedString(string: "\n"))
+            let full = NSRange(location: 0, length: out.length)
+            out.addAttribute(.paragraphStyle, value: rowParagraph(), range: full)
+            out.addAttribute(MarkdownBlockAttribute.blockKind,
+                             value: MarkdownBlockAttribute.Kind.tableRow.rawValue, range: full)
+            out.addAttribute(MarkdownBlockAttribute.tableColumns, value: dividerNumbers, range: full)
+            if isHeader {
+                out.addAttribute(MarkdownBlockAttribute.tableHeader, value: true, range: full)
+            }
+            return out
+        }
+
+        let result = NSMutableAttributedString()
+        result.append(line(header, isHeader: true))
+        for row in rows { result.append(line(row, isHeader: false)) }
+        return result
+    }
 }
