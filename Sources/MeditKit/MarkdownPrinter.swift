@@ -52,7 +52,8 @@ enum MarkdownPrinter {
         textView.isHorizontallyResizable = false
         textView.backgroundColor = .white
         textView.drawsBackground = true
-        textView.textStorage?.setAttributedString(MarkdownRenderer(theme: theme).render(markdown))
+        textView.textStorage?.setAttributedString(
+            MarkdownRenderer(theme: theme, tableMode: .static).render(markdown))
         textView.sizeToFit()
 
         let op = NSPrintOperation(view: textView, printInfo: printInfo)
