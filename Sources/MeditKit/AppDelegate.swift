@@ -19,6 +19,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = MainMenu.build(appName: displayName(default: appName))
         NSApp.setActivationPolicy(.regular)
 
+        // Apply the saved Light/Dark/System appearance preference at launch.
+        // Without this the app only ever followed the system appearance until the
+        // user opened Settings (which is the only other place that applied it).
+        AppAppearance.applyToApp(Preferences.shared.appearance)
+
         // Under --reset-state (the GUI test driver), close any document that
         // AppKit/macOS restored from the previous session so the suite starts
         // from a guaranteed-blank Untitled window. macOS reopens the last
@@ -212,5 +217,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         preferencesController?.showWindow(sender)
         preferencesController?.window?.makeKeyAndOrderFront(sender)
         NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+extension AppAppearance {
+    /// Apply this appearance choice to the whole app (`NSApp.appearance`). Shared by
+    /// launch (AppDelegate) and the Settings panel so both honor the same mapping.
+    public static func applyToApp(_ appearance: AppAppearance) {
+        switch appearance {
+        case .system: NSApp.appearance = nil
+        case .light:  NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark:   NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
     }
 }
