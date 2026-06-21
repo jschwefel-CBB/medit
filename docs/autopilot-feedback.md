@@ -6,6 +6,18 @@
 
 ---
 
+---
+
+## medit 2.6.0 — preview is now a WKWebView (AP impact recap)
+
+The Markdown preview became a WKWebView (HTML+CSS). AP impact, recorded already in
+the prior entry, holds: target `markdownPreviewWebView` / the `AXWebArea` (the old
+`markdownPreviewTextView` is gone); `uitests/markdown-table-preview.json` updated
+and passes 6/6. No new AP findings this release beyond the recurring menu-toggle
+flakiness (a `click` on the editor before the `View ▸ Show Markdown Preview` menu
+step works around it).
+
+
 ## Markdown preview → WKWebView (HTML+CSS) — AP findings
 
 The Markdown **preview** was rewritten from TextKit (`NSTextView` + custom
