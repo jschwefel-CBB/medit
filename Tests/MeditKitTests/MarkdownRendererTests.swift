@@ -110,18 +110,19 @@ final class MarkdownRendererTests: XCTestCase {
                        MarkdownBlockAttribute.Kind.blockQuote.rawValue)
     }
 
-    func testTableRendersAsInlineTextTableByDefault() {
-        // Interactive (default, preview) mode emits native NSTextTable text (each cell
-        // is an NSTextTableBlock paragraph), NOT an image attachment.
+    func testTableRendersAsTableAttachmentCellByDefault() {
+        // Interactive (default, preview) mode reserves a slot via a table attachment
+        // cell (the view controller places a scrollable MarkdownTableView over it),
+        // NOT an image.
         let out = renderer().render("| H |\n|---|\n| c |")
-        var hasBlock = false
-        out.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: out.length)) { value, _, stop in
-            if let p = value as? NSParagraphStyle, p.textBlocks.contains(where: { $0 is NSTextTableBlock }) {
-                hasBlock = true; stop.pointee = true
-            }
+        var cell: MarkdownTableAttachmentCell?
+        out.enumerateAttribute(.attachment, in: NSRange(location: 0, length: out.length)) { value, _, stop in
+            if let att = value as? NSTextAttachment,
+               let c = att.attachmentCell as? MarkdownTableAttachmentCell { cell = c; stop.pointee = true }
         }
-        XCTAssertTrue(hasBlock, "a GFM table should render as native NSTextTable text by default")
-        XCTAssertTrue(out.string.contains("c"), "cell text is real selectable text")
+        XCTAssertNotNil(cell, "a GFM table reserves a table attachment cell by default")
+        XCTAssertTrue(cell?.makeTableView().textView.string.contains("c") ?? false,
+                      "the cell carries real, selectable table text")
     }
 
     func testTableRendersAsImageInStaticMode() {

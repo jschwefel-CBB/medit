@@ -18,32 +18,25 @@ final class MarkdownRendererTableModeTests: XCTestCase {
         return found
     }
 
-    /// True if the string has any cell laid out via an NSTextTableBlock.
-    private func hasTextTable(_ s: NSAttributedString) -> Bool {
-        var found = false
-        s.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: s.length)) { v, _, stop in
-            if let p = v as? NSParagraphStyle, p.textBlocks.contains(where: { $0 is NSTextTableBlock }) {
-                found = true; stop.pointee = true
-            }
-        }
-        return found
-    }
-
-    func testInteractiveModeEmitsInlineTextTable() {
+    func testInteractiveModeEmitsTableAttachmentCell() {
         let out = MarkdownRenderer(theme: theme(), tableMode: .interactive).render(md)
-        XCTAssertTrue(hasTextTable(out), "interactive tables are native NSTextTable text")
-        XCTAssertNil(firstAttachment(out), "no image attachment in interactive mode")
-        XCTAssertTrue(out.string.contains("Apples"), "cell text is real selectable text")
+        let att = firstAttachment(out)
+        XCTAssertTrue(att?.attachmentCell is MarkdownTableAttachmentCell,
+                      "interactive tables reserve a slot via a table attachment cell")
+        let cell = att?.attachmentCell as? MarkdownTableAttachmentCell
+        XCTAssertTrue(cell?.makeTableView().textView.string.contains("Apples") ?? false,
+                      "the cell carries real, selectable table text")
     }
 
     func testStaticModeEmitsImageAttachment() {
         let out = MarkdownRenderer(theme: theme(), tableMode: .static).render(md)
-        XCTAssertNotNil(firstAttachment(out)?.image, "static mode rasterizes a grid image")
-        XCTAssertFalse(hasTextTable(out), "static mode is not an NSTextTable")
+        let att = firstAttachment(out)
+        XCTAssertNotNil(att?.image, "static mode rasterizes a grid image")
+        XCTAssertFalse(att?.attachmentCell is MarkdownTableAttachmentCell)
     }
 
     func testDefaultModeIsInteractive() {
         let out = MarkdownRenderer(theme: theme()).render(md)
-        XCTAssertTrue(hasTextTable(out))
+        XCTAssertTrue(firstAttachment(out)?.attachmentCell is MarkdownTableAttachmentCell)
     }
 }

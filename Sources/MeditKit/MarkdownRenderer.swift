@@ -286,11 +286,18 @@ private struct AttributedStringBuilder: MarkupVisitor {
         }
         switch tableMode {
         case .interactive:
-            // Native NSTextTable: cells wrap independently side-by-side; the table is
-            // ordinary selectable/copyable text inline in the preview.
-            out.append(MarkdownTableBuilder.attributedTable(
-                header: headerCells, rows: rows, theme: theme))
-            out.append(NSAttributedString(string: "\n"))
+            // Reserve a vertical slot for the table in the prose flow; the view
+            // controller positions a live, scrollable MarkdownTableView over it
+            // (parented to the document container, so it stays selectable + AX-real).
+            let attachment = NSTextAttachment()
+            attachment.attachmentCell = MarkdownTableAttachmentCell(
+                header: headerCells, rows: rows, theme: theme)
+            let para = bodyParagraph(spacingAfter: 14, spacingBefore: 6)
+            let attStr = NSMutableAttributedString(attachment: attachment)
+            attStr.addAttribute(.paragraphStyle, value: para,
+                                range: NSRange(location: 0, length: attStr.length))
+            out.append(attStr)
+            out.append(NSAttributedString(string: "\n\n"))
         case .static:
             // Print: a drawn bordered-grid image (paper can't scroll/select).
             let image = MarkdownTableRenderer.image(header: headerCells, rows: rows, theme: theme)
