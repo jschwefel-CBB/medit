@@ -13,6 +13,5 @@ final class MarkdownPrinterTableModeTests: XCTestCase {
             if let a = v as? NSTextAttachment { att = a; stop.pointee = true }
         }
         XCTAssertNotNil(att?.image, "printer should rasterize tables to a static grid")
-        XCTAssertFalse(att?.attachmentCell is MarkdownTableAttachmentCell)
     }
 }

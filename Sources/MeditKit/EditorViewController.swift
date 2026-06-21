@@ -25,9 +25,6 @@ public final class EditorViewController: NSViewController {
     private var previewScrollView: NSScrollView?
     private var previewTextView: NSTextView?
     private var previewLayoutManager: MarkdownPreviewLayoutManager?
-    /// Live, selectable table subviews placed over their attachment slots in the
-    /// preview; torn down and re-placed on each render and on viewport resize.
-    private var tableSubviews: [NSView] = []
     private var previewRefreshWorkItem: DispatchWorkItem?
 
     /// The window controller that handles "New Tab" from our context menu.
@@ -393,16 +390,6 @@ public final class EditorViewController: NSViewController {
     /// Whether the rendered Markdown preview is currently shown (per-tab state).
     public var isPreviewVisible: Bool { isShowingPreview }
 
-    /// Number of live table subviews currently placed in the preview (testing).
-    public var tableSubviewCountForTesting: Int { tableSubviews.count }
-    /// Frame of the first placed table subview, or nil if none (testing).
-    public var firstTableSubviewFrameForTesting: NSRect? { tableSubviews.first?.frame }
-    /// Whether the first placed table subview is a `MarkdownTableView` whose text is
-    /// selectable real text (testing).
-    public var firstTableIsSelectableForTesting: Bool {
-        (tableSubviews.first as? MarkdownTableView)?.textView.isSelectable ?? false
-    }
-
     /// Show or hide the read-only Markdown preview, swapping it for the editor.
     public func showPreview(_ show: Bool) {
         if show {
@@ -438,7 +425,7 @@ public final class EditorViewController: NSViewController {
         textContainer.heightTracksTextView = false
         layout.addTextContainer(textContainer)
         previewLayoutManager = layout
-        let tv = MarkdownPreviewTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 100), textContainer: textContainer)
+        let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 100), textContainer: textContainer)
         tv.isEditable = false
         tv.isSelectable = true
         tv.drawsBackground = true
@@ -471,12 +458,6 @@ public final class EditorViewController: NSViewController {
         ])
         previewScrollView = sv
         previewTextView = tv
-        // Reposition embedded table subviews when the preview viewport resizes
-        // (width changes re-flow text, moving the attachment slots).
-        sv.postsFrameChangedNotifications = true
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(previewViewportChanged),
-            name: NSView.frameDidChangeNotification, object: sv)
     }
 
     private func renderPreview() {
@@ -509,37 +490,6 @@ public final class EditorViewController: NSViewController {
         let rendered = MarkdownRenderer(theme: theme).render(currentText)
         tv.textStorage?.setAttributedString(rendered)
         tv.textContainerInset = NSSize(width: 24, height: 20)   // comfortable reading margins
-
-        // Embed live, selectable table subviews over their attachment slots.
-        if let container = tv.textContainer { tv.layoutManager?.ensureLayout(for: container) }
-        placeTableSubviews()
-    }
-
-    /// Tear down and re-place the live `MarkdownTableView`s for the current render.
-    private func placeTableSubviews() {
-        guard let tv = previewTextView else { return }
-        tableSubviews.forEach { $0.removeFromSuperview() }
-        tableSubviews.removeAll()
-        // Ensure layout is current at the text view's real width before reading the
-        // attachment glyph rects (otherwise placements come back zero-sized).
-        if let container = tv.textContainer { tv.layoutManager?.ensureLayout(for: container) }
-        for placement in MarkdownTablePlacement.placements(in: tv) {
-            let view = placement.cell.makeTableView()
-            // Clamp the visible frame to the available content width so a wide table
-            // shows its own horizontal scroller instead of widening the preview.
-            let available = tv.bounds.width - tv.textContainerInset.width * 2
-            var frame = placement.rect
-            frame.size.width = min(frame.size.width, max(available, 0))
-            view.frame = frame
-            view.autoresizingMask = []
-            tv.addSubview(view)
-            tableSubviews.append(view)
-        }
-    }
-
-    @objc private func previewViewportChanged() {
-        guard isShowingPreview, previewTextView != nil else { return }
-        placeTableSubviews()
     }
 
     /// Debounced re-render while preview is visible and auto-refresh is on.

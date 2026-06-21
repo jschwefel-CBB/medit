@@ -106,20 +106,23 @@ final class MarkdownRendererTests: XCTestCase {
                        MarkdownBlockAttribute.Kind.blockQuote.rawValue)
     }
 
-    func testTableRendersAsInteractiveCellByDefault() {
-        // Interactive (default, preview) mode emits a selectable table cell, not an image.
+    func testTableRendersAsInlineTextTableByDefault() {
+        // Interactive (default, preview) mode emits native NSTextTable text (each cell
+        // is an NSTextTableBlock paragraph), NOT an image attachment.
         let out = renderer().render("| H |\n|---|\n| c |")
-        var cell: MarkdownTableAttachmentCell?
-        out.enumerateAttribute(.attachment, in: NSRange(location: 0, length: out.length)) { value, _, stop in
-            if let att = value as? NSTextAttachment,
-               let c = att.attachmentCell as? MarkdownTableAttachmentCell { cell = c; stop.pointee = true }
+        var hasBlock = false
+        out.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: out.length)) { value, _, stop in
+            if let p = value as? NSParagraphStyle, p.textBlocks.contains(where: { $0 is NSTextTableBlock }) {
+                hasBlock = true; stop.pointee = true
+            }
         }
-        XCTAssertNotNil(cell, "a GFM table should render as an interactive table cell by default")
+        XCTAssertTrue(hasBlock, "a GFM table should render as native NSTextTable text by default")
+        XCTAssertTrue(out.string.contains("c"), "cell text is real selectable text")
     }
 
     func testTableRendersAsImageInStaticMode() {
         // Static (print) mode rasterizes the table to a drawn bordered-grid image.
-        let r = MarkdownRenderer(theme: MarkdownTableLayoutTests.testTheme(), tableMode: .static)
+        let r = MarkdownRenderer(theme: MarkdownTableLayoutTestsTheme.theme(), tableMode: .static)
         let out = r.render("| H |\n|---|\n| c |")
         var foundImage = false
         out.enumerateAttribute(.attachment, in: NSRange(location: 0, length: out.length)) { value, _, _ in

@@ -113,7 +113,7 @@ private struct AttributedStringBuilder: MarkupVisitor {
         if strike { a[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
         if code {
             a[.backgroundColor] = theme.codeBackground
-            a[.foregroundColor] = theme.secondary
+            a[.foregroundColor] = CBBColors.steel   // colored code text, not grey
         }
         if let link {
             a[.link] = link
@@ -137,7 +137,9 @@ private struct AttributedStringBuilder: MarkupVisitor {
     mutating func visitSoftBreak(_ softBreak: SoftBreak) { emit(" ") }
     mutating func visitLineBreak(_ lineBreak: LineBreak) { emit("\n") }
     mutating func visitInlineCode(_ inlineCode: InlineCode) {
-        let was = code; code = true; emit(" " + inlineCode.code + " "); code = was
+        // Thin hair-spaces give a snug background box instead of the loose padding a
+        // full space produced.
+        let was = code; code = true; emit("\u{2009}" + inlineCode.code + "\u{2009}"); code = was
     }
     mutating func visitEmphasis(_ emphasis: Emphasis) {
         let was = italic; italic = true; defaultVisit(emphasis); italic = was
@@ -280,22 +282,26 @@ private struct AttributedStringBuilder: MarkupVisitor {
             for cell in row.children { r.append(renderCell(cell, bold: false)) }
             rows.append(r)
         }
-        let attachment = NSTextAttachment()
         switch tableMode {
         case .interactive:
-            attachment.attachmentCell = MarkdownTableAttachmentCell(
-                header: headerCells, rows: rows, theme: theme)
+            // Native NSTextTable: cells wrap independently side-by-side; the table is
+            // ordinary selectable/copyable text inline in the preview.
+            out.append(MarkdownTableBuilder.attributedTable(
+                header: headerCells, rows: rows, theme: theme))
+            out.append(NSAttributedString(string: "\n"))
         case .static:
+            // Print: a drawn bordered-grid image (paper can't scroll/select).
             let image = MarkdownTableRenderer.image(header: headerCells, rows: rows, theme: theme)
+            let attachment = NSTextAttachment()
             attachment.image = image
             attachment.bounds = NSRect(origin: .zero, size: image.size)
+            let para = bodyParagraph(spacingAfter: 14, spacingBefore: 6)
+            let attStr = NSMutableAttributedString(attachment: attachment)
+            attStr.addAttribute(.paragraphStyle, value: para,
+                                range: NSRange(location: 0, length: attStr.length))
+            out.append(attStr)
+            out.append(NSAttributedString(string: "\n\n"))
         }
-        let para = bodyParagraph(spacingAfter: 14, spacingBefore: 6)
-        let attStr = NSMutableAttributedString(attachment: attachment)
-        attStr.addAttribute(.paragraphStyle, value: para,
-                            range: NSRange(location: 0, length: attStr.length))
-        out.append(attStr)
-        out.append(NSAttributedString(string: "\n\n"))
     }
 
     /// Render a single table cell's inline content into a standalone attributed

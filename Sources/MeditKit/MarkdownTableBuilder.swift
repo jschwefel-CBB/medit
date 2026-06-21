@@ -9,6 +9,8 @@ public enum MarkdownTableBuilder {
     static let cellPadding: CGFloat = 9
     /// Per-cell border thickness, in points.
     static let borderWidth: CGFloat = 1
+    /// Cap a column's content-fit width; longer content wraps within the cell.
+    static let maxColumnWidth: CGFloat = 320
 
     public static func attributedTable(header: [NSAttributedString],
                                        rows: [[NSAttributedString]],
@@ -18,21 +20,31 @@ public enum MarkdownTableBuilder {
 
         let table = NSTextTable()
         table.numberOfColumns = columnCount
-        table.layoutAlgorithm = .automaticLayoutAlgorithm
+        // Fixed: columns honor the per-cell widths we compute from content, instead
+        // of stretching to fill the available width.
+        table.layoutAlgorithm = .fixedLayoutAlgorithm
+
+        // Column widths = widest cell content in that column (capped). Long content
+        // wraps within the capped width rather than stretching the table.
+        let allRows = [header] + rows
+        var colWidths = [CGFloat](repeating: 24, count: columnCount)
+        for row in allRows {
+            for (c, cell) in row.enumerated() where c < columnCount {
+                colWidths[c] = max(colWidths[c], min(maxColumnWidth, ceil(cell.size().width)))
+            }
+        }
 
         let border = theme.isDark
             ? NSColor.white.withAlphaComponent(0.16)
             : NSColor.black.withAlphaComponent(0.14)
 
         let out = NSMutableAttributedString()
-
-        // allRows = header (row 0) + body rows.
-        let allRows = [header] + rows
         for (r, row) in allRows.enumerated() {
             let isHeader = (r == 0)
             for c in 0..<columnCount {
                 let raw = c < row.count ? row[c] : NSAttributedString(string: "")
                 out.append(cellString(raw, row: r, col: c, isHeader: isHeader,
+                                      columnWidth: colWidths[c],
                                       table: table, border: border, theme: theme))
             }
         }
@@ -40,13 +52,15 @@ public enum MarkdownTableBuilder {
     }
 
     private static func cellString(_ content: NSAttributedString, row: Int, col: Int,
-                                   isHeader: Bool, table: NSTextTable,
+                                   isHeader: Bool, columnWidth: CGFloat, table: NSTextTable,
                                    border: NSColor, theme: MarkdownRenderer.Theme) -> NSAttributedString {
         let block = NSTextTableBlock(table: table, startingRow: row, rowSpan: 1,
                                      startingColumn: col, columnSpan: 1)
         block.setBorderColor(border)
         block.setWidth(borderWidth, type: .absoluteValueType, for: .border)
         block.setWidth(cellPadding, type: .absoluteValueType, for: .padding)
+        // Content-fit width (the content area, inside padding+border).
+        block.setContentWidth(columnWidth, type: .absoluteValueType)
         if isHeader {
             block.backgroundColor = CBBColors.steel
         }
