@@ -409,7 +409,10 @@ public final class EditorViewController: NSViewController {
         config.defaultWebpagePreferences.allowsContentJavaScript = false
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.translatesAutoresizingMaskIntoConstraints = false
-        wv.setValue(false, forKey: "drawsBackground")   // avoid white flash; CSS paints bg
+        // Pin the web view to the light (aqua) appearance so WebKit renders our CSS
+        // colors literally instead of auto-applying dark-mode adjustment (which dimmed
+        // the steel header to grey). The CSS itself provides the dark/light palette.
+        wv.appearance = NSAppearance(named: .aqua)
         wv.navigationDelegate = self
         wv.setAccessibilityIdentifier("markdownPreviewWebView")
         wv.isHidden = true

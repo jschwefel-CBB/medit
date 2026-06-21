@@ -24,7 +24,6 @@ public enum PreviewHTMLTemplate {
         let headColor = isDark ? "#7fb6ff" : "#0a2f66"
 
         let css = """
-        :root { color-scheme: \(isDark ? "dark" : "light"); }
         html, body { margin: 0; padding: 0; }
         body {
           background: \(bg);
