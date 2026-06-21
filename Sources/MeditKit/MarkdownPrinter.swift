@@ -40,7 +40,7 @@ enum MarkdownPrinter {
         let layout = MarkdownPreviewLayoutManager()
         let theme = printTheme()
         layout.palette = .init(codePanel: theme.codeBackground, quoteBar: theme.quoteBarColor,
-                               rule: theme.tableBorderColor)
+                               rule: theme.tableBorderColor, inlineCodeFill: theme.codeBackground)
         storage.addLayoutManager(layout)
         let container = NSTextContainer(size: NSSize(width: pageWidth, height: .greatestFiniteMagnitude))
         container.widthTracksTextView = true

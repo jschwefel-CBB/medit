@@ -41,9 +41,13 @@ final class MarkdownRendererTests: XCTestCase {
         let out = renderer().render("a ~~gone~~ b")
         XCTAssertNotNil(attrs(out, at: offset(out, of: "gone"))[.strikethroughStyle])
     }
-    func testInlineCodeHasBackground() {
+    func testInlineCodeIsMarkedForBoxDrawing() {
+        // Inline code is marked with the inlineCode attribute (the layout manager
+        // draws a tight rounded box behind it), not a line-height background fill.
         let out = renderer().render("a `code` b")
-        XCTAssertNotNil(attrs(out, at: offset(out, of: "code"))[.backgroundColor])
+        let at = attrs(out, at: offset(out, of: "code"))
+        XCTAssertNotNil(at[MarkdownBlockAttribute.inlineCode], "inline code is marked")
+        XCTAssertNil(at[.backgroundColor], "no line-height background fill")
     }
     func testLinkCarriesURL() {
         let out = renderer().render("[txt](https://example.com)")

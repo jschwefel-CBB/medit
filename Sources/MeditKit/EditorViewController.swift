@@ -485,7 +485,8 @@ public final class EditorViewController: NSViewController {
         previewLayoutManager?.palette = MarkdownPreviewLayoutManager.Palette(
             codePanel: theme.codeBackground,
             quoteBar: theme.quoteBarColor,
-            rule: theme.tableBorderColor)
+            rule: theme.tableBorderColor,
+            inlineCodeFill: theme.codeBackground)
         let rendered = MarkdownRenderer(theme: theme).render(currentText)
         tv.textStorage?.setAttributedString(rendered)
         tv.textContainerInset = NSSize(width: 24, height: 20)   // comfortable reading margins

@@ -112,7 +112,9 @@ private struct AttributedStringBuilder: MarkupVisitor {
         ]
         if strike { a[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
         if code {
-            a[.backgroundColor] = theme.codeBackground
+            // Marker only — the layout manager draws a tight rounded box behind the
+            // glyphs (symmetric padding), instead of a line-height background fill.
+            a[MarkdownBlockAttribute.inlineCode] = true
             a[.foregroundColor] = CBBColors.steel   // colored code text, not grey
         }
         if let link {
