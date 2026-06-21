@@ -35,3 +35,32 @@ public final class MarkdownTableAttachmentCell: NSTextAttachmentCell {
         MarkdownTableView(header: header, rows: rows, theme: theme)
     }
 }
+
+/// Locates `MarkdownTableAttachmentCell`s in a laid-out preview text view and the
+/// glyph rect each occupies, so the preview can position live table subviews. Pure
+/// w.r.t. the text view's existing layout (no mutation).
+public enum MarkdownTablePlacement {
+    public struct Placement {
+        public let cell: MarkdownTableAttachmentCell
+        public let rect: NSRect   // in text-view coordinates (text container origin applied)
+    }
+
+    public static func placements(in textView: NSTextView) -> [Placement] {
+        guard let layout = textView.layoutManager,
+              let container = textView.textContainer,
+              let storage = textView.textStorage else { return [] }
+        let origin = textView.textContainerOrigin
+        var result: [Placement] = []
+        storage.enumerateAttribute(.attachment,
+            in: NSRange(location: 0, length: storage.length)) { value, range, _ in
+            guard let att = value as? NSTextAttachment,
+                  let cell = att.attachmentCell as? MarkdownTableAttachmentCell else { return }
+            let glyphRange = layout.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            var rect = layout.boundingRect(forGlyphRange: glyphRange, in: container)
+            rect.origin.x += origin.x
+            rect.origin.y += origin.y
+            result.append(Placement(cell: cell, rect: rect))
+        }
+        return result
+    }
+}

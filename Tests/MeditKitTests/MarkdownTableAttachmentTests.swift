@@ -22,4 +22,25 @@ final class MarkdownTableAttachmentTests: XCTestCase {
             header: [cell("Name")], rows: [[cell("Bob")]], theme: theme())
         XCTAssertTrue(c.makeTableView().textView.string.contains("Bob"))
     }
+
+    func testEnumerateTableAttachmentsReturnsCellAndRect() {
+        let theme = MarkdownTableLayoutTests.testTheme()
+        let storage = NSTextStorage()
+        let layout = MarkdownPreviewLayoutManager()
+        storage.addLayoutManager(layout)
+        let container = NSTextContainer(size: NSSize(width: 600, height: CGFloat.greatestFiniteMagnitude))
+        layout.addTextContainer(container)
+        let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400), textContainer: container)
+
+        let rendered = MarkdownRenderer(theme: theme, tableMode: .interactive)
+            .render("intro\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\noutro")
+        tv.textStorage?.setAttributedString(rendered)
+        layout.ensureLayout(for: container)
+
+        let placements = MarkdownTablePlacement.placements(in: tv)
+        XCTAssertEqual(placements.count, 1)
+        XCTAssertTrue(placements[0].cell.makeTableView().textView.string.contains("1"))
+        XCTAssertGreaterThan(placements[0].rect.height, 0)
+        XCTAssertGreaterThan(placements[0].rect.width, 0)
+    }
 }

@@ -25,6 +25,9 @@ public final class EditorViewController: NSViewController {
     private var previewScrollView: NSScrollView?
     private var previewTextView: NSTextView?
     private var previewLayoutManager: MarkdownPreviewLayoutManager?
+    /// Live, selectable table subviews placed over their attachment slots in the
+    /// preview; torn down and re-placed on each render and on viewport resize.
+    private var tableSubviews: [NSView] = []
     private var previewRefreshWorkItem: DispatchWorkItem?
 
     /// The window controller that handles "New Tab" from our context menu.
@@ -449,6 +452,12 @@ public final class EditorViewController: NSViewController {
         ])
         previewScrollView = sv
         previewTextView = tv
+        // Reposition embedded table subviews when the preview viewport resizes
+        // (width changes re-flow text, moving the attachment slots).
+        sv.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(previewViewportChanged),
+            name: NSView.frameDidChangeNotification, object: sv)
     }
 
     private func renderPreview() {
@@ -481,6 +490,34 @@ public final class EditorViewController: NSViewController {
         let rendered = MarkdownRenderer(theme: theme).render(currentText)
         tv.textStorage?.setAttributedString(rendered)
         tv.textContainerInset = NSSize(width: 24, height: 20)   // comfortable reading margins
+
+        // Embed live, selectable table subviews over their attachment slots.
+        if let container = tv.textContainer { tv.layoutManager?.ensureLayout(for: container) }
+        placeTableSubviews()
+    }
+
+    /// Tear down and re-place the live `MarkdownTableView`s for the current render.
+    private func placeTableSubviews() {
+        guard let tv = previewTextView else { return }
+        tableSubviews.forEach { $0.removeFromSuperview() }
+        tableSubviews.removeAll()
+        for placement in MarkdownTablePlacement.placements(in: tv) {
+            let view = placement.cell.makeTableView()
+            // Clamp the visible frame to the available content width so a wide table
+            // shows its own horizontal scroller instead of widening the preview.
+            let available = tv.bounds.width - tv.textContainerInset.width * 2
+            var frame = placement.rect
+            frame.size.width = min(frame.size.width, max(available, 0))
+            view.frame = frame
+            view.autoresizingMask = []
+            tv.addSubview(view)
+            tableSubviews.append(view)
+        }
+    }
+
+    @objc private func previewViewportChanged() {
+        guard isShowingPreview, previewTextView != nil else { return }
+        placeTableSubviews()
     }
 
     /// Debounced re-render while preview is visible and auto-refresh is on.
