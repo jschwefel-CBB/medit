@@ -6,6 +6,41 @@
 
 ---
 
+## selectable Markdown tables (feature branch) — AP deliberately NOT used; verified headlessly
+
+This cycle made Markdown-preview tables selectable/copyable (real text in a
+per-table scrollable subview, replacing the image attachment). **No AutoPilot run
+was performed, by design**, and it's worth recording why:
+
+- At verification time the **installed** medit (v2.5.0, separate from the Debug
+  build under test) had a **ColdBoreBallistics document open**
+  (`CBB_Object_Taxonomy.md`). Per the standing rule that CBB windows are 100% off
+  limits and the screenshot-safety rule (never full-display; only window-bounded,
+  frontmost-gated capture), **any** screen capture was unsafe — a window-bounded
+  shot still risks the wrong window when two medit instances and a private doc are
+  in play. So I took **zero** screenshots and drove **no** GUI capture.
+- `open file.md` also routed the test file to the **installed** app via bundle-ID
+  registration, not the Debug build — the same "wrong instance" hazard the Round-3
+  `dump_axtree` phantom-window finding warned about. Lesson reinforced: when two
+  builds of the same bundle id are running, GUI tooling can't be trusted to target
+  the right one without explicit pid attach.
+
+**What replaced the GUI check:** a headless integration smoke test
+(`MarkdownTablePreviewSmokeTests`) that drives the real `EditorViewController`,
+shows the preview, and asserts a live, **selectable** `MarkdownTableView` subview is
+placed at a **real non-zero frame**. This caught a genuine bug a pure unit test
+would have missed: on first preview show, `placeTableSubviews()` ran while the
+preview view was still hidden/unsized, producing a 0×0 table frame. Fixed by
+un-hiding + sizing the preview before render, and forcing layout before reading
+attachment glyph rects.
+
+**AP suggestion (for when a CBB window is NOT open):** the clean way to verify this
+feature visually is `autopilot ... --pid <debug-build-pid>` attach (never `open`,
+which hits the installed bundle), then a window-bounded capture gated on the Debug
+build being frontmost. Until then, the headless test is the trustworthy gate.
+
+---
+
 ## medit 2.5.0 — AP findings: screenshot capture (mostly resolved by the AUTHORING.md update)
 
 Docs release (full User Manual + 16 screenshots + App Store prep). The AP work
