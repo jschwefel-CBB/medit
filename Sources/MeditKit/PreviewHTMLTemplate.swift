@@ -106,4 +106,38 @@ public enum PreviewHTMLTemplate {
         </body></html>
         """
     }
+
+    /// App-injected JavaScript (run via `evaluateJavaScript` after each full shell
+    /// load) that maps the standard navigation keys to document scrolling.
+    ///
+    /// Page-level/content JavaScript is disabled for security, so the preview shell
+    /// itself carries no scripts; WebKit's built-in key scrolling for a
+    /// `loadHTMLString` document is unreliable. The app injects this handler — which
+    /// is NOT "content JS" — so Home/End, ⌃Home/⌃End, and PageUp/PageDown scroll the
+    /// preview the way they do in the editor. Idempotent: a guard flag keeps repeated
+    /// injection (one per full reload) from stacking listeners.
+    public static let scrollKeyHandlerJS = """
+    (function () {
+      if (window.__meditScrollKeys) { return; }
+      window.__meditScrollKeys = true;
+      document.addEventListener('keydown', function (e) {
+        if (e.metaKey || e.altKey) { return; }
+        var el = document.scrollingElement || document.documentElement;
+        var page = Math.max(40, window.innerHeight * 0.9);
+        switch (e.key) {
+          case 'Home':
+            window.scrollTo({ top: 0 }); break;
+          case 'End':
+            window.scrollTo({ top: el.scrollHeight }); break;
+          case 'PageUp':
+            window.scrollBy({ top: -page }); break;
+          case 'PageDown':
+            window.scrollBy({ top: page }); break;
+          default:
+            return;
+        }
+        e.preventDefault();
+      }, false);
+    })();
+    """
 }
