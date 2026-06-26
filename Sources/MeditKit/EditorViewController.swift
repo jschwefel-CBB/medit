@@ -398,7 +398,16 @@ public final class EditorViewController: NSViewController {
         isShowingPreview = show
         previewWebView?.isHidden = !show
         scrollView.isHidden = show
-        if show { renderPreview() }
+        if show {
+            renderPreview()
+            // Give the web view first responder so navigation keys
+            // (Home/End/PageUp/PageDown, arrows) scroll the preview; otherwise focus
+            // stays on the now-hidden editor and the keys do nothing.
+            if let wv = previewWebView { view.window?.makeFirstResponder(wv) }
+        } else {
+            // Returning to the editor — restore focus so typing/navigation resume.
+            view.window?.makeFirstResponder(textView)
+        }
     }
 
     /// Whether the preview shell (the full HTML document with CSS) has been loaded.
@@ -896,6 +905,13 @@ extension EditorViewController: WKNavigationDelegate {
     /// Document content is untrusted, so a link must NOT be able to launch arbitrary
     /// `file:`, `data:`, or custom-scheme handlers — only web/mail links are opened.
     private static let allowedLinkSchemes: Set<String> = ["http", "https", "mailto"]
+
+    /// After each full shell load, (re)install the navigation-key scroll handler.
+    /// Content JS is disabled, so the keys Home/End/PageUp/PageDown won't scroll the
+    /// preview on their own — this app-injected handler restores that behavior.
+    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        webView.evaluateJavaScript(PreviewHTMLTemplate.scrollKeyHandlerJS)
+    }
 
     /// Allow only the in-app HTML load; open clicked web/mail links in the default
     /// browser, and ignore links of any other scheme.

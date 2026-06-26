@@ -8,6 +8,21 @@
 
 ---
 
+## medit 2.6.1 — keyboard-scroll fixes (no new AP impact)
+
+Two keyboard-scroll bugs fixed, both behind existing AX surfaces — no new AX ids,
+no plan changes required.
+- **Preview navigation keys** (Home/End/⌃Home/⌃End/PageUp/PageDown) now scroll the
+  `markdownPreviewWebView` / `AXWebArea`. To AP-verify, a `keydown` against the web
+  area changes its scroll position; no new target needed.
+- **Editor Return** now scrolls the new line into view (the custom `insertNewline`
+  was missing `scrollRangeToVisible`). Exercised against the existing editor text
+  view; no AP surface change.
+
+No new AP findings. The recurring menu-toggle flakiness still applies (click the
+editor before the `View ▸ Show Markdown Preview` menu step).
+
+
 ## medit 2.6.0 — preview is now a WKWebView (AP impact recap)
 
 The Markdown preview became a WKWebView (HTML+CSS). AP impact, recorded already in
