@@ -270,6 +270,23 @@ public final class EditorViewController: NSViewController {
         applyStyleBarVisibility()
     }
 
+    public override func viewDidAppear() {
+        super.viewDidAppear()
+        // macOS UI state restoration can restore the caret/selection to a spot
+        // below the fold (e.g. the end of a long file) AFTER viewDidLoad, without
+        // scrolling it into view — so the editor opened showing the top while the
+        // caret sat 100+ lines down. Reveal the current selection once the view is
+        // on screen and has real geometry. Guarded so it only fires for the first
+        // appearance (re-appearing a tab shouldn't yank the user's scroll position).
+        guard !hasRevealedInitialSelection else { return }
+        hasRevealedInitialSelection = true
+        textView.scrollRangeToVisible(textView.selectedRange())
+    }
+
+    /// One-shot guard so the initial caret-reveal in `viewDidAppear` runs only on
+    /// the first appearance, not every time a tab is re-shown.
+    private var hasRevealedInitialSelection = false
+
     private func observeResize() {
         // Reflow wrapped text live as the scroll view / clip view changes size.
         scrollView.postsFrameChangedNotifications = true

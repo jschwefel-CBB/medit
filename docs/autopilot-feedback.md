@@ -8,6 +8,53 @@
 
 ---
 
+## medit 2.6.2 — AP-driven debugging caught a real bug 2.6.1 shipped broken
+
+2.6.1 shipped on unit-tests + CI alone, WITHOUT running AutoPilot against the app —
+and a real bug slipped through: the editor did not scroll to the caret when it sat
+below the fold (open/restore with the caret at end of a long file showed the top).
+AutoPilot caught it. Lessons + AP findings from this session:
+
+- **AP is the gate, not unit tests alone.** The fix that mattered (`viewDidAppear`
+  reveals the restored caret) was invisible to the headless unit suite at first
+  because macOS state restoration is what places the caret — only the running app
+  showed it. Run the AP plans before shipping UI-behavior changes.
+- **Objective scroll signal via AX geometry.** The editor's `AXScrollBar` has an
+  `AXValueIndicator` (the thumb); its frame Y within the track = scroll fraction
+  (0=top, 1=bottom). Measuring it proved the bug (0.014 with caret at end) and the
+  fix (0.989). Useful where there's no AXValue for scroll position. Consider adding
+  a first-class "scroll position" assertion to AP.
+- **Sandbox blocks repo-path launchFiles.** medit is sandboxed
+  (files.user-selected only). `launchFiles` pointing at a repo path
+  (`~/repositories/medit/uitests/fixtures/...`) is DENIED ("could not be opened —
+  you don't have permission"), even though AP opens via NSWorkspace/LaunchServices.
+  `/tmp/...` works. So `uitests/stage-fixtures.sh` copies fixtures to
+  `/tmp/medit-ap-*` and the plans target those. AP can't script the Open panel, so
+  /tmp staging is the workable pattern for a sandboxed target.
+- **WKWebView element screenshots are blank unless frontmost.** Element-scoped
+  `screenshot`/`snapshot` of the `markdownPreviewWebView` returns a blank dark frame
+  when medit isn't frontmost during capture — top and bottom captures came back
+  byte-identical (both blank). The editor (non-web) element screenshots are fine.
+  AP should frontmost-gate web-area captures (or warn).
+- **`snapshot` action fails to write the reference.** `snapshot` with `reference:`
+  + `--update-snapshots` errored "failed to write reference" even with the ref dir
+  present. Couldn't baseline a visual snapshot; fell back to plain `screenshot`
+  artifacts. Worth a look in the CLI's snapshot writer.
+- **One-shot value-read race (recurring).** Asserting `positionLabel` value right
+  after a key action sometimes read empty (`actual=`) though a `dump-axtree` a
+  moment later showed the value — the known "value assert is one-shot; value late"
+  trap. Left the racy assert out of the committed plan (TODO to harden once AP
+  settles/polls the read).
+- **Menu-toggle still flaky (unchanged):** click the editor before
+  `View ▸ Show Markdown Preview`; and wait on the `markdownPreviewWebView`
+  identifier, not the `AXWebArea` role (the role didn't resolve post-toggle).
+
+New committed plans: `uitests/keyboard-scroll.json` (editor, 11/11 with real
+screenshots) + `uitests/keyboard-scroll-preview.json` (preview; steps pass,
+screenshots blank pending the frontmost fix) + `uitests/fixtures/` +
+`uitests/stage-fixtures.sh`.
+
+
 ## medit 2.6.1 — keyboard-scroll fixes (no new AP impact)
 
 Two keyboard-scroll bugs fixed, both behind existing AX surfaces — no new AX ids,
