@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "name": "End scrolls the Markdown preview to the bottom",
+  "comment": "Regression for the 2.6.x preview keyboard-scroll bug: navigation keys did nothing in the WKWebView preview because it never took first responder and content JS was disabled. Opens a long Markdown file, shows the preview, focuses it, presses End, and captures before/after screenshots. NOTE(harden): element-scoped screenshots of the WKWebView come back blank unless medit is frontmost during capture (a WebKit/ScreenCaptureKit limitation) — so the captured PNGs are not yet reliable evidence here; the preview-scroll behavior is proven by the dev probe (Line 1 -> Line 120 on End) and by PreviewScrollKeyTests in MeditKitTests. Make the capture frontmost-gated in the follow-up. Requires the Debug build; fixtures are staged to /tmp by stage-fixtures.sh because the sandbox blocks opening repo-path files.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchFiles": ["/tmp/medit-ap-long.md"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+
+    { "id": "focus-editor", "action": "click",
+      "target": { "identifier": "editorTextView" } },
+
+    { "id": "show-preview", "action": "menu",
+      "args": { "menuPath": ["View", "Show Markdown Preview"] } },
+
+    { "id": "wait-preview", "action": "waitFor",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+
+    { "id": "shot-top", "action": "screenshot",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "path": "/tmp/medit-uitests/preview-top.png", "padding": 0 } },
+
+    { "id": "focus-preview", "action": "click",
+      "target": { "identifier": "markdownPreviewWebView" } },
+
+    { "id": "press-end", "action": "keyPress",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "keys": "end" } },
+
+    { "id": "settle", "action": "wait", "args": { "seconds": 1 } },
+
+    { "id": "shot-bottom", "action": "screenshot",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "path": "/tmp/medit-uitests/preview-bottom.png", "padding": 0 } },
+
+    { "id": "quit", "action": "terminate" }
+  ]
+}

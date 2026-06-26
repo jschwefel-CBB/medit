@@ -28,7 +28,13 @@ final class PreviewIncrementalUpdateTests: XCTestCase {
                 last = (r as? String) ?? ""
                 done.fulfill()
             }
-            wait(for: [done], timeout: 2)
+            // Use a non-failing waiter: on a headless CI runner the web view has no
+            // content process, so the evaluateJavaScript callback may never fire —
+            // a failing `wait(for:)` would fail the whole test instead of letting the
+            // poll loop time out and the outer XCTSkipUnless skip. We don't assert on
+            // the result here; the loop just keeps polling until the needle appears
+            // or the overall deadline passes.
+            _ = XCTWaiter().wait(for: [done], timeout: 1)
             if last.contains(needle) { return last }
         }
         return last

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "name": "editor reveals the caret when it moves below the fold",
+  "comment": "Regression for the 2.6.x editor scroll-to-caret bug: opening/​restoring a long file left the caret (e.g. end of file) off-screen because the view did not scroll to it. Drives the caret to the document end and to a new line, capturing editor screenshots for review (they should show the bottom of the file, following the caret, not the top). The deterministic gate lives in MeditKitTests/EditorRevealCaretTests + EditorNewlineScrollTests; this plan is the live AutoPilot artifact. Requires the Debug build at the target path. TODO(harden): add an AX assertion once AutoPilot's positionLabel value-read race is resolved.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchFiles": ["/tmp/medit-ap-long.txt"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+
+    { "id": "wait-editor", "action": "waitFor",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+
+    { "id": "editor-loaded", "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "Line 120 of the scroll fixture." } },
+
+    { "id": "focus-editor", "action": "click",
+      "target": { "identifier": "editorTextView" } },
+
+    { "id": "caret-to-end", "action": "keyPress",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "cmd+down" } },
+
+    { "id": "settle-end", "action": "wait", "args": { "seconds": 1 } },
+
+    { "id": "shot-after-cmd-down", "action": "screenshot",
+      "target": { "identifier": "editorTextView" },
+      "args": { "path": "/tmp/medit-uitests/editor-bottom.png", "padding": 0 } },
+
+    { "id": "press-return", "action": "keyPress",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "return" } },
+
+    { "id": "settle-return", "action": "wait", "args": { "seconds": 1 } },
+
+    { "id": "shot-after-return", "action": "screenshot",
+      "target": { "identifier": "editorTextView" },
+      "args": { "path": "/tmp/medit-uitests/editor-after-return.png", "padding": 0 } },
+
+    { "id": "quit", "action": "terminate" }
+  ]
+}
