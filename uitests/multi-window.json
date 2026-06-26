@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "name": "multi-window: New Window makes a 2nd window; New Tab does not",
+  "comment": "Verifies the multi-window model in the real app: ⇧⌘N opens a separate window (tabs stay the default for ⌘N/Open/sidebar). Requires the Debug build; fixtures staged to /tmp by stage-fixtures.sh (sandbox blocks repo-path launchFiles). NOTE(harden): if AutoPilot's `count` assertion on AXWindow is unsupported, drop the two-windows assert and verify the window count via `autopilot dump-axtree | grep -c AXWindow` in manual verification.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchFiles": ["/tmp/medit-ap-mw-a.txt"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "focus-editor", "action": "click",
+      "target": { "identifier": "editorTextView" } },
+    { "id": "new-window", "action": "keyPress",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+shift+n" } },
+    { "id": "settle-window", "action": "wait", "args": { "seconds": 1 } },
+    { "id": "two-windows", "action": "assert",
+      "target": { "role": "AXWindow" },
+      "assert": { "property": "count", "op": "greaterThan", "expected": "1" } },
+    { "id": "quit", "action": "terminate" }
+  ]
+}

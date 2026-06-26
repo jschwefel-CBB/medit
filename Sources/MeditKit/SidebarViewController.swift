@@ -171,6 +171,27 @@ public final class SidebarViewController: NSViewController {
         }
     }
 
+    /// Security-scoped bookmarks of the roots currently shown (for session snapshot).
+    public var currentRootBookmarks: [Data] {
+        dataSource.roots.compactMap { try? $0.url.bookmarkData(options: [.withSecurityScope]) }
+    }
+
+    /// Replace the shown roots with the ones these bookmarks resolve to (session
+    /// restore). Reuses the same resolve/refresh-stale path as restoreRootsFromBookmarks.
+    public func setRoots(fromBookmarks bookmarks: [Data]) {
+        var restored: [FileTreeNode] = []
+        for data in bookmarks {
+            var stale = false
+            guard let url = try? URL(resolvingBookmarkData: data, options: [.withSecurityScope],
+                                     relativeTo: nil, bookmarkDataIsStale: &stale),
+                  url.startAccessingSecurityScopedResource() else { continue }
+            accessedRootURLs.insert(url)
+            restored.append(FileTreeNode(url: url))
+        }
+        dataSource.roots = restored
+        if active { startWatchers(); outlineView.reloadData() }
+    }
+
     /// Resolve saved security-scoped bookmarks into accessible roots.
     private func restoreRootsFromBookmarks() {
         var restored: [FileTreeNode] = []

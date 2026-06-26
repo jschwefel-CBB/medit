@@ -5,7 +5,7 @@
 # keyboard-scroll plans. One job: stage fixtures.
 set -e
 SRC="${0:A:h}/fixtures"
-for f in long.txt long.md; do
+for f in long.txt long.md mw-a.txt mw-b.txt; do
   cp "$SRC/$f" "/tmp/medit-ap-$f"
 done
-echo "staged: /tmp/medit-ap-long.txt /tmp/medit-ap-long.md"
+echo "staged: /tmp/medit-ap-{long.txt,long.md,mw-a.txt,mw-b.txt}"

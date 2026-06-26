@@ -64,10 +64,16 @@ public enum MainMenu {
         let item = NSMenuItem()
         let menu = NSMenu(title: "File")
 
+        // ⌘N = new TAB (tabs are the default). ⌘T = new tab too (explicit). New
+        // Window (⇧⌘N) is the only path that makes a separate window.
         menu.addItem(withTitle: "New",
-                     action: #selector(NSDocumentController.newDocument(_:)), keyEquivalent: "n")
+                     action: #selector(EditorWindowController.newTabFromMenu(_:)), keyEquivalent: "n")
         menu.addItem(withTitle: "New Tab",
                      action: #selector(EditorWindowController.newWindowForTab(_:)), keyEquivalent: "t")
+        let newWindow = NSMenuItem(title: "New Window",
+                                   action: #selector(EditorWindowController.newWindowFromMenu(_:)), keyEquivalent: "n")
+        newWindow.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(newWindow)
         menu.addItem(withTitle: "Open…",
                      action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
         let openFolder = NSMenuItem(title: "Open Folder…",
