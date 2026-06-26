@@ -186,6 +186,10 @@ public final class EditorTextView: NSTextView {
                     didChangeText()
                     // Place the caret on the indented middle line.
                     setSelectedRange(NSRange(location: sel.location + split.caretOffset, length: 0))
+                    // Our custom newline path bypasses AppKit's, which would have
+                    // scrolled the new caret into view — do it so CR past the
+                    // bottom of the visible area follows the caret.
+                    scrollRangeToVisible(selectedRange())
                 }
                 return
             }
@@ -197,6 +201,9 @@ public final class EditorTextView: NSTextView {
         if shouldChangeText(in: sel, replacementString: insertion) {
             replaceCharacters(in: sel, with: insertion)
             didChangeText()
+            // Keep the new line visible: our override replaces AppKit's
+            // insertNewline, which would otherwise scroll the caret into view.
+            scrollRangeToVisible(selectedRange())
         }
     }
 
