@@ -6,7 +6,9 @@ import AppKit
 /// the Find-in-All-Tabs command.
 public final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
-    private let textDocument: TextDocument
+    // Non-private so the tab-group walk in `tabDocumentURLs`/`activeTabURL` can read
+    // sibling windows' documents for the session snapshot.
+    let textDocument: TextDocument
     private let prefs: Preferences
     private var editor: EditorViewController!
     private var sidebar: SidebarViewController!
@@ -29,7 +31,11 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
             backing: .buffered,
             defer: false
         )
-        window.tabbingMode = .preferred         // stack documents as native tabs
+        // .automatic: follow the system "Prefer tabs" setting and DON'T force-merge
+        // new windows into an existing tab group, so an explicit New Window stays
+        // separate. Tabs are still the default for ⌘N/Open/sidebar (those call
+        // addTabbedWindow).
+        window.tabbingMode = .automatic
         window.tabbingIdentifier = "medit.editor"
         // A real floor so a window can never be saved/restored absurdly small
         // (the old 360x240 floor is what let it come back tiny).
@@ -283,16 +289,35 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         openNext(&remaining, after: nil)
     }
 
+    /// If `url` is already open in any window, raise that window, select the
+    /// document's tab, and return true. Used by every open path (Open dialog,
+    /// Recent, sidebar, drag, session restore) so a file is never opened twice —
+    /// one document, one view (standard macOS). `NSDocumentController` is app-global,
+    /// so this finds the document regardless of which window holds it.
+    @discardableResult
+    public static func focusIfAlreadyOpen(_ url: URL) -> Bool {
+        // The document being open at all is what "already open" means; raising its
+        // window is best-effort (it always has one in the running app, but a
+        // freshly-opened doc in a headless test may not yet).
+        guard let doc = NSDocumentController.shared.document(for: url) else { return false }
+        if doc.windowControllers.isEmpty { doc.makeWindowControllers() }
+        if let win = doc.windowControllers.first?.window {
+            win.tabGroup?.selectedWindow = win   // select the tab within its group
+            win.makeKeyAndOrderFront(nil)        // raise the window
+        }
+        return true
+    }
+
     private func openNext(_ urls: inout [URL], after previous: NSWindow?) {
         guard let window else { return }
         guard !urls.isEmpty else { return }
         let url = urls.removeFirst()
         var rest = urls
 
-        // Already open? Focus it, then continue with the rest (anchored after it).
-        if let existing = NSDocumentController.shared.document(for: url),
-           let w = existing.windowControllers.first?.window {
-            w.makeKeyAndOrderFront(nil)
+        // Already open anywhere? Focus it (select its tab + raise its window), then
+        // continue with the rest of the batch.
+        if EditorWindowController.focusIfAlreadyOpen(url) {
+            let w = NSDocumentController.shared.document(for: url)?.windowControllers.first?.window
             openNext(&rest, after: w)
             return
         }
@@ -333,6 +358,55 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         } catch {
             NSApp.presentError(error)
         }
+    }
+
+    /// Explicit New Window (⇧⌘N): open a new untitled document in its OWN top-level
+    /// window — NOT added to any tab group. Tabs remain the default elsewhere.
+    public func openNewWindow() {
+        do {
+            let newDoc = try NSDocumentController.shared.openUntitledDocumentAndDisplay(false)
+            if newDoc.windowControllers.isEmpty { newDoc.makeWindowControllers() }
+            // Deliberately do NOT call addTabbedWindow — this stays a separate window.
+            newDoc.windowControllers.first?.window?.makeKeyAndOrderFront(nil)
+        } catch {
+            NSApp.presentError(error)
+        }
+    }
+
+    /// Menu hook for File ▸ New Window.
+    @IBAction public func newWindowFromMenu(_ sender: Any?) { openNewWindow() }
+
+    // MARK: Session snapshot/restore helpers
+
+    /// File URLs of this window's tabs, in left-to-right tab order (untitled skipped).
+    public var tabDocumentURLs: [URL] {
+        let group = window?.tabGroup?.windows ?? (window.map { [$0] } ?? [])
+        return group.compactMap { w in
+            (w.windowController as? EditorWindowController)?.textDocument.fileURL
+        }
+    }
+
+    /// File URL of the frontmost tab in this window's group.
+    public var activeTabURL: URL? {
+        (window?.tabGroup?.selectedWindow?.windowController as? EditorWindowController)?
+            .textDocument.fileURL ?? textDocument.fileURL
+    }
+
+    /// Apply a saved frame string (clamped onto a visible screen); ignore if invalid.
+    public func applyFrame(_ frameString: String) {
+        guard !frameString.isEmpty, let window else { return }
+        let frame = NSRectFromString(frameString)
+        guard frame.width >= EditorWindowController.minWindowSize.width,
+              frame.height >= EditorWindowController.minWindowSize.height else { return }
+        window.setFrame(clampToScreen(frame), display: true)
+    }
+
+    /// The sidebar folders open in THIS window (for session snapshot).
+    public var sidebarRootBookmarks: [Data] { sidebar.currentRootBookmarks }
+
+    /// Restore THIS window's sidebar folders from saved bookmarks.
+    public func restoreSidebarRoots(_ bookmarks: [Data]) {
+        sidebar.setRoots(fromBookmarks: bookmarks)
     }
 
     // MARK: View menu actions

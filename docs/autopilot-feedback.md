@@ -8,6 +8,28 @@
 
 ---
 
+## medit 2.7.0 — multi-window (no new AX ids)
+
+Added multi-window support: tabs stay the default (⌘N = new tab); **New Window
+(⇧⌘N)** is the explicit separate-window action (`tabbingMode .preferred →
+.automatic`). Each window is self-contained (own sidebar + tabs); opening an
+already-open file focuses its existing tab across windows; session restore rebuilds
+the full workspace (window→tab grouping, active tab, per-window sidebar folder via
+security-scoped bookmark, window frame).
+
+AP impact:
+- **No new AX identifiers.** Multiple windows are matched by the `AXWindow` role;
+  the `cmd+shift+n` New-Window chord drives via a `keyPress` step.
+- New plan `uitests/multi-window.json` (⇧⌘N → assert >1 `AXWindow`). **Possible
+  limitation flagged:** AP's `count` assertion on `AXWindow` may be unsupported (the
+  macOS property reader returns nil for `.count`) — if so, the fallback is
+  `autopilot dump-axtree --pid <pid> | grep -c '"role" : "AXWindow"'` in manual
+  verification; the unit suite (`MultiWindowRoutingTests`) fully covers the
+  new-window-vs-tab routing and cross-window focus deterministically.
+- Fixtures staged to `/tmp` via `stage-fixtures.sh` (sandbox blocks repo-path
+  launchFiles) — same pattern as the 2.6.2 keyboard-scroll plans.
+
+
 ## medit 2.6.2 — AP-driven debugging caught a real bug 2.6.1 shipped broken
 
 2.6.1 shipped on unit-tests + CI alone, WITHOUT running AutoPilot against the app —

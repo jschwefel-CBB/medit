@@ -19,6 +19,12 @@ macOS Accessibility API.
 ```
 Exit codes: 0 pass, 1 test failure, 2 plan error, 3 permission missing.
 
+Some plans need committed fixtures staged into `/tmp` first (the sandbox blocks
+opening repo-path files): run `./stage-fixtures.sh` before
+`keyboard-scroll*.json` and `multi-window.json`. `multi-window.json` verifies the
+multi-window model (⇧⌘N opens a separate window; matched by `AXWindow` role — no
+new AX identifiers).
+
 ## Authoring
 For the complete plan format — actions, assertions, selectors, hygiene
 patterns, and a worked example — see the AutoPilot authoring guide:

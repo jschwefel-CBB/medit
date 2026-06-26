@@ -67,6 +67,7 @@ public final class Preferences {
         static let windowFrame = "windowFrame"
         static let reopenLastSession = "reopenLastSession"
         static let lastSessionFiles = "lastSessionFiles"
+        static let sessionWindows = "sessionWindows"
         static let showDocumentStats = "showDocumentStats"
         static let smartQuotes = "smartQuotes"
         static let smartDashes = "smartDashes"
@@ -116,6 +117,7 @@ public final class Preferences {
             Key.sidebarPane: "folders",
             Key.reopenLastSession: true,
             Key.lastSessionFiles: [String](),
+            Key.sessionWindows: Data(),
             Key.showDocumentStats: true,
             Key.smartQuotes: false,
             Key.smartDashes: false,
@@ -282,10 +284,17 @@ public final class Preferences {
         get { defaults.bool(forKey: Key.reopenLastSession) }
         set { defaults.set(newValue, forKey: Key.reopenLastSession); didChange() }
     }
-    /// File paths open at the end of the last session (for restore).
+    /// File paths open at the end of the last session (pre-multi-window flat list;
+    /// kept readable for migration to the grouped `sessionWindows`).
     public var lastSessionFiles: [String] {
         get { (defaults.array(forKey: Key.lastSessionFiles) as? [String]) ?? [] }
         set { defaults.set(newValue, forKey: Key.lastSessionFiles); didChange() }
+    }
+    /// JSON-encoded `[WindowSession]` — the grouped per-window session (tabs,
+    /// active tab, sidebar folders, frame) for full-workspace restore.
+    public var sessionWindows: Data {
+        get { defaults.data(forKey: Key.sessionWindows) ?? Data() }
+        set { defaults.set(newValue, forKey: Key.sessionWindows); didChange() }
     }
     /// Show live document statistics (word/line/char count) in the status bar.
     public var showDocumentStats: Bool {

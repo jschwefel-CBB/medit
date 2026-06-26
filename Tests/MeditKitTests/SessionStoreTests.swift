@@ -9,38 +9,44 @@ final class SessionStoreTests: XCTestCase {
         prefs = Preferences(defaults: UserDefaults(suiteName: "medit.session.\(UUID().uuidString)")!)
     }
 
-    private func url(_ p: String) -> URL { URL(fileURLWithPath: p) }
-
-    func testRecordStoresOpenFilesInOrder() {
-        let s = SessionStore(preferences: prefs)
-        s.record([url("/a.txt"), url("/b.txt")])
-        XCTAssertEqual(s.files.map(\.path), ["/a.txt", "/b.txt"])
+    private func window(_ paths: [String]) -> WindowSession {
+        WindowSession(tabPaths: paths, activeTabPath: paths.last,
+                      sidebarFolderBookmarks: [], frame: "{{0, 0}, {800, 600}}")
     }
 
-    func testRecordDedupesByPath() {
+    func testRecordStoresWindowsInOrder() {
         let s = SessionStore(preferences: prefs)
-        s.record([url("/a.txt"), url("/a.txt"), url("/b.txt")])
-        XCTAssertEqual(s.files.map(\.path), ["/a.txt", "/b.txt"])
+        let windows = [window(["/a.txt", "/b.txt"]), window(["/c.md"])]
+        s.record(windows)
+        XCTAssertEqual(s.windows, windows)
     }
 
-    func testRecordIgnoresEmpty() {
+    func testRecordEmptyStoresNoWindows() {
         let s = SessionStore(preferences: prefs)
-        s.record([url("/a.txt")])
+        s.record([window(["/a.txt"])])
         s.record([])   // closing everything records an empty session
-        XCTAssertTrue(s.files.isEmpty)
+        XCTAssertTrue(s.windows.isEmpty)
     }
 
     func testPersistsAcrossInstances() {
         let s1 = SessionStore(preferences: prefs)
-        s1.record([url("/a.txt"), url("/b.txt")])
+        let windows = [window(["/a.txt", "/b.txt"])]
+        s1.record(windows)
         let s2 = SessionStore(preferences: prefs)
-        XCTAssertEqual(s2.files.map(\.path), ["/a.txt", "/b.txt"])
+        XCTAssertEqual(s2.windows, windows)
     }
 
     func testClear() {
         let s = SessionStore(preferences: prefs)
-        s.record([url("/a.txt")])
+        s.record([window(["/a.txt"])])
         s.clear()
-        XCTAssertTrue(s.files.isEmpty)
+        XCTAssertTrue(s.windows.isEmpty)
+    }
+
+    func testMigratesLegacyFlatList() {
+        // A pre-multi-window session (flat list, no grouped data) restores as one window.
+        prefs.lastSessionFiles = ["/a.txt", "/b.txt"]
+        let s = SessionStore(preferences: prefs)
+        XCTAssertEqual(s.windows.map(\.tabPaths), [["/a.txt", "/b.txt"]])
     }
 }

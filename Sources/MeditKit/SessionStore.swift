@@ -1,8 +1,9 @@
 import Foundation
 
-/// Persists the set of files open at the end of a session so they can be reopened
-/// on next launch. Independent of macOS state restoration (which medit opts out of
-/// to keep explicit control of window placement). Mirrors `RecentFilesStore`.
+/// Persists the per-window session (tabs, active tab, sidebar folders, frame) so
+/// the full workspace reopens on next launch. Independent of macOS state
+/// restoration (medit opts out to keep explicit window control). Migrates the old
+/// flat `lastSessionFiles` list to one window of tabs on first read.
 public final class SessionStore {
 
     public static let shared = SessionStore()
@@ -13,24 +14,21 @@ public final class SessionStore {
         self.prefs = preferences
     }
 
-    /// The files saved from the last session, in order.
-    public var files: [URL] {
-        prefs.lastSessionFiles.map { URL(fileURLWithPath: $0) }
+    /// The saved windows. If the grouped store is empty but a legacy flat list
+    /// exists, migrate it to a single window of tabs.
+    public var windows: [WindowSession] {
+        let grouped = SessionCodec.decode(prefs.sessionWindows)
+        if !grouped.isEmpty { return grouped }
+        return SessionCodec.migrateFlat(prefs.lastSessionFiles)
     }
 
-    /// Replace the saved session with the given open files (order preserved,
-    /// deduplicated by standardized path). Pass `[]` to record an empty session.
-    public func record(_ urls: [URL]) {
-        var seen = Set<String>()
-        var paths: [String] = []
-        for url in urls where url.isFileURL {
-            let key = url.standardizedFileURL.resolvingSymlinksInPath().path
-            if seen.insert(key).inserted { paths.append(url.path) }
-        }
-        prefs.lastSessionFiles = paths
+    /// Replace the saved session with these windows.
+    public func record(_ windows: [WindowSession]) {
+        prefs.sessionWindows = SessionCodec.encode(windows)
     }
 
     public func clear() {
+        prefs.sessionWindows = Data()
         prefs.lastSessionFiles = []
     }
 }

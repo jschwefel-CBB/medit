@@ -56,27 +56,63 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: Session restore
 
-    /// Reopen files saved from the last session (most editors do this now). Only
-    /// runs when the pref is on and no documents are already open.
+    /// Reopen the previous session's full workspace (windows, their tabs, active
+    /// tab, sidebar folders, and frames). Only runs when the pref is on and no
+    /// documents are already open.
     private func reopenLastSessionIfEnabled() {
         guard Preferences.shared.reopenLastSession,
               NSDocumentController.shared.documents.isEmpty else { return }
-        let urls = SessionStore.shared.files.filter { FileManager.default.fileExists(atPath: $0.path) }
-        guard !urls.isEmpty else { return }
+        let windows = SessionStore.shared.windows
+        guard !windows.isEmpty else { return }
         didOpenFilesAtLaunch = true   // suppress the untitled-open
-        for url in urls {
-            NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
-                if let error { NSApp.presentError(error) }
+        for win in windows { restoreOneWindow(win) }
+    }
+
+    /// Open one saved window: its tabs in order, then select the active tab, set the
+    /// sidebar folders, and apply the frame. Missing files are skipped; a window with
+    /// no surviving files is not created.
+    private func restoreOneWindow(_ session: WindowSession) {
+        let urls = session.tabPaths
+            .map { URL(fileURLWithPath: $0) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+        guard let first = urls.first else { return }
+
+        NSDocumentController.shared.openDocument(withContentsOf: first, display: true) { doc, _, error in
+            if let error { NSApp.presentError(error) }
+            guard let wc = doc?.windowControllers.first as? EditorWindowController else { return }
+            // Remaining files become tabs in THIS window. Because tabbingMode is
+            // .automatic, a separate openDocument elsewhere makes a separate window;
+            // openFiles(at:) adds tabs only within this window.
+            for url in urls.dropFirst() {
+                if EditorWindowController.focusIfAlreadyOpen(url) { continue }
+                wc.openFiles(at: [url])
+            }
+            wc.restoreSidebarRoots(session.sidebarFolderBookmarks)
+            wc.applyFrame(session.frame)
+            if let active = session.activeTabPath {
+                EditorWindowController.focusIfAlreadyOpen(URL(fileURLWithPath: active))
             }
         }
     }
 
-    /// Snapshot the currently-open file URLs to the session store. Called whenever
-    /// documents are opened/closed and at termination.
+    /// Snapshot one WindowSession per editor tab-group to the session store. Called
+    /// whenever documents are opened/closed and at termination.
     @objc private func snapshotSession() {
-        let urls = NSDocumentController.shared.documents
-            .compactMap { ($0 as? TextDocument)?.fileURL }
-        SessionStore.shared.record(urls)
+        var seenGroups = Set<ObjectIdentifier>()
+        var windows: [WindowSession] = []
+        for window in NSApp.windows {
+            guard let wc = window.windowController as? EditorWindowController else { continue }
+            let groupKey = ObjectIdentifier(window.tabGroup ?? window)
+            guard seenGroups.insert(groupKey).inserted else { continue }
+            let tabs = wc.tabDocumentURLs.map(\.path)
+            guard !tabs.isEmpty else { continue }   // skip a group with only untitled docs
+            windows.append(WindowSession(
+                tabPaths: tabs,
+                activeTabPath: wc.activeTabURL?.path,
+                sidebarFolderBookmarks: wc.sidebarRootBookmarks,
+                frame: NSStringFromRect(window.frame)))
+        }
+        SessionStore.shared.record(windows)
     }
 
     private func observeSessionChanges() {
