@@ -42,13 +42,16 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             // A reopened document can arrive asynchronously after launch; under
             // --reset-state close it again here before deciding about untitled.
-            if resetting { self.closeAllRestoredDocuments() }
+            // BUT never close documents the user actually opened at launch (files
+            // passed via openFiles / launchFiles) — only the macOS-restored ones.
+            if resetting, !self.didOpenFilesAtLaunch { self.closeAllRestoredDocuments() }
             // Reopen the previous session's files (unless files were opened at
             // launch, something was already restored, or we're resetting state).
             if !resetting, !self.didOpenFilesAtLaunch { self.reopenLastSessionIfEnabled() }
             // Don't open a blank tab if files were opened/restored at launch.
             if !self.didOpenFilesAtLaunch { self.openUntitledIfNoDocuments() }
             self.openLaunchFolderIfRequested()
+            self.openLaunchFilesIfRequested()
             // Track session changes from here on.
             self.observeSessionChanges()
         }
@@ -135,24 +138,35 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         openFolderInFrontWindow(URL(fileURLWithPath: path, isDirectory: true))
     }
 
+    /// If launched with `--open-files <paths…>` (GUI test driver hook), open those
+    /// files as tabs in the front window via `openFiles(at:)` — the SAME entry
+    /// point the sidebar and editor-drag use. Lets autopilot exercise the
+    /// open-into-tabs path that NSOpenPanel / Finder-drag normally drive. Guarded
+    /// so it runs at most once.
+    private var didOpenLaunchFiles = false
+    private func openLaunchFilesIfRequested() {
+        guard !didOpenLaunchFiles else { return }
+        let paths = LaunchReset.requestedFilesToOpen(in: CommandLine.arguments)
+        guard !paths.isEmpty else { return }
+        didOpenLaunchFiles = true
+        openUntitledIfNoDocuments()
+        // Fire after launch fully settles (not in the launch async block) so this
+        // faithfully mirrors a runtime sidebar/drag open rather than a launch-time
+        // re-entrant one.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            guard let controller = NSApp.mainWindow?.windowController as? EditorWindowController
+                ?? NSApp.windows.compactMap({ $0.windowController as? EditorWindowController }).first
+            else { return }
+            controller.openFiles(at: paths.map { URL(fileURLWithPath: $0) })
+        }
+    }
+
     /// Close every open document without saving — used only under --reset-state
     /// to discard any session that macOS restored before launch.
     private func closeAllRestoredDocuments() {
         for document in NSDocumentController.shared.documents {
             document.close()
         }
-    }
-
-    /// When a file is opened, replace a *single* pristine (empty, never-edited)
-    /// Untitled document by closing it — so opening a file into a fresh window
-    /// doesn't leave a stray blank tab. If more than one untitled doc exists, or
-    /// any has been touched, leave them all alone (open in a new tab instead).
-    func closePristineUntitledDocuments(excluding opened: NSDocument) {
-        let pristine = NSDocumentController.shared.documents
-            .compactMap { $0 as? TextDocument }
-            .filter { $0 !== opened && $0.isPristineUntitled }
-        guard pristine.count == 1 else { return }
-        pristine[0].close()
     }
 
     private func openUntitledIfNoDocuments() {
@@ -187,30 +201,66 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the rest to the normal document machinery.
     public func application(_ sender: NSApplication, openFiles filenames: [String]) {
         didOpenFilesAtLaunch = true
-        var documentPaths: [String] = []
+        var documentURLs: [URL] = []
         for path in filenames {
             var isDir: ObjCBool = false
             if FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue {
                 openFolderInFrontWindow(URL(fileURLWithPath: path, isDirectory: true))
             } else {
-                documentPaths.append(path)
+                documentURLs.append(URL(fileURLWithPath: path))
             }
         }
-        for path in documentPaths {
-            NSDocumentController.shared.openDocument(
-                withContentsOf: URL(fileURLWithPath: path), display: true) { [weak self] doc, _, error in
-                if let error { NSApp.presentError(error); return }
-                guard let doc else { return }
-                // Ensure the opened document's window is created and frontmost —
-                // a freshly launched Untitled window can otherwise stay on top.
-                if doc.windowControllers.isEmpty { doc.makeWindowControllers() }
-                doc.showWindows()
-                doc.windowControllers.first?.window?.makeKeyAndOrderFront(nil)
-                // Replace a lone pristine Untitled tab/window with the opened file.
-                self?.closePristineUntitledDocuments(excluding: doc)
-            }
-        }
+        openFilesAsTabsInFrontWindow(documentURLs)
         sender.reply(toOpenOrPrint: .success)
+    }
+
+    /// Open `urls` as TABS in the front editor window via the same
+    /// `EditorWindowController.openFiles(at:)` path the sidebar / editor-drop use.
+    /// Creating one host (a blank untitled) first if none exists. Then replace a
+    /// lone pristine untitled so we don't leave a stray blank tab.
+    ///
+    /// Routing every Finder/launch/app-icon-drag open through `openFiles(at:)` is
+    /// what keeps multi-file opens as TABS under `tabbingMode = .automatic`: that
+    /// method calls `addTabbedWindow` explicitly. Opening each file with an
+    /// independent `openDocument(display:true)` (the old approach) relied on the
+    /// `.preferred` force-merge and scattered the files into separate windows once
+    /// the mode changed — the v2.7.0 regression this fixes.
+    private func openFilesAsTabsInFrontWindow(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        openUntitledIfNoDocuments()
+        guard let controller = NSApp.mainWindow?.windowController as? EditorWindowController
+            ?? NSApp.windows.compactMap({ $0.windowController as? EditorWindowController }).first
+        else { return }
+        controller.openFiles(at: urls)
+        // Replace a lone pristine Untitled host once the requested files have
+        // opened. The open is async (openDocument), so retry until the files we
+        // asked for are actually open (a stable condition — not the transient
+        // pristine count), then trim a single leftover blank tab.
+        scheduleLonePristineUntitledCleanup(awaiting: urls, retriesLeft: 12)
+    }
+
+    /// Once the `awaiting` files are all open, close a single leftover pristine
+    /// (empty, never-edited) Untitled document so the open flow doesn't leave a
+    /// stray blank tab. Retries on the main runloop while the async opens are
+    /// still in flight (continuation is gated on "have the requested files
+    /// appeared yet", which is monotonic — so a transient extra untitled can't
+    /// abandon the cleanup), up to the retry budget. No-op when there is no lone
+    /// pristine untitled or it's the only document.
+    private func scheduleLonePristineUntitledCleanup(awaiting urls: [URL], retriesLeft: Int) {
+        let openPaths = Set(NSDocumentController.shared.documents.compactMap { $0.fileURL?.standardizedFileURL.path })
+        let allRequestedOpen = urls.allSatisfy { openPaths.contains($0.standardizedFileURL.path) }
+        if allRequestedOpen {
+            let pristine = NSDocumentController.shared.documents
+                .compactMap { $0 as? TextDocument }
+                .filter { $0.isPristineUntitled }
+            // Trim a lone blank tab only when real files sit beside it.
+            if pristine.count == 1, !openPaths.isEmpty { pristine[0].close() }
+            return
+        }
+        guard retriesLeft > 0 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.scheduleLonePristineUntitledCleanup(awaiting: urls, retriesLeft: retriesLeft - 1)
+        }
     }
 
     /// Open a folder as a sidebar root in the front editor window, creating one

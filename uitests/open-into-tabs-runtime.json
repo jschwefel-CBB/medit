@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "name": "open multiple files at runtime (sidebar/drag path) -> ONE window, tabs",
+  "comment": "Exercises EditorWindowController.openFiles(at:) — the same entry point the sidebar single-click, editor file-drop, and Recent list use — via the --open-files launch hook (which calls openFiles(at:) ~1s after launch). Three files must land as TABS in one window, not separate windows. Requires the Debug build (sandbox off) and staged fixtures.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state", "--open-files", "/tmp/medit-ap-open-a.txt", "/tmp/medit-ap-open-b.txt", "/tmp/medit-ap-open-c.txt"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "settle", "action": "wait", "args": { "seconds": 3 } },
+    { "id": "shot", "action": "screenshot",
+      "args": { "path": "/tmp/medit-uitests/open-runtime.png" } },
+    { "id": "one-window", "action": "assert",
+      "target": { "role": "AXWindow" },
+      "assert": { "property": "count", "op": "equals", "expected": "1" } },
+    { "id": "quit", "action": "terminate" }
+  ]
+}

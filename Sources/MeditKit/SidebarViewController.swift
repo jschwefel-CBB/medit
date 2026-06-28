@@ -423,6 +423,11 @@ extension SidebarViewController: NSOutlineViewDelegate {
         // Emphasize root rows.
         let isRoot = dataSource.roots.contains { $0 === node }
         cell.textField?.font = isRoot ? .boldSystemFont(ofSize: 12) : .systemFont(ofSize: 12)
+        // Stable per-file accessibility identifier so GUI tests (AutoPilot) can
+        // target a specific row by name regardless of position. The static-text
+        // value matcher proved unreliable for outline rows; an explicit
+        // identifier is the documented, robust handle.
+        cell.textField?.setAccessibilityIdentifier("sidebarRow:" + node.url.lastPathComponent)
         return cell
     }
 

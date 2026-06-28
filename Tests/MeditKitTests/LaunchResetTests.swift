@@ -138,4 +138,27 @@ final class LaunchResetTests: XCTestCase {
         XCTAssertNil(LaunchReset.requestedFolderToOpen(in: ["medit", "--open-folder", ""]),
                      "empty path is nil")
     }
+
+    func testRequestedFilesToOpenParsing() {
+        XCTAssertEqual(
+            LaunchReset.requestedFilesToOpen(in: ["medit", "--open-files", "/a.txt", "/b.txt", "/c.txt"]),
+            ["/a.txt", "/b.txt", "/c.txt"])
+        // A single file.
+        XCTAssertEqual(
+            LaunchReset.requestedFilesToOpen(in: ["--reset-state", "--open-files", "/only.txt"]),
+            ["/only.txt"])
+        // Stops collecting at the next --flag, so flags after the file list are
+        // not swallowed as paths.
+        XCTAssertEqual(
+            LaunchReset.requestedFilesToOpen(in: ["--open-files", "/a.txt", "/b.txt", "--open-folder", "/dir"]),
+            ["/a.txt", "/b.txt"])
+        // Empty path tokens are skipped.
+        XCTAssertEqual(
+            LaunchReset.requestedFilesToOpen(in: ["--open-files", "", "/b.txt"]),
+            ["/b.txt"])
+        // Absent flag, or flag with no following paths -> [].
+        XCTAssertEqual(LaunchReset.requestedFilesToOpen(in: ["medit"]), [])
+        XCTAssertEqual(LaunchReset.requestedFilesToOpen(in: ["medit", "--open-files"]), [])
+        XCTAssertEqual(LaunchReset.requestedFilesToOpen(in: ["--open-files", "--reset-state"]), [])
+    }
 }

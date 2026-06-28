@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- DEBUG/TEST BUILDS ONLY. The App Sandbox is intentionally DISABLED here so
+	     the GUI test driver (AutoPilot) can drive the real sidebar/drag/open flows
+	     against fixtures on disk without the per-file security-scope grants that a
+	     sandboxed process requires (a synthetic test cannot satisfy Powerbox). The
+	     SHIPPING build uses medit.entitlements, which keeps the sandbox ON. This
+	     file is referenced only by the Debug build configuration; never ship it. -->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+</dict>
+</plist>
