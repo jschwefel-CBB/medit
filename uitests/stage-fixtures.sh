@@ -5,7 +5,11 @@
 # keyboard-scroll plans. One job: stage fixtures.
 set -e
 SRC="${0:A:h}/fixtures"
-for f in long.txt long.md mw-a.txt mw-b.txt; do
+for f in long.txt long.md mw-a.txt mw-b.txt open-a.txt open-b.txt open-c.txt; do
   cp "$SRC/$f" "/tmp/medit-ap-$f"
 done
-echo "staged: /tmp/medit-ap-{long.txt,long.md,mw-a.txt,mw-b.txt}"
+# Folder fixture for the sidebar/open-into-tabs plans: a clean copy in /tmp so the
+# tree is deterministic (and reachable by the Debug build).
+rm -rf /tmp/medit-ap-folder
+cp -R "$SRC/open-folder" /tmp/medit-ap-folder
+echo "staged: /tmp/medit-ap-{long.txt,long.md,mw-a.txt,mw-b.txt,open-a.txt,open-b.txt,open-c.txt} + /tmp/medit-ap-folder/"

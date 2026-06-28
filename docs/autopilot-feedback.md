@@ -8,6 +8,54 @@
 
 ---
 
+## medit 2.7.1 — multi-file open regression + the sandbox-vs-test breakthrough
+
+Fix for a v2.7.0 regression: opening **multiple** files at once (launch args /
+Finder "Open With" / dragging multiple files onto the app icon) scattered them
+into **separate windows** instead of tabs. Root cause: `tabbingMode
+.preferred→.automatic` removed AppKit's auto-merge, and
+`application(_:openFiles:)` opened each file with an independent
+`openDocument(display:true)` and never called `addTabbedWindow`. Fix routes that
+path through `EditorWindowController.openFiles(at:)` (explicit `addTabbedWindow`),
+the same entry point sidebar/drag/Recent already use.
+
+**The big AP lesson this session — sandbox vs. synthetic tests:**
+- A **sandboxed** medit build (the shipping entitlements) **cannot read ungranted
+  `/tmp` fixtures** that a test feeds straight into `NSDocumentController`. Worse,
+  it fails **silently**: `openDocument(withContentsOf:display:_,completionHandler:)`
+  **never calls its completion** for an ungranted file — no error, no log. This
+  burned a lot of time looking like a product bug ("the open path is dead") when it
+  was the harness. `launchFiles` works only because AppKit/Powerbox grants those
+  specific files at launch.
+- **Fix for testing:** the **Debug** build now uses `App/medit-debug.entitlements`
+  with the **App Sandbox OFF** (Release stays sandboxed). With the sandbox off, AP
+  can drive the real sidebar / folder / open flows against on-disk fixtures, and
+  the `openDocument` completion fires normally. Verified the actual product fix
+  ALSO holds in the **sandboxed Release** build via `launchFiles` (AppKit-granted)
+  → 1 window, N tabs.
+
+New AP assets:
+- New AX id **`sidebarRow:<filename>`** on every Folders-pane row (the `value`
+  matcher is unreliable for `AXOutline` rows — `find`/`waitFor` on a row's `value`
+  timed out even though the dump showed it; an explicit identifier is the robust
+  handle). This is the documented fix-it pattern (add an `AXIdentifier`), not a
+  workaround.
+- New launch hook **`--open-files <p1> <p2> …`** → opens files as tabs via the
+  front window's `openFiles(at:)` (the sidebar/drag entry point), so AP can
+  exercise the open-into-tabs path NSOpenPanel/Finder-drag normally drive.
+- New plans: `open-into-tabs-launch.json`, `open-into-tabs-runtime.json`,
+  `sidebar-open-file.json`, `sidebar-open-second-file.json`. All assert
+  **1 `AXWindow`** + correct tabs. AP's `AXWindow` `count` assert works reliably
+  (the 2.7.0-flagged risk never materialized).
+
+Process gotcha: **kill ALL medit instances between AP runs** (including any stale
+`/Applications/medit.app`). A lingering instance steals focus and makes
+identifier-based `waitFor` time out — looked like a plan bug, was a stale process.
+**File drag-drop onto the editor is NOT reproducible via AP synthetic events**
+(`toFiles` unsupported per AUTHORING.md); it shares the `openFiles(at:)` code path,
+which the runtime plan + `performFileDropForTesting` unit hook cover.
+
+
 ## medit 2.7.0 — multi-window (no new AX ids)
 
 Added multi-window support: tabs stay the default (⌘N = new tab); **New Window

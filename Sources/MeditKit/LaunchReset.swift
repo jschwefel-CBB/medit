@@ -32,6 +32,27 @@ public enum LaunchReset {
         return path.isEmpty ? nil : path
     }
 
+    /// The launch argument that opens one or more files as TABS in the front
+    /// window via the same `EditorWindowController.openFiles(at:)` entry point the
+    /// sidebar and editor-drag use. This lets the GUI test driver exercise the
+    /// "open into tabs" path that NSOpenPanel / Finder-drag would normally drive
+    /// but autopilot cannot. Usage: `--open-files /a.txt /b.txt /c.txt`. Every
+    /// argument after the flag up to the next `--flag` (or end) is a file path.
+    public static let openFilesFlag = "--open-files"
+
+    /// Extract the list of file paths following `--open-files` (stopping at the
+    /// next `--`-prefixed argument), or [] if the flag is absent.
+    public static func requestedFilesToOpen(in arguments: [String]) -> [String] {
+        guard let i = arguments.firstIndex(of: openFilesFlag) else { return [] }
+        var paths: [String] = []
+        var j = i + 1
+        while j < arguments.count, !arguments[j].hasPrefix("--") {
+            if !arguments[j].isEmpty { paths.append(arguments[j]) }
+            j += 1
+        }
+        return paths
+    }
+
     /// Wipe every persisted preference for the app, including the sidebar root
     /// bookmarks, from the given defaults. Clearing the whole domain *and* the
     /// individual keys is deliberate belt-and-suspenders: `removePersistentDomain`
