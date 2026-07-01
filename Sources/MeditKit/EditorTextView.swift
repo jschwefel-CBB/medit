@@ -621,124 +621,62 @@ public final class EditorTextView: NSTextView {
     func columnCopyForTesting() -> Bool { columnCopy() }
     func columnPasteForTesting() { paste(nil) }
 
-    // MARK: Drag & drop — open dragged files, don't paste their paths
+    // MARK: Drag & drop — open dragged files instead of pasting paths
 
-    /// Register the drag types dropped FILES advertise so the OS routes file
-    /// drags to our overrides. A plain-text NSTextView (isRichText = false) does
-    /// not accept file drops by default. Crucially we register BOTH `.fileURL`
-    /// (single-file drags) AND the classic `NSFilenamesPboardType` — a multi-file
-    /// Finder drag advertises the filenames type, and a view registered only for
-    /// `.fileURL` never even receives `draggingEntered` for a multi-file drag.
-    /// We append to (not replace) the superclass's text drag types.
+    // NSTextView (isRichText = false) runs an internal pipeline:
+    //   acceptableDragTypes → updateDragTypeRegistration → registerForDraggedTypes
+    // This pipeline fires every time isRichText/isEditable/setTextContainer changes
+    // and REPLACES the registered types, silently wiping any direct
+    // registerForDraggedTypes call. The correct hooks are:
+    //   1. acceptableDragTypes  — feeds file types INTO the pipeline permanently
+    //   2. updateDragTypeRegistration — re-adds file types after each pipeline reset
+    //   3. dragOperation(for:type:)   — returns .copy so draggingEntered shows + cursor
+    //   4. readSelection(from:type:)  — the actual intercept point for file drops
+
     private static let filenamesType = NSPasteboard.PasteboardType("NSFilenamesPboardType")
-    private func registerFileDragTypes() {
-        var types = registeredDraggedTypes
-        for t in [NSPasteboard.PasteboardType.fileURL, EditorTextView.filenamesType] where !types.contains(t) {
-            types.append(t)
+    private static let fileDragTypes: [NSPasteboard.PasteboardType] = [
+        .fileURL, NSPasteboard.PasteboardType("NSFilenamesPboardType")
+    ]
+
+    public override var acceptableDragTypes: [NSPasteboard.PasteboardType] {
+        var types = super.acceptableDragTypes
+        for t in EditorTextView.fileDragTypes where !types.contains(t) { types.append(t) }
+        return types
+    }
+
+    public override func updateDragTypeRegistration() {
+        super.updateDragTypeRegistration()
+        guard isEditable else { return }
+        let types = registeredDraggedTypes
+        let missing = EditorTextView.fileDragTypes.filter { !types.contains($0) }
+        guard !missing.isEmpty else { return }
+        registerForDraggedTypes(types + missing)
+    }
+
+    public override func dragOperation(for dragInfo: NSDraggingInfo,
+                                       type: NSPasteboard.PasteboardType) -> NSDragOperation {
+        if EditorTextView.fileDragTypes.contains(type) { return .copy }
+        return super.dragOperation(for: dragInfo, type: type)
+    }
+
+    public override func readSelection(from pasteboard: NSPasteboard,
+                                       type: NSPasteboard.PasteboardType) -> Bool {
+        guard EditorTextView.fileDragTypes.contains(type) else {
+            return super.readSelection(from: pasteboard, type: type)
         }
-        registerForDraggedTypes(types)
-    }
-
-    public override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if window != nil { registerFileDragTypes() }
-    }
-
-    /// File URLs on a dragging pasteboard (empty for a plain-text drag). Reads
-    /// both the modern URL representation and the legacy filenames array so both
-    /// single- and multi-file drags resolve.
-    private static func fileURLs(on pasteboard: NSPasteboard) -> [URL] {
         let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
         var urls = (pasteboard.readObjects(forClasses: [NSURL.self], options: opts) as? [URL] ?? [])
             .filter { $0.isFileURL }
         if urls.isEmpty,
-           let names = pasteboard.propertyList(forType: filenamesType) as? [String] {
+           let names = pasteboard.propertyList(forType: EditorTextView.filenamesType) as? [String] {
             urls = names.map { URL(fileURLWithPath: $0) }
         }
-        return urls
-    }
-
-    public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        if !EditorTextView.fileURLs(on: sender.draggingPasteboard).isEmpty { return .copy }
-        return super.draggingEntered(sender)
-    }
-
-    public override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        if !EditorTextView.fileURLs(on: sender.draggingPasteboard).isEmpty { return .copy }
-        return super.draggingUpdated(sender)
-    }
-
-    public override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        if !EditorTextView.fileURLs(on: sender.draggingPasteboard).isEmpty { return true }
-        return super.prepareForDragOperation(sender)
-    }
-
-    public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        // A dragged file OPENS (in a tab) rather than pasting its path as text.
-        // Copy/paste still inserts text — only drags are intercepted here.
-        let urls = EditorTextView.fileURLs(on: sender.draggingPasteboard)
-        if !urls.isEmpty {
-            onOpenFiles?(urls)
-            return true
-        }
-        return super.performDragOperation(sender)
+        guard !urls.isEmpty else { return false }
+        onOpenFiles?(urls)
+        return true
     }
 
     /// Test hook: simulate dropping file URLs onto the editor.
     func performFileDropForTesting(_ urls: [URL]) { onOpenFiles?(urls) }
 }
 
-// MARK: - FileDroppingScrollView
-
-/// NSScrollView subclass that intercepts external file drags and forwards them
-/// to its EditorTextView documentView. Without this the scroll view's clip view
-/// consumes the drag session before the text view's registered types are checked.
-public final class FileDroppingScrollView: NSScrollView {
-
-    private static let filenamesType = NSPasteboard.PasteboardType("NSFilenamesPboardType")
-    private static let fileDragTypes: [NSPasteboard.PasteboardType] = [.fileURL, filenamesType]
-
-    public override func awakeFromNib() {
-        super.awakeFromNib()
-        registerForDraggedTypes(FileDroppingScrollView.fileDragTypes)
-    }
-
-    func registerFileDragTypes() {
-        registerForDraggedTypes(FileDroppingScrollView.fileDragTypes)
-    }
-
-    private var editorTextView: EditorTextView? { documentView as? EditorTextView }
-
-    private func fileURLs(on pasteboard: NSPasteboard) -> [URL] {
-        let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
-        var urls = (pasteboard.readObjects(forClasses: [NSURL.self], options: opts) as? [URL] ?? [])
-            .filter { $0.isFileURL }
-        if urls.isEmpty,
-           let names = pasteboard.propertyList(forType: FileDroppingScrollView.filenamesType) as? [String] {
-            urls = names.map { URL(fileURLWithPath: $0) }
-        }
-        return urls
-    }
-
-    public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard !fileURLs(on: sender.draggingPasteboard).isEmpty else { return super.draggingEntered(sender) }
-        return .copy
-    }
-
-    public override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard !fileURLs(on: sender.draggingPasteboard).isEmpty else { return super.draggingUpdated(sender) }
-        return .copy
-    }
-
-    public override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        guard !fileURLs(on: sender.draggingPasteboard).isEmpty else { return super.prepareForDragOperation(sender) }
-        return true
-    }
-
-    public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        let urls = fileURLs(on: sender.draggingPasteboard)
-        guard !urls.isEmpty, let tv = editorTextView else { return super.performDragOperation(sender) }
-        tv.onOpenFiles?(urls)
-        return true
-    }
-}
