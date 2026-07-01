@@ -1,6 +1,6 @@
 # medit — Product Brief
 
-**Version:** 2.7.1 | **Platform:** macOS | **License:** MIT
+**Version:** 2.7.3 | **Platform:** macOS | **License:** MIT
 
 ---
 
@@ -90,7 +90,7 @@ medit fills that gap: a lightweight, polished, Mac-native editor for developers 
 
 ## Current release
 
-**v2.7.1** — Multi-file open fix. Opening multiple files (launch args, Finder "Open With," dragging multiple files onto the Dock icon) now opens them as tabs in one window. Prior to v2.7.1 they scattered into separate windows due to a tabbingMode behavior change in v2.7.0.
+**v2.7.3** — Drag-to-open fix. Dragging files from Finder onto the editor text area or the Folders sidebar now opens them as tabs. Root cause was NSTextView's internal drag-registration pipeline silently resetting any direct `registerForDraggedTypes` call on every property change; fixed by overriding `acceptableDragTypes`, `updateDragTypeRegistration`, `dragOperation(for:type:)`, and `readSelection(from:type:)` directly on the text view subclass.
 
 ---
 
@@ -110,6 +110,7 @@ medit fills that gap: a lightweight, polished, Mac-native editor for developers 
 | 2.6.2 | Caret scroll-into-view on open |
 | 2.7.0 | Multi-window support (⇧⌘N); full workspace session restore |
 | 2.7.1 | Multi-file open → tabs (not scattered windows); sidebar open regression fix |
+| 2.7.3 | Drag files from Finder onto editor text area or sidebar → opens as tabs |
 
 ---
 

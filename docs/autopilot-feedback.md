@@ -8,42 +8,54 @@
 
 ---
 
-## medit 2.7.2 — drag-to-editor and drag-to-sidebar (file open via window drop)
+## medit 2.7.3 — drag-to-editor fix (correct NSTextView pipeline override)
 
-Fix for silent rejection of files dragged onto the editor text area or the
-Folders sidebar pane. Dragging onto the Dock icon worked (routes through
-`application(_:openFiles:)`); dragging onto the window interior did nothing.
+v2.7.2 shipped with a broken drag-to-editor fix (`FileDroppingScrollView`
+subclass) — files dragged onto the editor text area still silently rejected.
+v2.7.3 replaces the entire approach with the correct AppKit-internal mechanism.
 
-**Root cause — editor:** `EditorTextView` registered for file drag types and
-implemented all the drag override methods correctly. The problem was the
-`NSScrollView` wrapper sits between the window and the text view in the
-responder/hit-test hierarchy. Drags land on the scroll view first; since it
-wasn't registered for file types, it silently consumed the session before
-`EditorTextView.draggingEntered` was ever called.
+**Root cause — editor (real):** `NSTextView` (with `isRichText = false`) runs
+an internal drag-registration pipeline:
+  `acceptableDragTypes → updateDragTypeRegistration → registerForDraggedTypes`
+This pipeline fires every time `isRichText`, `isEditable`, or `setTextContainer`
+changes and **replaces** the entire registered-type set. Any direct
+`registerForDraggedTypes` call (including in `viewDidMoveToWindow` or from a
+`FileDroppingScrollView`) is silently wiped out on the next pipeline run. For
+`isRichText = false`, AppKit does not include `.fileURL` or
+`NSFilenamesPboardType` in the pipeline output at all — so the OS drag system
+never considers the text view a valid destination and `draggingEntered` is never
+called. The `NSScrollView`/`NSClipView` layer was not the issue.
 
-**Fix — editor:** Replaced `NSScrollView` with `FileDroppingScrollView`, a
-thin subclass that registers for `.fileURL` + `NSFilenamesPboardType` and
-forwards file drops to its `EditorTextView` documentView via `onOpenFiles`.
-The text view's own drag handling is unchanged (still covers the case when
-a drag lands directly on the text view).
+**Fix — editor:** Four overrides on `EditorTextView` that integrate into the
+pipeline rather than fighting it:
+1. `acceptableDragTypes` — appends file types to super's list; feeds the pipeline
+2. `updateDragTypeRegistration()` — calls super then re-adds file types after
+   each reset (survives repeated `isRichText` / `isEditable` changes)
+3. `dragOperation(for:type:)` — returns `.copy` for file types (shows + cursor)
+4. `readSelection(from:type:)` — the correct AppKit intercept for drop handling
+   (NSTextView routes drops here, not through `performDragOperation`)
 
-**Root cause — sidebar:** `FileTreeDataSource.validateDrop` only accepted
-drops onto a directory node (for internal folder-to-folder moves). Any drop
-from Finder (external source, `draggingSource == nil`) was rejected with `[]`.
-There was no open-files path at all for external drags into the sidebar.
+`FileDroppingScrollView` and `FileDroppingClipView` removed entirely.
+`EditorViewController` reverts to plain `NSScrollView`.
 
-**Fix — sidebar:** `FileTreeDataSource.validateDrop` now detects external
-drags (`draggingSource == nil`) and returns `.copy` unconditionally. `acceptDrop`
-reads the file URLs and calls `onOpenFiles` → `windowController.openFiles(at:)`.
-Also registered `NSFilenamesPboardType` on the outline view (multi-file Finder
-drags advertise this type, not `.fileURL`).
+**Root cause — sidebar (unchanged from v2.7.2):** `FileTreeDataSource.validateDrop`
+only accepted internal drags. External Finder drops (`draggingSource == nil`)
+were rejected. Fix: detect external drags → return `.copy`; `acceptDrop` reads
+URLs → `onOpenFiles`. `NSFilenamesPboardType` registered on the outline view.
 
 **AP coverage note:** Synthetic file drag events (`toFiles`) are not supported
-by AutoPilot, so the drag paths cannot be directly driven by a plan. They share
-`openFiles(at:)` with the `--open-files` runtime plan and the editor's
-`performFileDropForTesting` hook — both already covered. The fix was validated
-manually: dragging a .txt and a .md from Finder onto the editor area and onto
-the sidebar both open the files as tabs in one window. 8/8 existing plans green.
+by AutoPilot — drag paths cannot be directly driven. They share `openFiles(at:)`
+with the `--open-files` runtime plan and `performFileDropForTesting` hook —
+both already covered. Fix validated manually: single and multi-file drags onto
+the editor text area and the sidebar open files as tabs. 8/8 existing plans green.
+
+---
+
+## medit 2.7.2 — BROKEN RELEASE (drag-to-editor did not work)
+
+`FileDroppingScrollView` approach was wrong — see v2.7.3 entry above for the
+real root cause and fix. Sidebar fix (`FileTreeDataSource` external drag
+detection) was correct and carried forward.
 
 ---
 
