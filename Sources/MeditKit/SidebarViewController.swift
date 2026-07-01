@@ -52,7 +52,11 @@ public final class SidebarViewController: NSViewController {
         let menu = NSMenu()
         menu.delegate = self
         outline.menu = menu
-        outline.registerForDraggedTypes([.fileURL])
+        outline.registerForDraggedTypes([.fileURL, NSPasteboard.PasteboardType("NSFilenamesPboardType")])
+
+        dataSource.onOpenFiles = { [weak self] urls in
+            self?.windowController?.openFiles(at: urls)
+        }
 
         dataSource.onDropMove = { [weak self] sources, dest in
             guard let self else { return }
