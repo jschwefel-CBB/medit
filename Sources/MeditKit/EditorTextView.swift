@@ -687,3 +687,58 @@ public final class EditorTextView: NSTextView {
     /// Test hook: simulate dropping file URLs onto the editor.
     func performFileDropForTesting(_ urls: [URL]) { onOpenFiles?(urls) }
 }
+
+// MARK: - FileDroppingScrollView
+
+/// NSScrollView subclass that intercepts external file drags and forwards them
+/// to its EditorTextView documentView. Without this the scroll view's clip view
+/// consumes the drag session before the text view's registered types are checked.
+public final class FileDroppingScrollView: NSScrollView {
+
+    private static let filenamesType = NSPasteboard.PasteboardType("NSFilenamesPboardType")
+    private static let fileDragTypes: [NSPasteboard.PasteboardType] = [.fileURL, filenamesType]
+
+    public override func awakeFromNib() {
+        super.awakeFromNib()
+        registerForDraggedTypes(FileDroppingScrollView.fileDragTypes)
+    }
+
+    func registerFileDragTypes() {
+        registerForDraggedTypes(FileDroppingScrollView.fileDragTypes)
+    }
+
+    private var editorTextView: EditorTextView? { documentView as? EditorTextView }
+
+    private func fileURLs(on pasteboard: NSPasteboard) -> [URL] {
+        let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        var urls = (pasteboard.readObjects(forClasses: [NSURL.self], options: opts) as? [URL] ?? [])
+            .filter { $0.isFileURL }
+        if urls.isEmpty,
+           let names = pasteboard.propertyList(forType: FileDroppingScrollView.filenamesType) as? [String] {
+            urls = names.map { URL(fileURLWithPath: $0) }
+        }
+        return urls
+    }
+
+    public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard !fileURLs(on: sender.draggingPasteboard).isEmpty else { return super.draggingEntered(sender) }
+        return .copy
+    }
+
+    public override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard !fileURLs(on: sender.draggingPasteboard).isEmpty else { return super.draggingUpdated(sender) }
+        return .copy
+    }
+
+    public override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard !fileURLs(on: sender.draggingPasteboard).isEmpty else { return super.prepareForDragOperation(sender) }
+        return true
+    }
+
+    public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let urls = fileURLs(on: sender.draggingPasteboard)
+        guard !urls.isEmpty, let tv = editorTextView else { return super.performDragOperation(sender) }
+        tv.onOpenFiles?(urls)
+        return true
+    }
+}

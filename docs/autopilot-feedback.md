@@ -8,6 +8,45 @@
 
 ---
 
+## medit 2.7.2 — drag-to-editor and drag-to-sidebar (file open via window drop)
+
+Fix for silent rejection of files dragged onto the editor text area or the
+Folders sidebar pane. Dragging onto the Dock icon worked (routes through
+`application(_:openFiles:)`); dragging onto the window interior did nothing.
+
+**Root cause — editor:** `EditorTextView` registered for file drag types and
+implemented all the drag override methods correctly. The problem was the
+`NSScrollView` wrapper sits between the window and the text view in the
+responder/hit-test hierarchy. Drags land on the scroll view first; since it
+wasn't registered for file types, it silently consumed the session before
+`EditorTextView.draggingEntered` was ever called.
+
+**Fix — editor:** Replaced `NSScrollView` with `FileDroppingScrollView`, a
+thin subclass that registers for `.fileURL` + `NSFilenamesPboardType` and
+forwards file drops to its `EditorTextView` documentView via `onOpenFiles`.
+The text view's own drag handling is unchanged (still covers the case when
+a drag lands directly on the text view).
+
+**Root cause — sidebar:** `FileTreeDataSource.validateDrop` only accepted
+drops onto a directory node (for internal folder-to-folder moves). Any drop
+from Finder (external source, `draggingSource == nil`) was rejected with `[]`.
+There was no open-files path at all for external drags into the sidebar.
+
+**Fix — sidebar:** `FileTreeDataSource.validateDrop` now detects external
+drags (`draggingSource == nil`) and returns `.copy` unconditionally. `acceptDrop`
+reads the file URLs and calls `onOpenFiles` → `windowController.openFiles(at:)`.
+Also registered `NSFilenamesPboardType` on the outline view (multi-file Finder
+drags advertise this type, not `.fileURL`).
+
+**AP coverage note:** Synthetic file drag events (`toFiles`) are not supported
+by AutoPilot, so the drag paths cannot be directly driven by a plan. They share
+`openFiles(at:)` with the `--open-files` runtime plan and the editor's
+`performFileDropForTesting` hook — both already covered. The fix was validated
+manually: dragging a .txt and a .md from Finder onto the editor area and onto
+the sidebar both open the files as tabs in one window. 8/8 existing plans green.
+
+---
+
 ## medit 2.7.1 — multi-file open regression + the sandbox-vs-test breakthrough
 
 Fix for a v2.7.0 regression: opening **multiple** files at once (launch args /

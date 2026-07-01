@@ -71,7 +71,7 @@ public final class EditorViewController: NSViewController {
         // got this wrong rendered correct geometry/colors yet showed no text, so
         // keep the container/layoutManager/storage setup below intact.
         let frame = NSRect(x: 0, y: 0, width: 800, height: 560)
-        let scrollView = NSScrollView(frame: frame)
+        let scrollView = FileDroppingScrollView(frame: frame)
         scrollView.autoresizingMask = [.width, .height]
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
@@ -106,6 +106,7 @@ public final class EditorViewController: NSViewController {
         textView.indentTabWidth = prefs.tabWidth
         textView.indentUseSpaces = prefs.insertSpacesForTab
         scrollView.documentView = textView
+        scrollView.registerFileDragTypes()
         textView.isRichText = false                 // plain-text editor
         textView.allowsUndo = true
         textView.isAutomaticQuoteSubstitutionEnabled = prefs.smartQuotes

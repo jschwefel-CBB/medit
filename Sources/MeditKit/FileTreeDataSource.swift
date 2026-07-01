@@ -37,10 +37,13 @@ public final class FileTreeDataSource: NSObject, NSOutlineViewDataSource {
         return !childList(of: node).isEmpty
     }
 
-    // MARK: Drag & drop (internal moves)
+    // MARK: Drag & drop
 
-    /// Called by the controller to actually perform a move when a drop is accepted.
+    /// Called for internal moves (a file dragged from one folder to another within the sidebar).
     public var onDropMove: ((_ sources: [URL], _ destination: URL) -> Void)?
+
+    /// Called when external files are dropped onto the sidebar (open them as tabs).
+    public var onOpenFiles: ((_ urls: [URL]) -> Void)?
 
     public func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
         (item as? FileTreeNode)?.url as NSURL?
@@ -48,7 +51,11 @@ public final class FileTreeDataSource: NSObject, NSOutlineViewDataSource {
 
     public func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo,
                             proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
-        // Only allow dropping onto a directory node (not between rows).
+        // External drag (from Finder/outside the app) — accept anywhere as an open.
+        if info.draggingSource == nil {
+            return .copy
+        }
+        // Internal move: only onto a directory node.
         guard let target = item as? FileTreeNode, target.isDirectory, index == NSOutlineViewDropOnItemIndex else {
             return []
         }
@@ -57,6 +64,23 @@ public final class FileTreeDataSource: NSObject, NSOutlineViewDataSource {
 
     public func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo,
                             item: Any?, childIndex index: Int) -> Bool {
+        // External drag — open the files as tabs.
+        if info.draggingSource == nil {
+            var urls: [URL] = []
+            let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+            if let read = info.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: opts) as? [URL] {
+                urls = read.filter { $0.isFileURL }
+            }
+            if urls.isEmpty,
+               let names = info.draggingPasteboard.propertyList(
+                   forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String] {
+                urls = names.map { URL(fileURLWithPath: $0) }
+            }
+            guard !urls.isEmpty else { return false }
+            onOpenFiles?(urls)
+            return true
+        }
+        // Internal move.
         guard let target = item as? FileTreeNode, target.isDirectory else { return false }
         var sources: [URL] = []
         info.enumerateDraggingItems(options: [], for: outlineView, classes: [NSURL.self], searchOptions: [:]) { drag, _, _ in
