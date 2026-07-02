@@ -1,24 +1,64 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "name": "find bar opens and accepts input",
-  "include": ["setups/launch.json"],
+  "include": [
+    "setups/launch.json"
+  ],
   "target": {
     "bundleId": "com.jschwefel.medit",
-    "launchArgs": ["--reset-state"]
+    "launchArgs": [
+      "--reset-state"
+    ]
   },
-  "defaults": { "timeoutMs": 6000, "retryIntervalMs": 100 },
+  "defaults": {
+    "timeoutMs": 6000,
+    "retryIntervalMs": 100
+  },
   "steps": [
-    { "id": "type-body", "action": "type",
-      "target": { "identifier": "editorTextView" },
-      "args": { "text": "alpha beta alpha" } },
-    { "id": "open-find", "action": "keyPress",
-      "target": { "identifier": "editorTextView" },
-      "args": { "keys": "cmd+f" } },
-    { "id": "find-field-exists", "action": "assert",
-      "target": { "identifier": "findField" },
-      "assert": { "property": "exists", "op": "exists" } },
-    { "id": "type-query", "action": "type",
-      "target": { "identifier": "findField" },
-      "args": { "text": "alpha" } }
+    {
+      "id": "type-body",
+      "action": "type",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "text": "alpha beta alpha"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "open-find",
+      "action": "keyPress",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "keys": "cmd+f"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "find-field-exists",
+      "action": "assert",
+      "target": {
+        "identifier": "findField"
+      },
+      "assert": {
+        "property": "value",
+        "op": "exists"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "type-query",
+      "action": "type",
+      "target": {
+        "identifier": "findField"
+      },
+      "args": {
+        "text": "alpha"
+      },
+      "level": "happyPath"
+    }
   ]
 }

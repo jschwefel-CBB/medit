@@ -1,40 +1,123 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "name": "Folders pane: double-click a file opens it (in the same window)",
   "comment": "Regression for 'cannot open a file from the Folders pane'. Opens a folder as a sidebar root (--open-folder), expands it (double-click the root row by its sidebarRow:<name> identifier), double-clicks a file, and asserts the editor shows that file's contents and only ONE window exists. Requires the Debug build (sandbox off, so the tree enumerates) and the staged folder fixture (run stage-fixtures.sh).",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
-    "launchArgs": ["--reset-state", "--open-folder", "/tmp/medit-ap-folder"]
+    "launchArgs": [
+      "--reset-state",
+      "--open-folder",
+      "/tmp/medit-ap-folder"
+    ]
   },
-  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "defaults": {
+    "timeoutMs": 8000,
+    "retryIntervalMs": 150
+  },
   "steps": [
-    { "id": "wait-window", "action": "waitFor",
-      "target": { "role": "AXWindow" }, "args": { "present": true } },
-    { "id": "wait-root", "action": "waitFor",
-      "target": { "identifier": "sidebarRow:medit-ap-folder" }, "args": { "present": true } },
-
-    { "id": "expand-folder", "action": "doubleClick",
-      "target": { "identifier": "sidebarRow:medit-ap-folder" } },
-    { "id": "settle-expand", "action": "wait", "args": { "seconds": 1 } },
-
-    { "id": "wait-file-row", "action": "waitFor",
-      "target": { "identifier": "sidebarRow:s-alpha.txt" }, "args": { "present": true } },
-
-    { "id": "open-file", "action": "doubleClick",
-      "target": { "identifier": "sidebarRow:s-alpha.txt" } },
-    { "id": "settle-open", "action": "wait", "args": { "seconds": 1 } },
-
-    { "id": "shot", "action": "screenshot",
-      "args": { "path": "/tmp/medit-uitests/sidebar-open.png" } },
-
-    { "id": "assert-opened", "action": "assert",
-      "target": { "identifier": "editorTextView" },
-      "assert": { "property": "value", "op": "contains", "expected": "sidebar alpha contents" } },
-
-    { "id": "one-window", "action": "assert",
-      "target": { "role": "AXWindow" },
-      "assert": { "property": "count", "op": "equals", "expected": "1" } },
-
-    { "id": "quit", "action": "terminate" }
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "target": {
+        "role": "AXWindow"
+      },
+      "args": {
+        "present": true
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "wait-root",
+      "action": "waitFor",
+      "target": {
+        "identifier": "sidebarRow:medit-ap-folder"
+      },
+      "args": {
+        "present": true
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "expand-folder",
+      "action": "doubleClick",
+      "target": {
+        "identifier": "sidebarRow:medit-ap-folder"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "settle-expand",
+      "action": "wait",
+      "args": {
+        "seconds": 1
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "wait-file-row",
+      "action": "waitFor",
+      "target": {
+        "identifier": "sidebarRow:s-alpha.txt"
+      },
+      "args": {
+        "present": true
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "open-file",
+      "action": "doubleClick",
+      "target": {
+        "identifier": "sidebarRow:s-alpha.txt"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "settle-open",
+      "action": "wait",
+      "args": {
+        "seconds": 1
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "shot",
+      "action": "screenshot",
+      "args": {
+        "path": "/tmp/medit-uitests/sidebar-open.png"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "assert-opened",
+      "action": "assert",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "assert": {
+        "property": "value",
+        "op": "contains",
+        "expected": "sidebar alpha contents"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "one-window",
+      "action": "assert",
+      "target": {
+        "role": "AXWindow"
+      },
+      "assert": {
+        "property": "count",
+        "op": "equals",
+        "expected": "1"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "quit",
+      "action": "terminate",
+      "level": "happyPath"
+    }
   ]
 }
