@@ -1,6 +1,6 @@
 # medit — Product Brief
 
-**Version:** 2.7.3 | **Platform:** macOS | **License:** MIT
+**Version:** 2.7.4 | **Platform:** macOS | **License:** MIT
 
 ---
 
@@ -90,7 +90,7 @@ medit fills that gap: a lightweight, polished, Mac-native editor for developers 
 
 ## Current release
 
-**v2.7.3** — Drag-to-open fix. Dragging files from Finder onto the editor text area or the Folders sidebar now opens them as tabs. Root cause was NSTextView's internal drag-registration pipeline silently resetting any direct `registerForDraggedTypes` call on every property change; fixed by overriding `acceptableDragTypes`, `updateDragTypeRegistration`, `dragOperation(for:type:)`, and `readSelection(from:type:)` directly on the text view subclass.
+**v2.7.4** — Preview copy fix + default-to-preview. Selecting text in the rendered Markdown preview and pressing ⌘C now copies to the system clipboard. Markdown files now open in the rendered preview by default (toggle: Settings → Auto-show preview for Markdown).
 
 ---
 
@@ -111,6 +111,7 @@ medit fills that gap: a lightweight, polished, Mac-native editor for developers 
 | 2.7.0 | Multi-window support (⇧⌘N); full workspace session restore |
 | 2.7.1 | Multi-file open → tabs (not scattered windows); sidebar open regression fix |
 | 2.7.3 | Drag files from Finder onto editor text area or sidebar → opens as tabs |
+| 2.7.4 | Copy from rendered Markdown preview; default to preview view for .md files |
 
 ---
 

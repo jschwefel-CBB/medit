@@ -1,26 +1,26 @@
 # medit GUI tests (AutoPilot)
 
-These are declarative GUI test plans executed by AutoPilot — the `autopilot`
-CLI (`~/repositories/autopilot-macos`). They drive the built medit app via the
-macOS Accessibility API.
+These are declarative GUI test plans executed by AutoPilot — the installed
+`autopilot` CLI. They drive the built medit app via the macOS Accessibility API.
+
+AutoPilot is a third-party tool installed on this machine; treat it as a
+black box on your `PATH`. You do not build it and you do not reference its
+source tree.
 
 ## Prerequisites
-- **AutoPilot ≥ core 3.1.0** with the `AutopilotDragSource.app` helper. Three
-  working paths (pick any):
-  - `/opt/homebrew/bin/autopilot` — Homebrew 3.1.0, helper bundled in the tarball
-  - `~/repositories/autopilot-macos/autopilot/.build/arm64-apple-macosx/release/autopilot`
-  - `~/repositories/autopilot-macos/autopilot/.build/arm64-apple-macosx/debug/autopilot`
-
-  For the local builds, `Fixtures/make-drag-source-app.sh` (from the autopilot-macos
-  repo, after a `git pull`) places the helper next to both binaries.
-  Older AutoPilot **cannot run these plans** — see "What changed" below.
-- Grant Accessibility permission to the terminal/binary running AutoPilot
+- **AutoPilot ≥ 3.1.0, installed via Homebrew** and on your `PATH` as
+  `autopilot` (`/opt/homebrew/bin/autopilot`). Install/update with:
+  ```bash
+  brew tap jschwefel-CBB/autopilot && brew install autopilot   # or: brew upgrade autopilot
+  ```
+  The Homebrew install also ships the `AutopilotDragSource.app` file-drop
+  helper alongside the binary, so `drop-files-onto-editor.json` works with no
+  extra setup. Older AutoPilot **cannot run these plans** — see "What changed"
+  below.
+- Grant Accessibility permission to the terminal running `autopilot`
   (`autopilot doctor` checks this).
 - medit must be installed (so `bundleId` resolves) or its built `.app` path
   supplied via the plan `target.path`.
-- For `drop-files-onto-editor.json` only: the **`AutopilotDragSource.app`** helper
-  must sit next to the `autopilot` binary (the Homebrew/release bundle ships it
-  there automatically). See "Real file drag-and-drop" below.
 
 ## What changed (AutoPilot upgrade — read if plans suddenly fail to parse)
 AutoPilot core 3.0.0 made two breaking changes that this suite now depends on:
@@ -34,18 +34,18 @@ AutoPilot core 3.0.0 made two breaking changes that this suite now depends on:
    see below. This replaced the old "file drag is not supported" behavior.
 
 If a plan errors with *"missing required field `level`"* or *"unsupported
-schemaVersion"*, your `autopilot` binary is too old — rebuild/reinstall it.
+schemaVersion"*, your `autopilot` binary is too old — `brew upgrade autopilot`.
 
 ## Run a plan
 ```bash
-~/repositories/autopilot-macos/.build/debug/autopilot run \
-  ~/repositories/medit/uitests/open-and-type.json \
-  --artifacts /tmp/medit-uitests
+autopilot run uitests/open-and-type.json --artifacts /tmp/medit-uitests
 ```
-Exit codes: 0 pass, 1 test failure, 2 plan error, 3 permission missing.
+`run` is the default subcommand. Exit codes: 0 pass, 1 test failure,
+2 plan error, 3 permission missing. (There is no `--version` flag; use
+`autopilot doctor` as the health check.)
 
 Some plans need committed fixtures staged into `/tmp` first: run
-`./stage-fixtures.sh` before `keyboard-scroll*.json`, `multi-window.json`, the
+`zsh uitests/stage-fixtures.sh` before `keyboard-scroll*.json`, `multi-window.json`, the
 `open-into-tabs-*.json` plans, the `sidebar-open*.json` plans, and
 `drop-files-onto-editor.json`.
 
@@ -62,9 +62,10 @@ medit's actual AppKit drop path (`public.file-url` + `NSFilenamesPboardType` →
 
 Requirements specific to this plan:
 - **The `AutopilotDragSource.app` helper** must sit next to the `autopilot`
-  binary. The Homebrew install and both local build dirs (debug + release) have it
-  in place — see Prerequisites above. Override with `AUTOPILOT_DRAG_SOURCE` env var
-  if needed. Without it the drop step fails with *"could not locate AutopilotDragSource helper."*
+  binary. The Homebrew install ships it there automatically (AutoPilot resolves
+  the `/opt/homebrew/bin/autopilot` symlink to its Cellar dir, where the helper
+  lives). Override with the `AUTOPILOT_DRAG_SOURCE` env var if needed. Without
+  it the drop step fails with *"could not locate AutopilotDragSource helper."*
 - **A real display + Accessibility — it cannot run headless.** AutoPilot becomes
   the drag *source* (a real `NSDraggingSession`) and steers the physical cursor;
   a headless session has no cursor/window server to route the drop.
@@ -107,10 +108,10 @@ build at `/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app`.
   `openFiles(at:)`. Both open as tabs in one window. Regression guard for the
   `.fileURL`-only multi-file bug (multi-file drops fired no events unless
   `NSFilenamesPboardType` was also registered). Needs the AutoPilot **drag-source
-  helper** (`AutopilotDragSource.app`, shipped next to `autopilot`), a real display,
-  and Accessibility — a file drop cannot run headless. **This plan uses
-  `schemaVersion "1.1"` with a `level` on every step** (required by AutoPilot ≥
-  core 3.0.0); the older plans in this dir still use `"1.0"` and need migrating.
+  helper** (`AutopilotDragSource.app`, shipped next to `autopilot` by Homebrew),
+  a real display, and Accessibility — a file drop cannot run headless. Like every
+  plan here it uses `schemaVersion "1.1"` with a `level` on every step (required
+  by AutoPilot ≥ 3.1.0).
 
 ### Test-only launch hooks (`LaunchReset`)
 
@@ -122,12 +123,11 @@ build at `/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app`.
 ## Authoring
 For the complete plan format — actions, assertions, selectors, hygiene
 patterns, and a worked example — see the AutoPilot authoring guide:
-`~/repositories/autopilot-macos/docs/AUTHORING.md`
-(or https://github.com/jschwefel-CBB/autopilot-macos/blob/main/docs/AUTHORING.md).
+https://github.com/jschwefel-CBB/autopilot-macos/blob/main/docs/AUTHORING.md
 The `drag` + `toFiles` file-drop reference is §14a there.
 
-Use the MCP `dump_axtree` tool (or read these plans) to discover identifiers.
-For inspecting a *running* medit you launched yourself, attach by pid:
+Use `autopilot dump-axtree` to discover identifiers. For inspecting a *running*
+medit you launched yourself, attach by pid:
 `autopilot dump-axtree --pid <pid>` (it attaches rather than launching a new
 instance). Element-scoped screenshots and the `captureTarget` step are available
 (see AUTHORING.md §12a) — handy for debugging flaky plans against medit's UI.

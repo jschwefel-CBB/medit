@@ -24,27 +24,6 @@
       "level": "happyPath"
     },
     {
-      "id": "wait-editor-loaded",
-      "action": "assert",
-      "target": {
-        "identifier": "editorTextView"
-      },
-      "assert": {
-        "property": "value",
-        "op": "contains",
-        "expected": "Table test"
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "focus-editor",
-      "action": "click",
-      "target": {
-        "identifier": "editorTextView"
-      },
-      "level": "happyPath"
-    },
-    {
       "id": "show-preview",
       "action": "menu",
       "args": {
@@ -59,7 +38,7 @@
       "id": "wait-preview",
       "action": "waitFor",
       "target": {
-        "role": "AXWebArea"
+        "identifier": "markdownPreviewWebView"
       },
       "args": {
         "present": true
