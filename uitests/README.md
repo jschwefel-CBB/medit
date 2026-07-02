@@ -53,6 +53,16 @@ build at `/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app`.
 - `sidebar-open-second-file.json` — open a **second** file from the sidebar after
   the first; both must be tabs in one window (regression for "can't open any
   after the first").
+- `drop-files-onto-editor.json` — a **real** Finder-style file drag-and-drop: drags
+  two files onto `editorTextView` via AutoPilot's `drag` + `toFiles`, so medit's
+  actual AppKit drop handlers fire (`public.file-url` + `NSFilenamesPboardType`) →
+  `openFiles(at:)`. Both open as tabs in one window. Regression guard for the
+  `.fileURL`-only multi-file bug (multi-file drops fired no events unless
+  `NSFilenamesPboardType` was also registered). Needs the AutoPilot **drag-source
+  helper** (`AutopilotDragSource.app`, shipped next to `autopilot`), a real display,
+  and Accessibility — a file drop cannot run headless. **This plan uses
+  `schemaVersion "1.1"` with a `level` on every step** (required by AutoPilot ≥
+  core 3.0.0); the older plans in this dir still use `"1.0"` and need migrating.
 
 ### Test-only launch hooks (`LaunchReset`)
 

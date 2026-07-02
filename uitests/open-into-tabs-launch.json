@@ -1,24 +1,78 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "name": "open multiple files at launch -> ONE window, tabs (not separate windows)",
   "comment": "Regression for the v2.7.0 multi-window bug: opening several files at once (launch args / Finder Open With / dragging multiple files onto the app icon) went through application(_:openFiles:), which opened each file in a SEPARATE window after tabbingMode changed .preferred->.automatic. The fix routes that path through EditorWindowController.openFiles(at:) (explicit addTabbedWindow). This drives the same code via launchFiles (3 files) and asserts exactly ONE window remains. Requires the Debug build (sandbox off) and staged fixtures (run stage-fixtures.sh).",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
-    "launchArgs": ["--reset-state"],
-    "launchFiles": ["/tmp/medit-ap-open-a.txt", "/tmp/medit-ap-open-b.txt", "/tmp/medit-ap-open-c.txt"]
+    "launchArgs": [
+      "--reset-state"
+    ],
+    "launchFiles": [
+      "/tmp/medit-ap-open-a.txt",
+      "/tmp/medit-ap-open-b.txt",
+      "/tmp/medit-ap-open-c.txt"
+    ]
   },
-  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "defaults": {
+    "timeoutMs": 8000,
+    "retryIntervalMs": 150
+  },
   "steps": [
-    { "id": "wait-window", "action": "waitFor",
-      "target": { "role": "AXWindow" }, "args": { "present": true } },
-    { "id": "wait-editor", "action": "waitFor",
-      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
-    { "id": "settle", "action": "wait", "args": { "seconds": 2 } },
-    { "id": "shot", "action": "screenshot",
-      "args": { "path": "/tmp/medit-uitests/open-launch.png" } },
-    { "id": "one-window", "action": "assert",
-      "target": { "role": "AXWindow" },
-      "assert": { "property": "count", "op": "equals", "expected": "1" } },
-    { "id": "quit", "action": "terminate" }
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "target": {
+        "role": "AXWindow"
+      },
+      "args": {
+        "present": true
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "wait-editor",
+      "action": "waitFor",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "present": true
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "settle",
+      "action": "wait",
+      "args": {
+        "seconds": 2
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "shot",
+      "action": "screenshot",
+      "args": {
+        "path": "/tmp/medit-uitests/open-launch.png"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "one-window",
+      "action": "assert",
+      "target": {
+        "role": "AXWindow"
+      },
+      "assert": {
+        "property": "count",
+        "op": "equals",
+        "expected": "1"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "quit",
+      "action": "terminate",
+      "level": "happyPath"
+    }
   ]
 }

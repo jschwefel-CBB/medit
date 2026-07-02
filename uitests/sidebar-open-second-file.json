@@ -1,44 +1,152 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "name": "Folders pane: opening a SECOND file still works (after the first)",
   "comment": "Regression for 'cannot open any file from the Folders pane after the first one'. Expands the folder, double-clicks s-alpha.txt, then s-bravo.txt; both must open as tabs in ONE window (the second open must not be swallowed and must not spawn a separate window). Requires the Debug build (sandbox off) and the staged folder fixture.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
-    "launchArgs": ["--reset-state", "--open-folder", "/tmp/medit-ap-folder"]
+    "launchArgs": [
+      "--reset-state",
+      "--open-folder",
+      "/tmp/medit-ap-folder"
+    ]
   },
-  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "defaults": {
+    "timeoutMs": 8000,
+    "retryIntervalMs": 150
+  },
   "steps": [
-    { "id": "wait-window", "action": "waitFor",
-      "target": { "role": "AXWindow" }, "args": { "present": true } },
-    { "id": "wait-root", "action": "waitFor",
-      "target": { "identifier": "sidebarRow:medit-ap-folder" }, "args": { "present": true } },
-
-    { "id": "expand-folder", "action": "doubleClick",
-      "target": { "identifier": "sidebarRow:medit-ap-folder" } },
-    { "id": "settle-expand", "action": "wait", "args": { "seconds": 1 } },
-
-    { "id": "wait-alpha", "action": "waitFor",
-      "target": { "identifier": "sidebarRow:s-alpha.txt" }, "args": { "present": true } },
-    { "id": "open-alpha", "action": "doubleClick",
-      "target": { "identifier": "sidebarRow:s-alpha.txt" } },
-    { "id": "settle-a", "action": "wait", "args": { "seconds": 1 } },
-    { "id": "assert-alpha", "action": "assert",
-      "target": { "identifier": "editorTextView" },
-      "assert": { "property": "value", "op": "contains", "expected": "sidebar alpha contents" } },
-
-    { "id": "open-bravo", "action": "doubleClick",
-      "target": { "identifier": "sidebarRow:s-bravo.txt" } },
-    { "id": "settle-b", "action": "wait", "args": { "seconds": 1 } },
-    { "id": "shot", "action": "screenshot",
-      "args": { "path": "/tmp/medit-uitests/sidebar-second.png" } },
-    { "id": "assert-bravo", "action": "assert",
-      "target": { "identifier": "editorTextView" },
-      "assert": { "property": "value", "op": "contains", "expected": "sidebar bravo contents" } },
-
-    { "id": "one-window", "action": "assert",
-      "target": { "role": "AXWindow" },
-      "assert": { "property": "count", "op": "equals", "expected": "1" } },
-
-    { "id": "quit", "action": "terminate" }
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "target": {
+        "role": "AXWindow"
+      },
+      "args": {
+        "present": true
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "wait-root",
+      "action": "waitFor",
+      "target": {
+        "identifier": "sidebarRow:medit-ap-folder"
+      },
+      "args": {
+        "present": true
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "expand-folder",
+      "action": "doubleClick",
+      "target": {
+        "identifier": "sidebarRow:medit-ap-folder"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "settle-expand",
+      "action": "wait",
+      "args": {
+        "seconds": 1
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "wait-alpha",
+      "action": "waitFor",
+      "target": {
+        "identifier": "sidebarRow:s-alpha.txt"
+      },
+      "args": {
+        "present": true
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "open-alpha",
+      "action": "doubleClick",
+      "target": {
+        "identifier": "sidebarRow:s-alpha.txt"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "settle-a",
+      "action": "wait",
+      "args": {
+        "seconds": 1
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "assert-alpha",
+      "action": "assert",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "assert": {
+        "property": "value",
+        "op": "contains",
+        "expected": "sidebar alpha contents"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "open-bravo",
+      "action": "doubleClick",
+      "target": {
+        "identifier": "sidebarRow:s-bravo.txt"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "settle-b",
+      "action": "wait",
+      "args": {
+        "seconds": 1
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "shot",
+      "action": "screenshot",
+      "args": {
+        "path": "/tmp/medit-uitests/sidebar-second.png"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "assert-bravo",
+      "action": "assert",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "assert": {
+        "property": "value",
+        "op": "contains",
+        "expected": "sidebar bravo contents"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "one-window",
+      "action": "assert",
+      "target": {
+        "role": "AXWindow"
+      },
+      "assert": {
+        "property": "count",
+        "op": "equals",
+        "expected": "1"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "quit",
+      "action": "terminate",
+      "level": "happyPath"
+    }
   ]
 }
