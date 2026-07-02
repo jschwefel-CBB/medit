@@ -5,9 +5,15 @@ CLI (`~/repositories/autopilot-macos`). They drive the built medit app via the
 macOS Accessibility API.
 
 ## Prerequisites
-- **AutoPilot ≥ core 3.1.0** (autopilot-macos with the file-drop helper). Build:
-  `(cd ~/repositories/autopilot-macos && swift build)`, or install the Homebrew
-  release. Older AutoPilot **cannot run these plans** — see "What changed" below.
+- **AutoPilot ≥ core 3.1.0** with the `AutopilotDragSource.app` helper. Three
+  working paths (pick any):
+  - `/opt/homebrew/bin/autopilot` — Homebrew 3.1.0, helper bundled in the tarball
+  - `~/repositories/autopilot-macos/autopilot/.build/arm64-apple-macosx/release/autopilot`
+  - `~/repositories/autopilot-macos/autopilot/.build/arm64-apple-macosx/debug/autopilot`
+
+  For the local builds, `Fixtures/make-drag-source-app.sh` (from the autopilot-macos
+  repo, after a `git pull`) places the helper next to both binaries.
+  Older AutoPilot **cannot run these plans** — see "What changed" below.
 - Grant Accessibility permission to the terminal/binary running AutoPilot
   (`autopilot doctor` checks this).
 - medit must be installed (so `bundleId` resolves) or its built `.app` path
@@ -56,9 +62,9 @@ medit's actual AppKit drop path (`public.file-url` + `NSFilenamesPboardType` →
 
 Requirements specific to this plan:
 - **The `AutopilotDragSource.app` helper** must sit next to the `autopilot`
-  binary (the release/Homebrew bundle ships it there). Override its location with
-  the `AUTOPILOT_DRAG_SOURCE` env var if needed. Without it the drop step fails
-  with *"could not locate AutopilotDragSource helper."*
+  binary. The Homebrew install and both local build dirs (debug + release) have it
+  in place — see Prerequisites above. Override with `AUTOPILOT_DRAG_SOURCE` env var
+  if needed. Without it the drop step fails with *"could not locate AutopilotDragSource helper."*
 - **A real display + Accessibility — it cannot run headless.** AutoPilot becomes
   the drag *source* (a real `NSDraggingSession`) and steers the physical cursor;
   a headless session has no cursor/window server to route the drop.
