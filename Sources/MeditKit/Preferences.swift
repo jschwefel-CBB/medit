@@ -130,7 +130,7 @@ public final class Preferences {
             Key.emphasizeEnclosingPair: true,
             Key.enclosingPairEmphasisStyle: EnclosingPairEmphasisStyle.bold.rawValue,
             Key.autoRefreshPreview: true,
-            Key.autoShowPreviewForMarkdown: false,
+            Key.autoShowPreviewForMarkdown: true,
             Key.printLineNumbers: true,
             Key.showMarkdownToolbar: true
         ])

@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "1.1",
+  "name": "Copy text from rendered Markdown preview",
+  "comment": "Regression for the preview copy bug: ⌘C silently fails when text is selected in the WKWebView preview. Opens a .md file, auto-preview fires, clicks the web area, selects all (⌘A), copies (⌘C), opens a new plain tab, pastes (⌘V), then asserts the editor contains the expected text.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": [
+      "--reset-state"
+    ],
+    "launchFiles": [
+      "/tmp/medit-ap-copy-test.md"
+    ]
+  },
+  "defaults": {
+    "timeoutMs": 8000,
+    "retryIntervalMs": 150
+  },
+  "steps": [
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "target": { "role": "AXWindow" },
+      "args": { "present": true },
+      "level": "happyPath"
+    },
+    {
+      "id": "show-preview",
+      "action": "menu",
+      "args": { "menuPath": ["View", "Show Markdown Preview"] },
+      "level": "happyPath"
+    },
+    {
+      "id": "wait-preview",
+      "action": "waitFor",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "present": true },
+      "level": "happyPath"
+    },
+    {
+      "id": "settle",
+      "action": "wait",
+      "args": { "seconds": 1 },
+      "level": "happyPath"
+    },
+    {
+      "id": "click-preview",
+      "action": "click",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "level": "happyPath"
+    },
+    {
+      "id": "select-all",
+      "action": "keyPress",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "keys": "cmd+a" },
+      "level": "happyPath"
+    },
+    {
+      "id": "copy",
+      "action": "keyPress",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "keys": "cmd+c" },
+      "level": "happyPath"
+    },
+    {
+      "id": "new-tab",
+      "action": "keyPress",
+      "target": { "role": "AXWindow" },
+      "args": { "keys": "cmd+n" },
+      "level": "happyPath"
+    },
+    {
+      "id": "wait-editor",
+      "action": "waitFor",
+      "target": { "identifier": "editorTextView" },
+      "args": { "present": true },
+      "level": "happyPath"
+    },
+    {
+      "id": "click-editor",
+      "action": "click",
+      "target": { "identifier": "editorTextView" },
+      "level": "happyPath"
+    },
+    {
+      "id": "paste",
+      "action": "keyPress",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "cmd+v" },
+      "level": "happyPath"
+    },
+    {
+      "id": "assert-pasted",
+      "action": "assert",
+      "target": { "identifier": "editorTextView" },
+      "assert": {
+        "property": "value",
+        "op": "contains",
+        "expected": "Hello"
+      },
+      "level": "happyPath"
+    },
+    {
+      "id": "quit",
+      "action": "terminate",
+      "level": "happyPath"
+    }
+  ]
+}

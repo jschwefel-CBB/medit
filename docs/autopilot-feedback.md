@@ -6,6 +6,35 @@
 
 ---
 
+## medit 2.7.4 — preview copy fix + default-to-preview setting
+
+**Copy from rendered Markdown preview silently failed.** When the WKWebView
+preview was showing, selecting text and pressing ⌘C (or using mouse copy) put
+nothing on the system pasteboard. Paste returned empty.
+
+**Root cause:** WKWebView on macOS routes its copy action through WebKit's
+internal pasteboard path, which does not reliably reach `NSPasteboard.general`
+in the sandboxed/app-context environment. The window controller is in the
+responder chain above the web view; without a `copy:` handler there, the event
+either silently no-oped inside WebKit or bubbled to nothing.
+
+**Fix:** `EditorWindowController` now responds to `copy:` via `@IBAction`. When
+the active editor has its preview visible, the action calls
+`wv.evaluateJavaScript("window.getSelection().toString()")` — an app-initiated
+JS call (not content JS, so it works even with `allowsContentJavaScript = false`)
+— and writes the result directly to `NSPasteboard.general`. When the preview is
+not showing the text view handles `copy:` itself before the event reaches the
+window controller, so normal editing copy is unaffected.
+
+**Default-to-preview:** `autoShowPreviewForMarkdown` registered default changed
+from `false` → `true`. Markdown files now open in the rendered preview by
+default; toggle off in Settings or via View → Auto-Show Markdown Preview.
+
+**AP coverage:** New plan `preview-copy-test.json` confirms the fix: opens a
+staged `.md` fixture, shows the preview via menu, ⌘A selects all in the web
+area, ⌘C copies, ⌘N opens a new plain tab, ⌘V pastes, assert editor contains
+expected text. Plan 13/13 PASS against the Debug build.
+
 ---
 
 ## medit 2.7.3 — drag-to-editor fix (correct NSTextView pipeline override)
@@ -43,11 +72,10 @@ only accepted internal drags. External Finder drops (`draggingSource == nil`)
 were rejected. Fix: detect external drags → return `.copy`; `acceptDrop` reads
 URLs → `onOpenFiles`. `NSFilenamesPboardType` registered on the outline view.
 
-**AP coverage note:** Synthetic file drag events (`toFiles`) are not supported
-by AutoPilot — drag paths cannot be directly driven. They share `openFiles(at:)`
-with the `--open-files` runtime plan and `performFileDropForTesting` hook —
-both already covered. Fix validated manually: single and multi-file drags onto
-the editor text area and the sidebar open files as tabs. 8/8 existing plans green.
+**AP coverage note:** `drop-files-onto-editor.json` exercises the real drag path
+via AutoPilot 3.1.0's `drag` + `toFiles` action. Fix validated manually and via
+AP: single and multi-file drags onto the editor text area and the sidebar open
+files as tabs. 8/8 existing plans green.
 
 ---
 
