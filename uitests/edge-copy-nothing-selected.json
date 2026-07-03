@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.1",
+  "name": "edge: copy with nothing selected leaves the clipboard unchanged",
+  "comment": "AutoPilot has no documented clipboard-read primitive (see docs/autopilot-feedback.md), so clipboard state is verified indirectly by pasting. Flow: type a known marker, select-all, copy (clipboard now = marker). Move the caret to deselect, then press cmd+c with NOTHING selected (the no-op under test). Open a new tab and paste: if the no-op copy left the clipboard alone, the marker pastes; if it wrongly cleared it, the paste is empty. tryToBreakIt asserts the marker is still what pastes. Documented primitives only. Requires the Debug build. No fixture; starts from an empty untitled document.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+
+    { "id": "type-marker", "action": "type", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "CLIPBOARDMARKER999" } },
+    { "id": "select-all", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "copy-marker", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+c" } },
+
+    { "id": "deselect", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "right" } },
+    { "id": "copy-nothing", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+c" } },
+    { "id": "settle-copy-nothing", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+
+    { "id": "new-tab", "action": "menu", "level": "tryToBreakIt",
+      "args": { "menuPath": ["File", "New"] } },
+    { "id": "wait-new-editor", "action": "waitFor", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "paste", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+v" } },
+    { "id": "settle-paste", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "clipboard-intact", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "CLIPBOARDMARKER999" } },
+
+    { "id": "clear-new", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "delete-new", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "delete" } },
+    { "id": "prev-tab", "action": "keyPress", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "keys": "cmd+shift+[" } },
+    { "id": "clear-first", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "delete-first", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "delete" } },
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

@@ -1,0 +1,730 @@
+{
+  "schemaVersion": "1.1",
+  "name": "settings: every checkbox toggles and every popup selects each value",
+  "comment": "Exercises every Settings CHECKBOX exhaustively. happyPath: open Settings (cmd+,), read a control's default, toggle it, assert the value flipped. integrationSuite: toggle every remaining checkbox and assert each flip. Each control is targeted by its stable settings.* identifier. Checkbox AXValue is '1'/'0'. The three Settings POPUPS are covered by dedicated one-popup-per-run plans (settings-popup-*.json) because AutoPilot cannot reliably open a second NSPopUpButton in the same session \u2014 see docs/autopilot-feedback.md. Requires the Debug build. No fixture; toggling only flips prefs (no unsaved document) so no pre-quit cleanup is needed.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": [
+      "--reset-state"
+    ]
+  },
+  "defaults": {
+    "timeoutMs": 8000,
+    "retryIntervalMs": 150
+  },
+  "steps": [
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "role": "AXWindow"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "wait-editor",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "open-settings",
+      "action": "keyPress",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "keys": "cmd+,"
+      }
+    },
+    {
+      "id": "wait-settings",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.showLineNumbers"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "lineNumbers-default-on",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.showLineNumbers"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "lineNumbers-toggle",
+      "action": "press",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.showLineNumbers"
+      }
+    },
+    {
+      "id": "lineNumbers-now-off",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.showLineNumbers"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "wrap-default-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.wrapLines"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "wrap-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.wrapLines"
+      }
+    },
+    {
+      "id": "wrap-now-on",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.wrapLines"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "statusBar-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.showStatusBar"
+      }
+    },
+    {
+      "id": "statusBar-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.showStatusBar"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "statusBar-restore",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.showStatusBar"
+      }
+    },
+    {
+      "id": "invisibles-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.showInvisibles"
+      }
+    },
+    {
+      "id": "invisibles-now-on",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.showInvisibles"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "docStats-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.showDocumentStats"
+      }
+    },
+    {
+      "id": "docStats-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.showDocumentStats"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "reopen-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.reopenLastSession"
+      }
+    },
+    {
+      "id": "reopen-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.reopenLastSession"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "rainbow-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.rainbowBrackets"
+      }
+    },
+    {
+      "id": "rainbow-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.rainbowBrackets"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "emphasize-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.emphasizeEnclosingPair"
+      }
+    },
+    {
+      "id": "emphasize-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.emphasizeEnclosingPair"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "autoRefresh-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.autoRefreshPreview"
+      }
+    },
+    {
+      "id": "autoRefresh-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.autoRefreshPreview"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "autoShow-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.autoShowPreviewForMarkdown"
+      }
+    },
+    {
+      "id": "autoShow-now-on",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.autoShowPreviewForMarkdown"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "mdToolbar-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.showMarkdownToolbar"
+      }
+    },
+    {
+      "id": "mdToolbar-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.showMarkdownToolbar"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "printLines-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.printLineNumbers"
+      }
+    },
+    {
+      "id": "printLines-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.printLineNumbers"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "smartQuotes-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.smartQuotes"
+      }
+    },
+    {
+      "id": "smartQuotes-now-on",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.smartQuotes"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "smartDashes-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.smartDashes"
+      }
+    },
+    {
+      "id": "smartDashes-now-on",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.smartDashes"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "textReplace-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.automaticTextReplacement"
+      }
+    },
+    {
+      "id": "textReplace-now-on",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.automaticTextReplacement"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "spellCorrect-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.automaticSpellingCorrection"
+      }
+    },
+    {
+      "id": "spellCorrect-now-on",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.automaticSpellingCorrection"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "smartInsert-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.smartInsertDelete"
+      }
+    },
+    {
+      "id": "smartInsert-now-on",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.smartInsertDelete"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "continuousSpell-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.continuousSpellChecking"
+      }
+    },
+    {
+      "id": "continuousSpell-now-on",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.continuousSpellChecking"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "spaces-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.insertSpacesForTab"
+      }
+    },
+    {
+      "id": "spaces-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.insertSpacesForTab"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "pcKeys-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.pcStyleNavigationKeys"
+      }
+    },
+    {
+      "id": "pcKeys-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.pcStyleNavigationKeys"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "autoIndent-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.autoIndent"
+      }
+    },
+    {
+      "id": "autoIndent-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.autoIndent"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "indentBrackets-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.indentBetweenBrackets"
+      }
+    },
+    {
+      "id": "indentBrackets-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.indentBetweenBrackets"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "autoClose-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.autoCloseBrackets"
+      }
+    },
+    {
+      "id": "autoClose-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.autoCloseBrackets"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "stripWS-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.stripTrailingWhitespaceOnSave"
+      }
+    },
+    {
+      "id": "stripWS-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.stripTrailingWhitespaceOnSave"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "sortFolders-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.sidebarSortFoldersFirst"
+      }
+    },
+    {
+      "id": "sortFolders-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.sidebarSortFoldersFirst"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "sortAsc-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.sidebarSortAscending"
+      }
+    },
+    {
+      "id": "sortAsc-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.sidebarSortAscending"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "openSingle-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.sidebarOpenOnSingleClick"
+      }
+    },
+    {
+      "id": "openSingle-now-on",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.sidebarOpenOnSingleClick"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "sidebarRight-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.sidebarOnRight"
+      }
+    },
+    {
+      "id": "sidebarRight-now-on",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.sidebarOnRight"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "confirmDelete-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.confirmBeforeDelete"
+      }
+    },
+    {
+      "id": "confirmDelete-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.confirmBeforeDelete"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "revealActive-toggle",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.syncSidebarWithActiveTab"
+      }
+    },
+    {
+      "id": "revealActive-now-off",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.syncSidebarWithActiveTab"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "0"
+      }
+    },
+    {
+      "id": "quit",
+      "action": "terminate",
+      "level": "happyPath"
+    }
+  ]
+}

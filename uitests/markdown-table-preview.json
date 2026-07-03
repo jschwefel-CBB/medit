@@ -1,82 +1,28 @@
 {
   "schemaVersion": "1.1",
-  "name": "markdown preview renders in the web view",
+  "name": "markdown preview renders table in web view",
+  "comment": "Opens a .md file with an HTML table, toggles the preview on, and captures a screenshot of the rendered WebView. With autoShowPreviewForMarkdown defaulting true (v2.7.4+), the preview shows immediately; the editorTextView may be hidden, so we skip asserting its value and instead wait for the WebView directly. For builds where the default is still false (pre-v2.7.4), the show-preview menu step is a no-op toggle. Requires staged /tmp/table-test.md fixture.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
-    "launchFiles": [
-      "/tmp/table-test.md"
-    ]
+    "launchFiles": ["/tmp/table-test.md"]
   },
-  "defaults": {
-    "timeoutMs": 8000,
-    "retryIntervalMs": 150
-  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
   "steps": [
-    {
-      "id": "wait-window",
-      "action": "waitFor",
-      "target": {
-        "role": "AXWindow"
-      },
-      "args": {
-        "present": true
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "wait-editor-loaded",
-      "action": "assert",
-      "target": {
-        "identifier": "editorTextView"
-      },
-      "assert": {
-        "property": "value",
-        "op": "contains",
-        "expected": "Table test"
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "focus-editor",
-      "action": "click",
-      "target": {
-        "identifier": "editorTextView"
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "show-preview",
-      "action": "menu",
-      "args": {
-        "menuPath": [
-          "View",
-          "Show Markdown Preview"
-        ]
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "wait-preview",
-      "action": "waitFor",
-      "target": {
-        "role": "AXWebArea"
-      },
-      "args": {
-        "present": true
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "shot-preview",
-      "action": "screenshot",
-      "target": {
-        "identifier": "markdownPreviewWebView"
-      },
-      "args": {
-        "path": "/tmp/apshots/table-preview.png",
-        "padding": 0
-      },
-      "level": "happyPath"
-    }
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "show-preview", "action": "menu", "level": "happyPath",
+      "args": { "menuPath": ["View", "Show Markdown Preview"] } },
+    { "id": "wait-preview", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+    { "id": "wait-web-area", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWebArea" }, "args": { "present": true } },
+    { "id": "shot-preview", "action": "screenshot", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "padding": 0 } },
+    { "id": "hide-preview", "action": "menu", "level": "happyPath",
+      "args": { "menuPath": ["View", "Show Markdown Preview"] } },
+    { "id": "settle-hide", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
   ]
 }

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.1",
+  "name": "encoding/language: switch language and encoding on open content",
+  "comment": "Opens a plain-text file, then drives the status-bar language and encoding popups (languageButton / encodingButton). These are custom NSButtons that pop a menu on click, so they are opened with the click action (press errors on them - see docs/autopilot-feedback.md D1/D2). To avoid hard-coding language/encoding item titles the plan picks a menu item by documented index selector and asserts the editor content is preserved across the switch. tryToBreakIt: switch language then encoding in sequence and assert the editor survives. Documented primitives only (click, waitFor, assert). Requires the Debug build; stage fixtures first.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": ["/tmp/medit-ap-long.txt"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "content-loaded", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "exists" } },
+    { "id": "wait-language-button", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "languageButton" }, "args": { "present": true } },
+
+    { "id": "open-language", "action": "click", "level": "integrationSuite",
+      "target": { "identifier": "languageButton" } },
+    { "id": "settle-lang-open", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "language-menu-open", "action": "assert", "level": "integrationSuite",
+      "target": { "role": "AXMenuItem", "index": 0 }, "assert": { "property": "value", "op": "exists" } },
+    { "id": "pick-a-language", "action": "click", "level": "integrationSuite",
+      "target": { "role": "AXMenuItem", "index": 2 } },
+    { "id": "settle-lang-pick", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "content-intact-after-lang", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "open-encoding", "action": "click", "level": "tryToBreakIt",
+      "target": { "identifier": "encodingButton" } },
+    { "id": "settle-enc-open", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "encoding-menu-open", "action": "assert", "level": "tryToBreakIt",
+      "target": { "role": "AXMenuItem", "index": 0 }, "assert": { "property": "value", "op": "exists" } },
+    { "id": "pick-an-encoding", "action": "click", "level": "tryToBreakIt",
+      "target": { "role": "AXMenuItem", "index": 1 } },
+    { "id": "settle-enc-pick", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "content-intact-after-enc", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

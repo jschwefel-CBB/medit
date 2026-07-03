@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.1",
+  "name": "edge: editing operations on an empty (zero-byte) document",
+  "comment": "Opens a zero-byte file. tryToBreakIt: run editing commands that have nothing to act on — select-all, copy, cut, delete, forward-delete — on the empty document; medit must not crash and the editor must stay present and empty. Also undo/redo with nothing in history. Documented primitives only (keyPress, menu, assert exists). Requires the Debug build; stage fixtures first (creates /tmp/medit-ap-zero-byte.txt).",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": ["/tmp/medit-ap-zero-byte.txt"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "empty-at-start", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "equals", "expected": "" } },
+
+    { "id": "select-all-empty", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "copy-empty", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+c" } },
+    { "id": "cut-empty", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+x" } },
+    { "id": "delete-empty", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "delete" } },
+    { "id": "forward-delete-empty", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "forwarddelete" } },
+    { "id": "settle-ops", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "still-empty", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "equals", "expected": "" } },
+
+    { "id": "undo-empty", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+z" } },
+    { "id": "redo-empty", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+shift+z" } },
+    { "id": "settle-undo", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "editor-alive", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

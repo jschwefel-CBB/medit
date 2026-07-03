@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.1",
+  "name": "word wrap toggle: View > Wrap Lines changes status bar indicator",
+  "comment": "Tests the word wrap toggle via View > Wrap Lines. The status bar button titled 'Wrap: Off' / 'Wrap: On' is the most direct observable side-effect of the toggle (positionLabel/documentStatsLabel are unchanged). happyPath: open medit, assert wrap is off (default), toggle on, assert button title changes to 'Wrap: On', toggle off, assert button returns to 'Wrap: Off'. integrationSuite: types a long line and toggles wrap to verify layout doesn't crash.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 100 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "assert-wrap-off", "action": "assert", "level": "happyPath",
+      "target": { "role": "AXButton", "title": "Wrap: Off" },
+      "assert": { "property": "value", "op": "exists" } },
+    { "id": "toggle-wrap-on", "action": "menu", "level": "happyPath",
+      "args": { "menuPath": ["View", "Wrap Lines"] } },
+    { "id": "settle-on", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "assert-wrap-on", "action": "assert", "level": "happyPath",
+      "target": { "role": "AXButton", "title": "Wrap: On" },
+      "assert": { "property": "value", "op": "exists" } },
+    { "id": "toggle-wrap-off", "action": "menu", "level": "happyPath",
+      "args": { "menuPath": ["View", "Wrap Lines"] } },
+    { "id": "settle-off", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "assert-wrap-off-2", "action": "assert", "level": "happyPath",
+      "target": { "role": "AXButton", "title": "Wrap: Off" },
+      "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "type-long-line", "action": "type", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "This is a very long line that would wrap if word wrap were enabled in the editor view, testing that wrap works correctly and does not cause any visual glitches or crashes in the text layout engine." } },
+    { "id": "toggle-wrap-on-2", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Wrap Lines"] } },
+    { "id": "settle-wrap-on-2", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "assert-editor-alive", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "exists" } },
+    { "id": "toggle-wrap-off-3", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Wrap Lines"] } },
+    { "id": "settle-wrap-off-3", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+
+    { "id": "clear-before-quit", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "cmd+a" } },
+    { "id": "delete-before-quit", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "delete" } },
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

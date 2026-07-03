@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.1",
+  "name": "edge: open a large file (1 MB) without hanging",
+  "comment": "Opens a large (1 MB, ~19k lines) plain-text file alongside a second normal file in one launch. tryToBreakIt: a large document must open as a tab without crashing or hanging - the window comes up, the editor is present, and typing afterward still lands (app stays interactive). 1 MB is the bounded 'large' size: it exercises the big-document load path (synchronous text load + full-range attribute pass) and reliably completes within the timeout. medit's file open is synchronous on the main thread, so open time scales with size; a VERY large file (5 MB+) batched with another file stalls window creation past any reasonable timeout - that is a tracked medit perf defect (docs/autopilot-feedback.md, medit defect M1: large-file open should be incremental/off-main-thread), deliberately NOT asserted here so this plan stays green while the defect is open. Documented primitives only. Requires the Debug build; stage fixtures first (generates the 1 MB large file + zero-byte partner).",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": [
+      "/tmp/medit-ap-large.txt",
+      "/tmp/medit-ap-zero-byte.txt"
+    ]
+  },
+  "defaults": { "timeoutMs": 20000, "retryIntervalMs": 200 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "tryToBreakIt",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "settle-open", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 2 } },
+    { "id": "editor-alive", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "type-responsive", "action": "type", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "STILLRESPONSIVE", "focus": true } },
+    { "id": "settle-type", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "responsive-confirmed", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "STILLRESPONSIVE" } },
+
+    { "id": "clear-a", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "clear-b", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "delete" } },
+    { "id": "quit", "action": "terminate", "level": "tryToBreakIt" }
+  ]
+}

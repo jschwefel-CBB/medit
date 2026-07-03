@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.1",
+  "name": "edge: open malformed files together (zero-byte, extensionless, invalid UTF-8)",
+  "comment": "Opens three malformed-CONTENT files together as tabs in one launch: a zero-byte file, an extensionless plain-text file, and a file with invalid UTF-8 bytes. tryToBreakIt: medit must open all of them without crashing or hanging - the editor stays present and responsive. The extensionless file loads as plain text; the invalid-UTF-8 file loads via an encoding fallback; the zero-byte file loads empty. We assert the editor exists after the batch open (no crash) and that a marker typed afterward lands (app still interactive). Large-file open is a SEPARATE concern with its own plan (edge-open-large-file.json) - a very large file's synchronous load blocks the main thread, which is a tracked medit perf defect (see docs/autopilot-feedback.md, medit defect M1), not a malformed-content case. The permission-denied (chmod 000) case is also separate (edge-open-denied-file.json) because its open fails rather than loads. Documented primitives only. Requires the Debug build; stage fixtures first (generates the zero-byte, invalid, noext files).",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": [
+      "/tmp/medit-ap-zero-byte.txt",
+      "/tmp/medit-ap-noext",
+      "/tmp/medit-ap-invalid-utf8.txt"
+    ]
+  },
+  "defaults": { "timeoutMs": 15000, "retryIntervalMs": 200 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "tryToBreakIt",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "settle-open", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 2 } },
+    { "id": "editor-alive", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "type-responsive", "action": "type", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "STILLRESPONSIVE", "focus": true } },
+    { "id": "settle-type", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "responsive-confirmed", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "STILLRESPONSIVE" } },
+
+    { "id": "clear-a", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "clear-b", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "delete" } },
+    { "id": "quit", "action": "terminate", "level": "tryToBreakIt" }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.1",
+  "name": "settings persistence (1/2): change settings then quit",
+  "comment": "Part 1 of a two-plan persistence check. Launches with --reset-state (known baseline), opens Settings, flips several checkboxes away from their defaults, then quits WITHOUT reset. Part 2 (settings-persistence-verify.json) relaunches WITHOUT --reset-state and asserts the changes survived. Run the two in order. Documented primitives only (waitFor, keyPress, press, terminate). Requires the Debug build. Defaults being flipped: showLineNumbers on->off, wrapLines off->on, showStatusBar on->off is avoided (would hide the bar); we use showInvisibles off->on, rainbowBrackets on->off, smartQuotes off->on.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "open-settings", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+," } },
+    { "id": "wait-settings", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "settings.showLineNumbers" }, "args": { "present": true } },
+
+    { "id": "lineNumbers-off", "action": "press", "level": "happyPath",
+      "target": { "identifier": "settings.showLineNumbers" } },
+    { "id": "lineNumbers-confirm", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "settings.showLineNumbers" },
+      "assert": { "property": "value", "op": "equals", "expected": "0" } },
+
+    { "id": "invisibles-on", "action": "press", "level": "happyPath",
+      "target": { "identifier": "settings.showInvisibles" } },
+    { "id": "invisibles-confirm", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "settings.showInvisibles" },
+      "assert": { "property": "value", "op": "equals", "expected": "1" } },
+
+    { "id": "rainbow-off", "action": "press", "level": "happyPath",
+      "target": { "identifier": "settings.rainbowBrackets" } },
+    { "id": "rainbow-confirm", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "settings.rainbowBrackets" },
+      "assert": { "property": "value", "op": "equals", "expected": "0" } },
+
+    { "id": "smartQuotes-on", "action": "press", "level": "happyPath",
+      "target": { "identifier": "settings.smartQuotes" } },
+    { "id": "smartQuotes-confirm", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "settings.smartQuotes" },
+      "assert": { "property": "value", "op": "equals", "expected": "1" } },
+
+    { "id": "settle-before-quit", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}
