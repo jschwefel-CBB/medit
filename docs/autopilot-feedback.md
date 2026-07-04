@@ -67,61 +67,70 @@ killing the prior instance between plans rather than relying on teardown.
 >   explicit `dismiss-alert`, and restaging between plans is still required for state.
 >   Both flakes pass clean when run individually — not regressions.
 >
-> Net: every **new** primitive on the branch works; adopting the clipboard assert +
-> `dismiss-alert` and keeping a minimal kill+restage between plans keeps the suite at
-> 37/37. **But not everything in the original report is closed** — see the "STILL OPEN"
-> block immediately below: **D3** (same-field re-edit) is still broken, and a **new**
-> prefs-field-not-ready-after-`waitFor` flake surfaced. **D4** flipped to resolved.
-> Green light on the branch's *new features* from medit's side (release still gated on
-> the explicit "go"); D3 + the new flake are the remaining AP-runtime items.
+> Net (updated 2026-07-04): every new primitive works AND every remaining item is now
+> closed. The first pass at `5cf7cfe` left **D3** (same-field re-edit) and a **new**
+> prefs-field-not-ready-after-`waitFor` flake open; AP's follow-up `23a69c3` (macOS-driver
+> only) **fixes both** — re-validated on this host (see the "RE-VALIDATED — now CLOSED"
+> block immediately below). **D4** is resolved too. So all of D1–D7 are closed on the
+> branch. Green light from medit's side to cut the AutoPilot release (still gated on AP's
+> explicit "go"); adopting the branch-only primitives + dropping the D3/settle workarounds
+> in medit's committed suite stays HELD until that AP release ships.
 
-### STILL OPEN after `feature/ap-feedback` — re-validated with evidence (AP: please ingest)
+### RE-VALIDATED — now CLOSED on `feature/ap-feedback` @ `23a69c3` (2026-07-04)
 
-> Two report items were **not** addressed by the branch, plus one **new** flake surfaced
-> during this re-validation. All reproduced on the same build under test:
-> **autopilot-macos `5cf7cfe` + autopilot-core `4e57986`** (release), medit Debug build,
-> 2026-07-03. These are AutoPilot-runtime items (not medit bugs, not doc-only).
+> AP fixed the two AutoPilot-runtime items the 2.7.5 re-validation left open, in
+> **autopilot-macos `23a69c3`** (macOS-driver only; autopilot-core unchanged at
+> `4e57986`). Re-validated 2026-07-04 with a fresh release build of that branch against
+> a fresh medit Debug build. Both confirmed fixed on this host. History preserved below.
 
-**D3 — same text field cannot be re-edited twice in one run. STILL BROKEN.** ❌
-A `type` (with `clear`+`commit`) into a field commits the **first** time; a **second**
-`type` into the **same** field later in the run is silently dropped — the field keeps its
-first value. The AP response doc (`docs/autopilot-feedback-response.md`) does not mention
-D3; it was not fixed. Reproduced deterministically: in every run that got past the first
-edit, `settings.tabWidth` set to `6` then set to `3` **stayed `6`** (the second assert
-read `actual=6`, never `3`). Minimal repro:
-```jsonc
-// after opening Settings (cmd+,) and waiting for settings.tabWidth:
-{ "id": "edit1", "action": "type", "target": { "identifier": "settings.tabWidth" },
-  "args": { "text": "6", "clear": true, "commit": true }, "level": "happyPath" },
-{ "id": "c1", "action": "assert", "target": { "identifier": "settings.tabWidth" },
-  "assert": { "property": "value", "op": "equals", "expected": "6" }, "level": "happyPath" }, // passes
-{ "id": "edit2", "action": "type", "target": { "identifier": "settings.tabWidth" },
-  "args": { "text": "3", "clear": true, "commit": true }, "level": "tryToBreakIt" },
-{ "id": "c2", "action": "assert", "target": { "identifier": "settings.tabWidth" },
-  "assert": { "property": "value", "op": "equals", "expected": "3" }, "level": "tryToBreakIt" } // FAILS: actual=6
-```
-An explicit `click` on the field between the two edits did **not** help. Likely the second
-`type` isn't re-establishing the field editor / first-responder after the first `commit`
-(Return) ends editing. medit's suite works around this (each field edited at most once per
-plan; cases split across plans), but D3 is a real AP-runtime limitation that should be
-fixed or documented.
+**D3 — same text field re-edited twice now takes. ✅ FIXED (was ❌).**
+The exact repro (`settings.tabWidth` set `6`, assert `6`, set `3`, assert `3`) now ends at
+`3`. Verified: of the runs that reached the second edit, **the second value took every time**
+(`check2` read `3`, never the stale `6`) — 9/9 across two batches. No plan change was
+required. Per AP, `type` now confirms focus and re-arms the field editor (AXPress) before
+typing instead of firing keystrokes into a torn-down field editor. **The D3 workaround is no
+longer necessary** — a plan may now re-edit the same field multiple times in one run. (medit's
+suite never actually split plans *because* of D3 — each field was simply edited once, which
+is still fine — so nothing in the committed suite needs restructuring; future plans can
+re-edit freely.)
 
-**D4 — `commit:true` on a formatter field: NOW PASSES.** ✅ (upgrade from "unspecified")
-Typing an invalid value (`abc`) into the `NSNumberFormatter`-backed `settings.tabWidth`
-with `commit:true` no longer leaves `abc` visible — the field reverts to a valid number
-(`2`). Whether that revert is driven by AP firing end-editing or by medit's own
-`controlTextDidEndEditing` delegate, the **observable** property D4 asked about (an invalid
-value does not persist under `commit:true`) is now correct. Consider D4 closed.
+> _Original (pre-fix, build `5cf7cfe`): the second `type` into the same field was silently
+> dropped — `settings.tabWidth` set `6` then `3` stayed `6` (`actual=6`, never `3`), and an
+> explicit `click` between edits did not help. That is the bug AP `23a69c3` fixes._
 
-**NEW — Settings field not reliably ready after `cmd+,` even past `waitFor`.** ⚠️
-Independent of D3: after `keyPress cmd+,` opens Settings and `waitFor settings.tabWidth`
-resolves present, the **first** `type` into that field still lands on nothing in ~3 of 5
-runs (the value stays at the default `2` instead of the typed value). So `waitFor
-<field> present` is satisfied before the field is actually editable/first-responder —
-the element exists in the AX tree but typing into it is a no-op until slightly later.
-A short settle after the window/field appears works around it, but a `waitFor` that only
-checks presence gives a false "ready" signal here. Worth either polling `focused`/editability
-or documenting that presence ≠ editable for a freshly-opened panel's fields.
+**D4 — `commit:true` on a formatter field: PASSES.** ✅ (unchanged from prior re-validation)
+An invalid value (`abc`) typed with `commit:true` reverts to a valid number instead of
+persisting. Closed.
+
+**Settings-field first-edit readiness after `cmd+,`: ✅ RESOLVED on this host (was ⚠️).**
+The same `23a69c3` change addresses the `waitFor <field> present` → first-`type`-lands-nothing
+flake. Re-measured on this host **with no extra settle**: **25/25 first edits landed** (two
+batches of 10 + 15), versus ~3/5 failing pre-fix. `type` now polls focus/editability and
+retries before sending keystrokes, so `waitFor present` no longer gives a false "ready."
+(AP noted this race did not reproduce on their host — it is host-load-dependent — so they
+couldn't A/B it; confirming here: **it was real on this host and is now gone.** The short
+settle medit added after opening the panel can be dropped once AP releases.)
+
+> _Original (pre-fix): after `cmd+,` opened Settings and `waitFor settings.tabWidth` resolved
+> present, the first `type` no-op'd in ~3 of 5 runs (field stayed at default). Presence ≠
+> editable for a freshly-opened panel's field._
+
+**Two caveats confirmed inherent (AP's note — usage guidance, no fix expected):**
+- **`dismiss-alert` timing** — the LaunchServices modal self-expires in ~2–10 s, so call
+  `dismiss-alert` immediately after the denied-file plan (else "No matching button found").
+  Keep it out-of-band in the suite runner.
+- **Cold `menu` `markChar`** — a checked item's checkmark isn't populated until AppKit
+  opens/validates the menu, so a cold `menu` dump reads `markChar` empty. Assert toggle
+  state via the app's own side-effect surface (e.g. `columnModeLabel`/status pill), not
+  `markChar`. `menu` still gives the item + `enabled` flag (the discovery gap that's closed).
+
+**Net: every item medit filed against AutoPilot is now resolved on `feature/ap-feedback`
+`23a69c3` (D1, D2, D5, D6, D7, D3, D4 + menu discovery + dump filters + exit-4).** The two
+remaining points are inherent-behavior usage notes, not defects. Green light from medit's
+side to cut the AutoPilot release (still behind AP's explicit "go"). ADOPTION of the
+branch-only primitives + dropping the D3/settle workarounds in medit's committed suite stays
+HELD until that AP release ships (the released `autopilot` still rejects the `clipboard`
+property and lacks these fixes — adopting now would break the suite for black-box testers).
 
 ### AUTHORING-DOC DEFECTS (undocumented behavior we had to discover the hard way)
 
@@ -148,8 +157,8 @@ Nothing in the docs warns of this; please document the constraint and the recomm
 reset, or fix the executor so consecutive pop-up opens are reliable.
 
 **D3 — Re-editing the SAME text field twice in one session does not commit.**
-_Status: STILL OPEN on `feature/ap-feedback` (re-validated 2026-07-03 — see the
-"STILL OPEN" block above for the deterministic repro and build under test)._
+_Status: FIXED on `feature/ap-feedback` @ `23a69c3` (re-validated 2026-07-04, 9/9 —
+second edit now takes; see the "RE-VALIDATED — now CLOSED" block above)._
 A `type` (with `clear`/`commit`) into a field works the first time; a *second* `type`
 into the **same** field later in the run does not commit — the field keeps its prior
 value. Editing two *different* fields in one session is fine. The docs describe `type`
