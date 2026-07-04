@@ -478,7 +478,7 @@ button next to a control for a short explanation.
 | Setting | Default | What it does |
 |---------|---------|--------------|
 | Show formatting toolbar | On | The Markdown toolbar for `.md` files. |
-| Auto-show preview for Markdown | Off | Open `.md` files straight into the preview. |
+| Auto-show preview for Markdown | On | Open `.md` files straight into the preview. |
 | Auto-refresh preview | On | Keep the preview current while editing. |
 
 ### Printing
