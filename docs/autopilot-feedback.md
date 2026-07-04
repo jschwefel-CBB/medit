@@ -67,9 +67,61 @@ killing the prior instance between plans rather than relying on teardown.
 >   explicit `dismiss-alert`, and restaging between plans is still required for state.
 >   Both flakes pass clean when run individually — not regressions.
 >
-> Net: every new primitive works; adopting the clipboard assert + `dismiss-alert` and
-> keeping a minimal kill+restage between plans keeps the suite at 37/37. Green light on
-> the branch from medit's side (release still gated on the explicit "go").
+> Net: every **new** primitive on the branch works; adopting the clipboard assert +
+> `dismiss-alert` and keeping a minimal kill+restage between plans keeps the suite at
+> 37/37. **But not everything in the original report is closed** — see the "STILL OPEN"
+> block immediately below: **D3** (same-field re-edit) is still broken, and a **new**
+> prefs-field-not-ready-after-`waitFor` flake surfaced. **D4** flipped to resolved.
+> Green light on the branch's *new features* from medit's side (release still gated on
+> the explicit "go"); D3 + the new flake are the remaining AP-runtime items.
+
+### STILL OPEN after `feature/ap-feedback` — re-validated with evidence (AP: please ingest)
+
+> Two report items were **not** addressed by the branch, plus one **new** flake surfaced
+> during this re-validation. All reproduced on the same build under test:
+> **autopilot-macos `5cf7cfe` + autopilot-core `4e57986`** (release), medit Debug build,
+> 2026-07-03. These are AutoPilot-runtime items (not medit bugs, not doc-only).
+
+**D3 — same text field cannot be re-edited twice in one run. STILL BROKEN.** ❌
+A `type` (with `clear`+`commit`) into a field commits the **first** time; a **second**
+`type` into the **same** field later in the run is silently dropped — the field keeps its
+first value. The AP response doc (`docs/autopilot-feedback-response.md`) does not mention
+D3; it was not fixed. Reproduced deterministically: in every run that got past the first
+edit, `settings.tabWidth` set to `6` then set to `3` **stayed `6`** (the second assert
+read `actual=6`, never `3`). Minimal repro:
+```jsonc
+// after opening Settings (cmd+,) and waiting for settings.tabWidth:
+{ "id": "edit1", "action": "type", "target": { "identifier": "settings.tabWidth" },
+  "args": { "text": "6", "clear": true, "commit": true }, "level": "happyPath" },
+{ "id": "c1", "action": "assert", "target": { "identifier": "settings.tabWidth" },
+  "assert": { "property": "value", "op": "equals", "expected": "6" }, "level": "happyPath" }, // passes
+{ "id": "edit2", "action": "type", "target": { "identifier": "settings.tabWidth" },
+  "args": { "text": "3", "clear": true, "commit": true }, "level": "tryToBreakIt" },
+{ "id": "c2", "action": "assert", "target": { "identifier": "settings.tabWidth" },
+  "assert": { "property": "value", "op": "equals", "expected": "3" }, "level": "tryToBreakIt" } // FAILS: actual=6
+```
+An explicit `click` on the field between the two edits did **not** help. Likely the second
+`type` isn't re-establishing the field editor / first-responder after the first `commit`
+(Return) ends editing. medit's suite works around this (each field edited at most once per
+plan; cases split across plans), but D3 is a real AP-runtime limitation that should be
+fixed or documented.
+
+**D4 — `commit:true` on a formatter field: NOW PASSES.** ✅ (upgrade from "unspecified")
+Typing an invalid value (`abc`) into the `NSNumberFormatter`-backed `settings.tabWidth`
+with `commit:true` no longer leaves `abc` visible — the field reverts to a valid number
+(`2`). Whether that revert is driven by AP firing end-editing or by medit's own
+`controlTextDidEndEditing` delegate, the **observable** property D4 asked about (an invalid
+value does not persist under `commit:true`) is now correct. Consider D4 closed.
+
+**NEW — Settings field not reliably ready after `cmd+,` even past `waitFor`.** ⚠️
+Independent of D3: after `keyPress cmd+,` opens Settings and `waitFor settings.tabWidth`
+resolves present, the **first** `type` into that field still lands on nothing in ~3 of 5
+runs (the value stays at the default `2` instead of the typed value). So `waitFor
+<field> present` is satisfied before the field is actually editable/first-responder —
+the element exists in the AX tree but typing into it is a no-op until slightly later.
+A short settle after the window/field appears works around it, but a `waitFor` that only
+checks presence gives a false "ready" signal here. Worth either polling `focused`/editability
+or documenting that presence ≠ editable for a freshly-opened panel's fields.
 
 ### AUTHORING-DOC DEFECTS (undocumented behavior we had to discover the hard way)
 
@@ -96,6 +148,8 @@ Nothing in the docs warns of this; please document the constraint and the recomm
 reset, or fix the executor so consecutive pop-up opens are reliable.
 
 **D3 — Re-editing the SAME text field twice in one session does not commit.**
+_Status: STILL OPEN on `feature/ap-feedback` (re-validated 2026-07-03 — see the
+"STILL OPEN" block above for the deterministic repro and build under test)._
 A `type` (with `clear`/`commit`) into a field works the first time; a *second* `type`
 into the **same** field later in the run does not commit — the field keeps its prior
 value. Editing two *different* fields in one session is fine. The docs describe `type`
@@ -104,6 +158,8 @@ limitation (or the executor should be fixed). Our suite works around it by editi
 field at most once per plan run and splitting cases across plans.
 
 **D4 — Whether `commit:true` fires `controlTextDidEndEditing` on a formatter field is unspecified.**
+_Status: RESOLVED on `feature/ap-feedback` (re-validated 2026-07-03) — an invalid value
+typed with `commit:true` now reverts to a valid number instead of persisting._
 For a field backed by an `NSNumberFormatter`, it is unclear from the docs whether
 `type` with `commit:true` (Return) triggers the same end-editing/validation path as a
 real focus-loss. In practice a `NumberFormatter`-rejected value can remain visible in
