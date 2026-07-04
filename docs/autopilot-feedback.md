@@ -26,8 +26,50 @@ main-thread stall, M2 denied-file system modal) — see below.
 **Result: 37/37 plans pass in a full sequential suite run.** The suite is run with a
 kill-medit + restage-fixtures + dismiss-system-alerts step between plans (the last is
 needed only because of the denied-file case — see D7/M2). Individually every plan also
-passes. The AX-linger race that previously flaked `autopilot run <dir>` is avoided by
-killing the prior instance between plans rather than relying on dir-mode teardown.
+passes. The AX-linger race that previously flaked back-to-back launches is avoided by
+killing the prior instance between plans rather than relying on teardown.
+
+### VALIDATED against AutoPilot `feature/ap-feedback` (the branch that closes this report)
+
+> AutoPilot handed medit a validation checklist for the branch that answers this field
+> report. Validated on 2026-07-03 with a release build of `feature/ap-feedback` (core +
+> macos). Results:
+>
+> - **D6 — clipboard assert:** ✅ works. Target-less `{ "property": "clipboard" }` reads
+>   the pasteboard directly (validated: a copy-then-assert-clipboard plan passes; the
+>   released AP rejects the property). Simplifies `edge-copy-nothing-selected` from the
+>   paste-into-a-new-tab workaround (19 steps) to a direct clipboard assert (12 steps) —
+>   **held for adoption** until this AP release ships, so the committed suite stays green
+>   on the AP black-box testers have today. The ready replacement is checked in as
+>   `uitests/edge-copy-nothing-selected.clipboard-assert.json.pending` (the `.pending`
+>   suffix keeps it out of the `*.json` suite glob) — swap it in when AP releases.
+> - **D7 — `dismiss-alert`:** ✅ works, with a caveat. `autopilot dismiss-alert --pid
+>   <CoreServicesUIAgent> --button OK` presses the LaunchServices permission modal that a
+>   medit-attached run can't see. **Caveat:** that alert self-expires in ~2–10 s, so
+>   dismiss-alert only succeeds while it is still up (otherwise "No matching button
+>   found") — invoke it immediately after the denied-file plan.
+> - **D1/D2 — popup recipe:** ✅ the documented press→click-AXMenuItem + focus-reset
+>   recipe drives medit's `settings.*` popups (all three `settings-popup-*` plans green).
+> - **Menu discovery (`autopilot menu`):** ✅ "Column Selection Mode" is now visible in
+>   discovery with its `enabled` flag. Note: `markChar` cold-reads empty for checked
+>   items (the known AppKit "mark not populated until the menu is opened" caveat) — a
+>   cold `menu` dump can't report toggle checkmarks yet.
+> - **dump-axtree filters:** ✅ `--omit-menubar` (261→23 nodes) and `--under-role
+>   AXWindow` work. Minor: `--under-role AXWindow --interactive-only` combined returned
+>   0 on medit (the interactive set is mostly menu items outside the window subtree) —
+>   each filter alone is fine.
+> - **Exit code 4 (unsupported key):** ✅ distinct from exit 2.
+> - **AX-linger race fix:** ✅ mostly. 8 historically-linger-flaky plans ran back-to-back
+>   with **no** `pkill`/`sleep` guard, all green. BUT a full no-guard suite run flaked
+>   twice — `edge-open-large-file` (the denied-file alert bled into the next plan's
+>   `type`) and `keyboard-scroll-preview` (state/focus residue). So the guard can be
+>   *reduced* (drop `-9` and the fixed sleep) but the denied-file alert still needs an
+>   explicit `dismiss-alert`, and restaging between plans is still required for state.
+>   Both flakes pass clean when run individually — not regressions.
+>
+> Net: every new primitive works; adopting the clipboard assert + `dismiss-alert` and
+> keeping a minimal kill+restage between plans keeps the suite at 37/37. Green light on
+> the branch from medit's side (release still gated on the explicit "go").
 
 ### AUTHORING-DOC DEFECTS (undocumented behavior we had to discover the hard way)
 

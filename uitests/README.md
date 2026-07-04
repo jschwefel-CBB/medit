@@ -29,20 +29,26 @@ autopilot run uitests/open-and-type.json --artifacts /tmp/medit-uitests
 Exit codes: 0 pass, 1 test failure, 2 plan error, 3 permission missing.
 
 ## Run the full suite
+`autopilot run` takes a single plan path (no built-in directory runner), so loop:
 ```bash
-uitests/stage-fixtures.sh
-autopilot run uitests/ --artifacts /tmp/medit-uitests
+uitests/stage-fixtures.sh                       # stage fixtures once up front
+for plan in uitests/*.json; do
+  autopilot run "$plan" --artifacts "/tmp/medit-uitests/$(basename "$plan" .json)"
+  # after edge-open-denied-file.json, dismiss the CoreServicesUIAgent alert (see below)
+done
 ```
-**Note:** All plans pass when run individually. The sequential suite runner
-(`autopilot run <dir>`) has a known AP-side race where a force-killed prior instance's
-AX tree lingers briefly; the next plan's `waitFor AXWindow` can match the dying window.
-See `docs/autopilot-feedback.md` (v2.7.4 entry) for details. Use `autopilot run <plan>`
-for CI-reliable per-plan runs until this is fixed in AP.
+**Note:** All plans pass when run individually. `autopilot run` takes a single plan
+path (there is no built-in directory runner), so drive the suite from a shell loop.
+The AX-linger race that used to flake back-to-back launches is **fixed** in AutoPilot
+as of `feature/ap-feedback` (`AppLauncher` now waits for prior instances to leave the
+process table before the next launch), so a plain kill + restage between plans is enough
+— the old `pkill -9` + fixed `sleep` guard is no longer needed for linger.
 
 **One caveat for `edge-open-denied-file.json`:** a failed permission-denied open makes
 macOS LaunchServices (process `CoreServicesUIAgent`, *not* medit) put up a modal alert
-that lingers across launches and can steal focus from later plans. When running the
-whole suite, dismiss these out-of-band between plans, e.g.:
+that can steal focus from the *next* plan (it self-expires after a few seconds, but the
+next plan may start first). Dismiss it out-of-band right after that plan. With the AP
+**you have installed today**, use `osascript`:
 ```bash
 osascript -e 'tell application "System Events" to tell process "CoreServicesUIAgent"
   repeat while (count of windows) > 0
@@ -52,6 +58,10 @@ osascript -e 'tell application "System Events" to tell process "CoreServicesUIAg
   end repeat
 end tell'
 ```
+Once AutoPilot **`feature/ap-feedback`** is released, the first-class equivalent is
+`autopilot dismiss-alert --pid $(pgrep -x CoreServicesUIAgent) --button OK` (it attaches
+to the alert's owning process — something a target-attached `run` cannot do). Both are
+runner-side conveniences; no plan depends on either.
 See `docs/autopilot-feedback.md` (medit 2.7.5 entry, defect D7/M2) for the full write-up.
 
 ## Schema and level requirements
@@ -77,9 +87,11 @@ A step without `level` is rejected at parse (exit code 2). Run `autopilot lint u
 - **`word-wrap-toggle.json`** — View > Wrap Lines toggle; status-bar button changes
   "Wrap: Off" ↔ "Wrap: On". Types a long line (integrationSuite). happyPath → integrationSuite.
 - **`column-select.json`** — Edit > Text transforms: Make Upper Case, Make Lower Case,
-  Sort Lines Ascending/Descending. Note: "Column Selection Mode" cannot be driven via
-  `menu` (item is disabled at menu-open time); column-mode toggle requires manual
-  verification or a dedicated keyboard shortcut. happyPath → tryToBreakIt.
+  Sort Lines Ascending/Descending. Note: "Column Selection Mode" still cannot be
+  *invoked* via `menu` when it is disabled at menu-open time, but it is now **visible in
+  discovery** — `autopilot menu <medit> --pid <pid> --path Edit` lists it with its
+  `enabled` flag (AutoPilot `feature/ap-feedback`), so you no longer have to guess. The
+  column-mode toggle itself is driven via ⌥⌘B. happyPath → tryToBreakIt.
 - **`status-bar-toggles.json`** — show/hide status bar, word count toggle, rapid triple-
   toggle stability. happyPath → tryToBreakIt.
 
@@ -153,7 +165,9 @@ an `AXMenuItem` (D1) with a focus reset between opens (D2).
 - **`edge-empty-doc-ops.json`** — editing operations (select-all, copy, undo, …) on an
   empty (zero-byte) document degrade gracefully.
 - **`edge-copy-nothing-selected.json`** — copy with nothing selected leaves the clipboard
-  unchanged (verified by pasting — see D6, no clipboard-read primitive).
+  unchanged. Verified by pasting into a new tab (works on the released AP). AutoPilot
+  `feature/ap-feedback` adds a target-less `clipboard` assertion (closes D6) that replaces
+  the paste round-trip; adopt it here once that AP release ships.
 - **`edge-undo-past-history.json`** — undo past the beginning of history is graceful (no
   crash, no corruption).
 - **`edge-rapid-new-tabs.json`** — rapid repeated File ▸ New (tab-creation stress).
