@@ -4,6 +4,7 @@
   "comment": "Opens a .md file with an HTML table, toggles the preview on, and captures a screenshot of the rendered WebView. With autoShowPreviewForMarkdown defaulting true (v2.7.4+), the preview shows immediately; the editorTextView may be hidden, so we skip asserting its value and instead wait for the WebView directly. For builds where the default is still false (pre-v2.7.4), the show-preview menu step is a no-op toggle. Requires staged /tmp/table-test.md fixture.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state", "--no-auto-preview"],
     "launchFiles": ["/tmp/table-test.md"]
   },
   "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },

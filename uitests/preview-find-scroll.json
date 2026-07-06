@@ -4,6 +4,7 @@
   "comment": "KNOWN BUG — do not fix yet (as of v2.7.4). The find bar in the rendered Markdown preview finds matches (the match count increments) but never scrolls the preview WebView to make the match visible. This plan is a regression guard: it opens a long .md file, shows the preview, opens Find, searches for a term that appears near the bottom, then captures a screenshot of the preview. The screenshot should show the matched term in view — but currently it shows the top of the document (the scroll never fires). When the bug is fixed, this plan will start passing and the comment can be updated. Level is tryToBreakIt throughout since this is an adversarial check that the find-then-scroll path works end to end. Requires staged /tmp/medit-ap-long.md fixture.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state", "--no-auto-preview"],
     "launchFiles": ["/tmp/medit-ap-long.md"]
   },
   "defaults": { "timeoutMs": 10000, "retryIntervalMs": 150 },

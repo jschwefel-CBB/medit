@@ -4,7 +4,7 @@
   "comment": "Regression guard for the v2.7.4 fix: WKWebView's native copy: selector did not reach NSPasteboard.general. The fix intercepts copy: in EditorWindowController, extracts the selection via evaluateJavaScript, and writes directly to NSPasteboard. happyPath: select-all in preview, copy, paste into new tab, assert pasted content. integrationSuite: select partial text, copy, paste into new tab. Requires staged /tmp/medit-ap-copy-test.md (content: '# Hello\nThis is preview copy test content.'). Requires Debug build.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
-    "launchArgs": ["--reset-state"],
+    "launchArgs": ["--reset-state", "--no-auto-preview"],
     "launchFiles": ["/tmp/medit-ap-copy-test.md"]
   },
   "defaults": { "timeoutMs": 10000, "retryIntervalMs": 150 },

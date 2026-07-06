@@ -4,7 +4,7 @@
   "comment": "Opens unicode-content.md (emoji, accents, CJK, RTL, combining marks). happyPath: assert the editor loaded it and contains an ASCII-safe marker word present in the file ('Unicode'). integrationSuite: type an ASCII marker into the editor and assert it appears (proves editing on top of unicode content works). tryToBreakIt: type a mixed ASCII+emoji string; assert the ASCII marker part is present — per authoring §5, non-ANSI characters fall back to unicode-string synthesis and a field editor MAY reject them (a documented limit), so we assert the ASCII portion, not the emoji round-trip. Documented primitives only. Requires the Debug build; stage fixtures first.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
-    "launchArgs": ["--reset-state"],
+    "launchArgs": ["--reset-state", "--no-auto-preview"],
     "launchFiles": ["/tmp/medit-ap-unicode-content.md"]
   },
   "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },

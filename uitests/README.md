@@ -80,8 +80,30 @@ A step without `level` is rejected at parse (exit code 2). Run `autopilot lint u
 - **`find-replace.json`** — find bar, next, open replace bar, type replacement, no-match
   adversarial. happyPath → tryToBreakIt.
 - **`go-to-line.json`** — Edit > Go to Line (menu, cmd+L), navigate to line 5, navigate
-  to line 100, out-of-range (999999) graceful handling. Requires staged `long.txt`.
+  to line 100; out-of-range (999999) is **rejected (beep) with the sheet kept open** —
+  NOT clamped/navigated — then Escape closes it. Requires staged `long.txt`.
   happyPath → tryToBreakIt.
+- **`editor-behaviors.json`** — pref-driven editor input effects, asserted on the real
+  editor (not just the settings checkbox): auto-close brackets (`(`→`()`, nested `([])`),
+  auto-indent on Return (leading whitespace carries), and literal Tab is NOT remapped to
+  spaces (inserts a real `\t`). happyPath → tryToBreakIt.
+- **`save-in-place.json`** — Save (⌘S) on a titled document writes in place with NO system
+  panel and the app stays interactive (content kept, typing still lands); repeat save also
+  stays interactive. (Save As uses the system panel — separate process, not covered.)
+  happyPath → tryToBreakIt.
+- **`overwrite-mode.json`** — overwrite (type-over) mode end-to-end: the `insert` key
+  toggles the INS/OVR status pill (`modeLabel`), typing then replaces (`ABCDEF`→`XYCDEF`),
+  **pasting** in OVR also replaces (`PQCDEF`, via `exec` pbcopy), and **clicking** the
+  INS/OVR pill toggles the mode. Requires AutoPilot ≥ 3.2 (`insert` key + `exec`).
+  happyPath → integrationSuite.
+- **`reload-banner.json`** — external-change reload flow: `exec` overwrites the open file
+  on disk mid-plan → the reload banner (`reloadBannerLabel`) appears; **Reload** loads the
+  new content; a second change → **Dismiss** collapses the banner but keeps the editor's
+  content. Requires AutoPilot ≥ 3.2 (`exec`). happyPath → tryToBreakIt.
+- **`find-scroll.json`** — find match-count label AND the editor **scrolls** to a match
+  below the fold: types a 40-line doc, finds a bottom marker, presses ⌘G, asserts the
+  caret/view reach line 40 (find-scroll in the *preview* is a separate known bug — see
+  `preview-find-scroll.json`). happyPath → integrationSuite.
 - **`keyboard-scroll.json`** — editor caret scroll: End to bottom, Home to top, PageDown/Up.
   Requires staged `long.txt`. happyPath → tryToBreakIt.
 - **`word-wrap-toggle.json`** — View > Wrap Lines toggle; status-bar button changes
@@ -106,6 +128,10 @@ A step without `level` is rejected at parse (exit code 2). Run `autopilot lint u
   assert it opens. Requires staged `open-folder/`. happyPath.
 - **`sidebar-open-second-file.json`** — open a second file from the sidebar after the first;
   both must be tabs in one window. happyPath.
+- **`sidebar-context-newfile.json`** — right-click the folder root in the sidebar, choose
+  **New File** from the context menu, accept the rename dialog, assert a new `untitled` row
+  appears (a real file-system op driven through the UI). Creates `untitled` in the staged
+  `/tmp/medit-ap-folder` (regenerated each run). happyPath.
 - **`drop-files-onto-editor.json`** — real Finder-style file drag via `drag` + `toFiles`:
   drags two files onto `editorTextView`, fires AppKit drop handlers
   (`public.file-url` + `NSFilenamesPboardType` → `openFiles(at:)`). Requires
@@ -117,6 +143,10 @@ A step without `level` is rejected at parse (exit code 2). Run `autopilot lint u
   to top, PageDown. Requires staged `long.md`. happyPath → integrationSuite.
 - **`markdown-table-preview.json`** — open a Markdown file with a table, show preview,
   wait for WKWebView/AXWebArea, screenshot. Requires staged `table-test.md`. happyPath.
+- **`markdown-toolbar-insert.json`** — the Markdown formatting toolbar buttons actually
+  INSERT markdown (not just present): opens a `.md`, hides the auto-preview to reach the
+  editor, selects a word and clicks `mdStyle.bold` → `**word**`, `mdStyle.italic` →
+  `*word*`, `mdStyle.code` → `` `word` ``. Requires staged `long.md`. happyPath → integrationSuite.
 - **`preview-copy-test.json`** — regression guard for the v2.7.4 WKWebView copy fix:
   cmd+a → cmd+c in preview → paste into a new tab → assert pasted content reaches
   NSPasteboard. Requires staged `copy-test.md`. happyPath → integrationSuite.
@@ -165,9 +195,8 @@ an `AXMenuItem` (D1) with a focus reset between opens (D2).
 - **`edge-empty-doc-ops.json`** — editing operations (select-all, copy, undo, …) on an
   empty (zero-byte) document degrade gracefully.
 - **`edge-copy-nothing-selected.json`** — copy with nothing selected leaves the clipboard
-  unchanged. Verified by pasting into a new tab (works on the released AP). AutoPilot
-  `feature/ap-feedback` adds a target-less `clipboard` assertion (closes D6) that replaces
-  the paste round-trip; adopt it here once that AP release ships.
+  unchanged. Verified **directly** with AutoPilot's target-less `clipboard` assertion
+  (AP ≥ 3.2, closes D6) — no more paste-into-a-new-tab round-trip.
 - **`edge-undo-past-history.json`** — undo past the beginning of history is graceful (no
   crash, no corruption).
 - **`edge-rapid-new-tabs.json`** — rapid repeated File ▸ New (tab-creation stress).

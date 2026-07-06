@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.1",
+  "name": "save: in-place Save (cmd+s) on a titled document",
+  "comment": "Verifies that Save (cmd+s) on an already-titled document (opened from a path) writes in place WITHOUT raising the system Save panel and leaves the app fully interactive. The save/encoding/line-ending/whitespace logic is unit-tested (TextDocumentEncodingTests, TextHygieneTests, LineEndingsTests); this covers the end-to-end UI path that no other plan drove. We cannot read the file from disk mid-plan, so we assert the OBSERVABLE safety property: after cmd+s the plan is not blocked by a modal panel (a system Save panel would stall the next step), the edited content is still present, and typing afterward still lands (app alive). tryToBreakIt: a SECOND edit + second cmd+s (repeat save) also stays interactive. NOTE: Save As (new document / new path) uses the system Save panel, a separate process AutoPilot cannot drive — not covered here. Documented primitives only; requires the Debug build; stage fixtures first.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": ["/tmp/medit-ap-open-a.txt"]
+  },
+  "defaults": { "timeoutMs": 9000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "focus-editor", "action": "click", "level": "happyPath",
+      "target": { "identifier": "editorTextView" } },
+
+    { "comment": "Replace the content with a known marker, then save in place.",
+      "id": "selall", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "clear", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "delete" } },
+    { "id": "type-marker", "action": "type", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "text": "SAVED_IN_PLACE_1", "focus": true } },
+    { "id": "save-1", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+s" } },
+    { "id": "save-1-settle", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+
+    { "comment": "If a system Save panel had appeared, the next input would go to it, not the editor. Confirm the editor still holds the marker AND accepts more typing (no modal panel, app alive).",
+      "id": "assert-content-1", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "SAVED_IN_PLACE_1" } },
+    { "id": "type-more", "action": "type", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "text": " STILLTYPING", "focus": true } },
+    { "id": "type-more-settle", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "assert-interactive", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "STILLTYPING" } },
+
+    { "comment": "tryToBreakIt: a second edit + second save (repeat in-place save) stays interactive.",
+      "id": "selall-2", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "clear-2", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "delete" } },
+    { "id": "type-marker-2", "action": "type", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "text": "SAVED_IN_PLACE_2", "focus": true } },
+    { "id": "save-2", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+s" } },
+    { "id": "save-2-settle", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "assert-content-2", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "SAVED_IN_PLACE_2" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

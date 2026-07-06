@@ -4,6 +4,7 @@
   "comment": "Regression for the 2.6.x preview keyboard-scroll bug: navigation keys did nothing in the WKWebView preview because it never took first responder and content JS was disabled. Opens a long Markdown file, shows the preview, focuses it, presses End, captures before/after. integrationSuite adds Home to verify scrolling back up. NOTE: element-scoped WKWebView screenshots require medit to be frontmost during capture (WebKit/ScreenCaptureKit limitation). Requires staged /tmp/medit-ap-long.md fixture.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state", "--no-auto-preview"],
     "launchFiles": ["/tmp/medit-ap-long.md"]
   },
   "defaults": { "timeoutMs": 10000, "retryIntervalMs": 150 },

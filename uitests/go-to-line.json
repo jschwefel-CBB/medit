@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.1",
   "name": "go-to-line: Edit → Go to Line navigates and validates boundary input",
-  "comment": "Tests Go to Line sheet (Edit > Go to Line… / cmd+L). happyPath: open sheet via menu, type line 5, press Return, assert positionLabel shows Ln 5. integrationSuite: navigate to the last line of the document. tryToBreakIt: type an out-of-range line number (999999) and assert the caret clamps to last line or sheet closes gracefully (the app must not crash). Requires staged /tmp/medit-ap-long.txt (120 lines).",
+  "comment": "Tests Go to Line sheet (Edit > Go to Line… / cmd+L). happyPath: open sheet via menu, type line 5, press Return, assert positionLabel shows Ln 5. integrationSuite: navigate to the last line of the document. tryToBreakIt: type an out-of-range line number (999999) and press Return — medit REJECTS it (NSSound.beep) and keeps the sheet OPEN rather than clamping or navigating (TextLocator returns nil for a line beyond the count; GoToLineSheet re-beeps and stays). We assert the sheet is still up (goToLineField still present) and the app is alive, then cancel with Escape. (This corrects an earlier description that said the caret 'clamps to last line' — it does not; it rejects and beeps.) Requires staged /tmp/medit-ap-long.txt (120 lines).",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
     "launchFiles": ["/tmp/medit-ap-long.txt"]
@@ -55,9 +55,19 @@
       "target": { "identifier": "goToLineField" },
       "args": { "keys": "return" } },
     { "id": "settle-goto-3", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "comment": "Reject-and-beep: the out-of-range line is refused and the sheet STAYS OPEN (goToLineField still present) — it neither clamps nor navigates. Assert the sheet is up and the app is alive, then cancel.",
+      "id": "assert-sheet-stays-open", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "goToLineField" },
+      "assert": { "property": "value", "op": "exists" } },
     { "id": "assert-no-crash", "action": "assert", "level": "tryToBreakIt",
       "target": { "identifier": "editorTextView" },
       "assert": { "property": "value", "op": "exists" } },
+    { "id": "cancel-goto-3", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "goToLineField" }, "args": { "keys": "escape" } },
+    { "id": "settle-cancel", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "assert-sheet-gone", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "goToLineField" },
+      "assert": { "property": "value", "op": "notExists" } },
 
     { "id": "quit", "action": "terminate", "level": "happyPath" }
   ]

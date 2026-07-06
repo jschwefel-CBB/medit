@@ -22,8 +22,13 @@ Levels: `happyPath` (H) ⊂ `integrationSuite` (I) ⊂ `tryToBreakIt` (T).
 | Surface | Valid | Empty/none | Malformed / adversarial | Plan |
 |---|---|---|---|---|
 | Type text | ✅ H | ➖ | ✅ unicode/emoji, control chars, very long line — T | `open-and-type.json`, `edge-unicode-content.json` |
+| **Auto-close brackets** (pref effect) | ✅ `(`→`()`, nested `([])` — H | — | — | `editor-behaviors.json` |
+| **Auto-indent on Return** (pref effect) | ✅ leading whitespace carries to new line — I | — | — | `editor-behaviors.json` |
+| **Literal Tab NOT remapped** (pref boundary) | — | — | ✅ Tab inserts a real `\t` (spaces-for-tab governs only auto-indent) — T | `editor-behaviors.json` |
+| **Save in place (⌘S)** on a titled doc | ✅ no system panel, app interactive, content kept — H | — | ✅ repeat save stays interactive — T | `save-in-place.json` |
+| **Overwrite (type-over) mode** — Insert key + INS/OVR pill | ✅ Insert→OVR, type replaces (`XYCDEF`); click pill toggles — H/I | — | ✅ **paste** in OVR replaces not inserts (`PQCDEF`) — I | `overwrite-mode.json` |
 | Select all (⌘A) | ✅ H | ✅ select-all on empty doc — T | — | `open-and-type.json`, `edge-empty-doc-ops.json` |
-| Cut / Copy / Paste (⌘X/C/V) | ✅ H (round-trip) | ✅ copy with nothing selected → clipboard unchanged — T | ✅ paste into empty doc — I | `edge-copy-nothing-selected.json`, `preview-copy-test.json` |
+| Cut / Copy / Paste (⌘X/C/V) | ✅ H (round-trip) | ✅ copy with nothing selected → clipboard unchanged (asserted **directly** via the `clipboard` property, AP ≥ 3.2) — T | ✅ paste into empty doc — I | `edge-copy-nothing-selected.json`, `preview-copy-test.json` |
 | Delete / forward-delete | ✅ H | ✅ delete on empty doc (no crash) — T | — | `edge-empty-doc-ops.json` |
 | Undo (⌘Z) | ✅ H | ✅ **undo past start of history** (no crash) — T | ✅ rapid repeated undo — T | `edge-undo-past-history.json` |
 | Redo (⇧⌘Z) | ✅ H | ✅ redo with nothing to redo — T | — | `edge-undo-past-history.json` |
@@ -38,6 +43,7 @@ Identifiers: `findField`, `replaceField`, `findStatusLabel`, `findRegexToggle`,
 | Find (⌘F) literal | ✅ H | ✅ empty query — T | — | `find-replace.json` |
 | Find with **no match** | — | — | ✅ query absent from doc → status "0" / not found — T | `find-replace.json` |
 | Find Next / Prev (⌘G / ⇧⌘G) | ✅ I | — | ✅ next with 0 matches — T | `find-replace.json` |
+| Match-count label + **find SCROLLS editor** to a far-down match (⌘G → caret+view reach the match line) | ✅ H/I | — | — | `find-scroll.json` |
 | Replace / Replace All | ✅ H | ✅ replace with empty replacement (deletes matches) — I | ✅ replace-all no match — T | `find-replace.json` |
 | **Regex toggle OFF** + regex metachars (`.` `*` `[`) | ✅ literal-match semantics — T | — | ✅ metachars treated literally, not as regex — T | `find-regex-metachars-off.json` |
 | **Regex toggle ON** + valid pattern | ✅ T | — | ✅ **malformed regex** (`[`, `(`) → no crash, 0/no match — T | `find-regex-metachars-off.json` |
@@ -51,7 +57,7 @@ Identifier: `goToLineField` (NumberFormatter: integer-only, min 1, no max).
 |---|---|---|---|---|
 | Go to Line (⌘L) mid-document | ✅ H (line 5) | ✅ empty field committed → no-op/no crash — T | — | `go-to-line.json` |
 | Go to last line | ✅ I (line 100) | — | — | `go-to-line.json` |
-| Out-of-range high | — | — | ✅ 999999 → clamps to last line, no crash — T | `go-to-line.json` |
+| Out-of-range high | — | — | ✅ 999999 → **rejected (beep), sheet stays open** (NOT clamped/navigated), no crash — T | `go-to-line.json` |
 | Non-integer / negative input | — | — | ✅ formatter rejects `abc`, `-5`, `1.5` → field reverts — T | `go-to-line.json` |
 
 ## 4. View menu toggles (+ status-bar effects)
@@ -71,6 +77,7 @@ unreliable cold). Status identifiers: `positionLabel`, `documentStatsLabel`,
 | Show Markdown Preview (⇧⌘V) | ✅ `markdownPreviewWebView` present — H | ✅ hidden — H | — | `keyboard-scroll-preview.json`, `markdown-table-preview.json` |
 | Auto-Show Preview for Markdown | ✅ toggles pref — I | ✅ — I | — | `view-toggles.json` |
 | Show Markdown Toolbar | ✅ `mdStyle.*` present/gone — I | ✅ — I | — | `view-toggles.json` |
+| **Markdown toolbar buttons INSERT** (bold `**w**`, italic `*w*`, code `` `w` ``) | ✅ H/I | — | — | `markdown-toolbar-insert.json` |
 | Show Sidebar (⌃⌘0) | ✅ `sidebarOutline` geometry — I | ✅ collapsed size 0 — I | — | `view-toggles.json` |
 | Show Recent Files in Sidebar | ✅ pane switch — I | ✅ — I | — | `view-toggles.json` |
 | Show Hidden Files | ✅ toggles pref — I | ✅ — I | — | `view-toggles.json` |
@@ -159,6 +166,18 @@ Malformed/large/permission fixtures are generated at stage time in
 | **5 MB junk** file, batched | ⚠️ opens as a single file but STALLS window creation when batched with another (main-thread synchronous open) — **medit defect M1**, not asserted; the large-file plan is bounded to 1 MB so it stays green | — | — (see `docs/autopilot-feedback.md` M1) |
 | **Permission-denied** (`chmod 000`) | ✅ fails gracefully — medit window/editor stay present & readable — T. macOS itself shows a system modal (CoreServicesUIAgent, not medit); typed-text round-trip deliberately not asserted (**medit defect M2 / AP-doc D7**) | `edge-open-denied-file.json` | staged, `chmod 000` |
 
+## 7a. External change → reload banner
+
+The open file is mutated on disk from within the plan via AutoPilot's `exec` step
+(AP ≥ 3.2). Identifiers: `reloadBannerLabel`, `reloadButton`, `dismissReloadButton`.
+`externalChangePolicy` defaults `notify` (non-blocking banner).
+
+| Surface | Behavior asserted | Plan |
+|---|---|---|
+| External change (notify policy) | ✅ no banner initially; `exec`-overwrite the open file → `reloadBannerLabel` appears — I | `reload-banner.json` |
+| **Reload** button | ✅ editor shows the new on-disk content; banner gone — I | `reload-banner.json` |
+| **Dismiss** button | ✅ second change → banner reappears → Dismiss collapses it; editor KEEPS the reloaded content (dismiss ≠ reload) — T | `reload-banner.json` |
+
 ## 8. Encoding / Language switch on open content
 
 Identifiers: `languageButton`, `encodingButton` (status bar popups).
@@ -177,6 +196,7 @@ Identifiers: `languageButton`, `encodingButton` (status bar popups).
 | Open many files → one window, N tabs (runtime) | ✅ H | `open-into-tabs-runtime.json` |
 | Rapid repeated File ▸ New (stress) | ✅ T (N tabs, no crash) | `edge-rapid-new-tabs.json` |
 | Sidebar open file / second file | ✅ H | `sidebar-open-file.json`, `sidebar-open-second-file.json` |
+| **Sidebar context menu → New File** (right-click root → New File → row appears; real FS op via UI) | ✅ H | `sidebar-context-newfile.json` |
 | File drag-drop onto editor (single + multi) | ✅ H | `drop-files-onto-editor.json` |
 
 ## 10. Markdown preview (WKWebView)
@@ -198,7 +218,7 @@ See `docs/autopilot-feedback.md` for the full write-ups.
 | 2 | Menu items disabled at open time (e.g. Column Selection Mode) | `menu` action lists only enabled items | Drive via key equivalent (`⌥⌘B`) instead |
 | 3 | Clipboard-content assertion | No primitive to read `NSPasteboard` directly | Assert indirectly: paste into a new tab and check the editor value |
 | 4 | Modal-sheet field rejection **state** | Can't assert a beep/refused-edit directly | Assert the field **reverted to a valid value** after committing garbage |
-| 5 | System panels (Font Panel, Open/Save, Print) | Separate processes / AX surfaces a fresh-launch plan can't pre-arrange | Assert only that the panel **appears**; don't drive its internals |
+| 5 | System panels (Font Panel, Save-**As**/Open, Print) | Separate processes / AX surfaces a fresh-launch plan can't pre-arrange | Assert only that the panel **appears**; don't drive its internals. NOTE: in-place **Save (⌘S)** on a titled doc raises NO panel and IS covered (`save-in-place.json`); only Save-As / panel internals remain blocked |
 | 6 | Full-screen transition | Window-server/AX instability during the transition | Not toggled in the suite |
 | 7 | Menu-item `marked` checkmark (cold) | `AXMenuItemMarkChar` unset until menu validated | Assert the toggle's **side effect** instead of its checkmark |
 | 8 | (medit-side, now FIXED) control AX identifiers not vended | `setAccessibilityIdentifier` on a cell-based control isn't vended to the AX tree — only the cell's is | Fixed in medit via `setTestAXIdentifier` (sets both); **AP diagnostic value**: `dump-axtree`/`find` silently omit control-only identifiers, which cost real debugging time |

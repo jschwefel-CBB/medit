@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.1",
+  "name": "sidebar context menu: New File creates a file in the tree",
+  "comment": "Exercises the sidebar right-click context menu — a real file-system command driven through the UI (FileSystemOperations is unit-tested, but the context-menu -> action -> tree-refresh wiring was GUI-untested). Launches with a folder as sidebar root (--open-folder). happyPath: wait for the root row, expand it, right-click it, choose 'New File'. FileSystemOperations.newFile creates an empty file named 'untitled' immediately (before the rename prompt), so the file exists regardless of the rename dialog. medit then pops an NSAlert rename dialog ('Rename'/'Cancel' buttons); we accept it (keeping the auto name), then assert a new 'sidebarRow:untitled' appears in the refreshed tree. The plan mutates /tmp/medit-ap-folder (adds 'untitled'); stage-fixtures.sh regenerates that folder fresh each run, so re-runs are clean. Documented primitives only; requires the Debug build; stage fixtures first.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state", "--open-folder", "/tmp/medit-ap-folder"]
+  },
+  "defaults": { "timeoutMs": 9000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-root", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "sidebarRow:medit-ap-folder" }, "args": { "present": true } },
+    { "id": "expand-root", "action": "doubleClick", "level": "happyPath",
+      "target": { "identifier": "sidebarRow:medit-ap-folder" } },
+    { "id": "expand-settle", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+
+    { "id": "rightclick-root", "action": "rightClick", "level": "happyPath",
+      "target": { "identifier": "sidebarRow:medit-ap-folder" } },
+    { "id": "ctx-settle", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "click-newfile", "action": "click", "level": "happyPath",
+      "target": { "role": "AXMenuItem", "title": "New File" } },
+    { "id": "newfile-settle", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+
+    { "comment": "Accept the NSAlert rename dialog (buttons 'Rename'/'Cancel'), keeping the auto name 'untitled'. Target the button by title so it is unambiguous even though the alert is a second window.",
+      "id": "accept-rename", "action": "press", "level": "happyPath",
+      "target": { "role": "AXButton", "title": "Rename" } },
+    { "id": "rename-settle", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+
+    { "id": "assert-newfile-row", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "sidebarRow:untitled" },
+      "assert": { "property": "value", "op": "exists" }, "captureTarget": true },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

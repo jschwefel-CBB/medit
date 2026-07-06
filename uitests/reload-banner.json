@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.1",
+  "name": "external change: reload banner (exec mutates the open file, Reload + Dismiss)",
+  "comment": "Drives medit's external-change reload banner end-to-end using AutoPilot's exec step to mutate the open file on disk from within the plan (previously impossible - no shell step). Requires AutoPilot >= 3.2. Opens a staged .txt; externalChangePolicy defaults 'notify' so an on-disk change shows a non-blocking banner with Reload / Dismiss (AX ids reloadBannerLabel / reloadButton / dismissReloadButton). integrationSuite: assert no banner initially; exec-overwrite the file on disk with a known marker; assert reloadBannerLabel appears; click Reload; assert the editor now shows the new on-disk content (RELOADEDCONTENT) and the banner is gone. tryToBreakIt: mutate the file again; when the banner reappears, click Dismiss; assert the banner collapses (notExists) and the editor keeps the reloaded content (dismiss does NOT reload). The plan mutates /tmp/medit-ap-open-a.txt (a staged copy regenerated each run), so re-runs are clean. Documented primitives only; requires the Debug build; stage fixtures first.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": ["/tmp/medit-ap-open-a.txt"]
+  },
+  "defaults": { "timeoutMs": 10000, "retryIntervalMs": 200 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "settle-open", "action": "wait", "level": "happyPath", "args": { "seconds": 2 } },
+    { "id": "no-banner-initial", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "reloadBannerLabel" }, "assert": { "property": "value", "op": "notExists" } },
+
+    { "comment": "=== external change -> banner appears ===",
+      "id": "mutate-1", "action": "exec", "level": "integrationSuite",
+      "args": { "command": "printf 'RELOADEDCONTENT\\n' > /tmp/medit-ap-open-a.txt" } },
+    { "id": "wait-banner", "action": "waitFor", "level": "integrationSuite",
+      "target": { "identifier": "reloadBannerLabel" }, "args": { "present": true } },
+    { "id": "assert-banner", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "reloadBannerLabel" }, "assert": { "property": "value", "op": "exists" }, "captureTarget": true },
+
+    { "comment": "=== Reload -> editor shows the new on-disk content, banner gone ===",
+      "id": "click-reload", "action": "click", "level": "integrationSuite",
+      "target": { "identifier": "reloadButton" } },
+    { "id": "settle-reload", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "assert-reloaded", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "contains", "expected": "RELOADEDCONTENT" } },
+    { "id": "assert-banner-gone-after-reload", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "reloadBannerLabel" }, "assert": { "property": "value", "op": "notExists" } },
+
+    { "comment": "=== second external change -> Dismiss keeps the editor content, banner collapses ===",
+      "id": "mutate-2", "action": "exec", "level": "tryToBreakIt",
+      "args": { "command": "printf 'SECONDCHANGE\\n' > /tmp/medit-ap-open-a.txt" } },
+    { "id": "wait-banner-2", "action": "waitFor", "level": "tryToBreakIt",
+      "target": { "identifier": "reloadBannerLabel" }, "args": { "present": true } },
+    { "id": "click-dismiss", "action": "click", "level": "tryToBreakIt",
+      "target": { "identifier": "dismissReloadButton" } },
+    { "id": "settle-dismiss", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "assert-banner-dismissed", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "reloadBannerLabel" }, "assert": { "property": "value", "op": "notExists" } },
+    { "id": "assert-content-kept", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "contains", "expected": "RELOADEDCONTENT" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

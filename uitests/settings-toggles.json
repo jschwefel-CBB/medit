@@ -289,7 +289,7 @@
       }
     },
     {
-      "id": "autoShow-now-on",
+      "id": "autoShow-now-off",
       "action": "assert",
       "level": "integrationSuite",
       "target": {
@@ -298,7 +298,7 @@
       "assert": {
         "property": "value",
         "op": "equals",
-        "expected": "1"
+        "expected": "0"
       }
     },
     {
