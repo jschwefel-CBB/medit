@@ -97,6 +97,14 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertTrue(toggled, "clicking the wrap segment should fire onWrapToggle")
     }
 
+    func testStatusBarModeSegmentFiresToggle() {
+        let bar = StatusBarView(frame: NSRect(x: 0, y: 0, width: 600, height: 22))
+        var toggled = false
+        bar.onModeToggle = { toggled = true }
+        bar.simulateModeClickForTesting()
+        XCTAssertTrue(toggled, "clicking the INS/OVR segment should fire onModeToggle")
+    }
+
     func testStatusBarWrapTogglesWrapPreferenceLive() {
         // End-to-end: clicking the segment via the editor's wiring flips the pref.
         let controller = makeWindowController(text: "abc")
@@ -687,6 +695,76 @@ final class EditorSmokeTests: XCTestCase {
         tv.toggleOverwriteForTesting()
         tv.insertText("X", replacementRange: tv.selectedRange())
         XCTAssertEqual(tv.string, "Xbcdef", "overwrite should replace 'a', not insert")
+    }
+
+    func testToggleOverwriteModeRespectsPreferenceGate() {
+        let controller = makeWindowController(text: "hello")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("not EditorTextView") }
+        controller.showWindow(nil)
+        XCTAssertFalse(tv.isOverwriteMode)
+        tv.toggleOverwriteMode()
+        XCTAssertTrue(tv.isOverwriteMode, "toggle should turn overwrite ON with PC keys on")
+        tv.toggleOverwriteMode()
+        XCTAssertFalse(tv.isOverwriteMode, "toggle should turn overwrite OFF")
+        // With PC-style keys off the feature is inactive, so the toggle is a no-op.
+        tv.pcStyleNavigationKeys = false
+        tv.toggleOverwriteMode()
+        XCTAssertFalse(tv.isOverwriteMode, "toggle must be a no-op when PC keys are off")
+    }
+
+    func testStatusBarModeClickTogglesEditorOverwrite() {
+        // End-to-end: clicking the INS/OVR segment via the editor's wiring flips the
+        // editor's overwrite mode.
+        let controller = makeWindowController(text: "hello")
+        guard let tv = controller.focusedTextView as? EditorTextView,
+              let editor = controller.editorForTesting else { return XCTFail("no editor") }
+        controller.showWindow(nil)
+        XCTAssertFalse(tv.isOverwriteMode)
+        editor.simulateStatusBarModeClickForTesting()
+        XCTAssertTrue(tv.isOverwriteMode, "clicking INS/OVR should flip the editor into overwrite mode")
+        editor.simulateStatusBarModeClickForTesting()
+        XCTAssertFalse(tv.isOverwriteMode, "clicking again should flip it back to insert mode")
+    }
+
+    func testOverwriteModePasteReplacesChars() {
+        let controller = makeWindowController(text: "abcdef")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("not EditorTextView") }
+        controller.showWindow(nil)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString("XY", forType: .string)
+        tv.setSelectedRange(NSRange(location: 0, length: 0))
+        tv.toggleOverwriteForTesting()
+        tv.paste(nil)
+        XCTAssertEqual(tv.string, "XYcdef", "paste in overwrite must replace 'ab', not insert")
+        XCTAssertEqual(tv.selectedRange().location, 2, "caret should sit after the pasted text")
+    }
+
+    func testOverwriteModePasteStopsAtLineEnd() {
+        let controller = makeWindowController(text: "ab\ncd")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("not EditorTextView") }
+        controller.showWindow(nil)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString("WXYZ", forType: .string)
+        // Caret at 'b' (offset 1): overwrite must not consume the newline; it replaces
+        // only 'b' on this line, then the rest of the paste lands before the newline.
+        tv.setSelectedRange(NSRange(location: 1, length: 0))
+        tv.toggleOverwriteForTesting()
+        tv.paste(nil)
+        XCTAssertEqual(tv.string, "aWXYZ\ncd", "overwrite paste must not eat the newline")
+    }
+
+    func testOverwriteModeMultilinePasteFallsThrough() {
+        let controller = makeWindowController(text: "abcdef")
+        guard let tv = controller.focusedTextView as? EditorTextView else { return XCTFail("not EditorTextView") }
+        controller.showWindow(nil)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString("X\nY", forType: .string)
+        tv.setSelectedRange(NSRange(location: 0, length: 0))
+        tv.toggleOverwriteForTesting()
+        tv.paste(nil)
+        // A multi-line paste falls through to normal paste (inserts), so nothing is
+        // overwritten across lines.
+        XCTAssertEqual(tv.string, "X\nYabcdef", "multi-line paste should insert, not overwrite across lines")
     }
 
     /// Synthesize a real Insert keyDown (hardware keyCode 114 = Insert/Help on

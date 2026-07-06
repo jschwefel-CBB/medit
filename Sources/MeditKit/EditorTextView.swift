@@ -299,6 +299,15 @@ public final class EditorTextView: NSTextView {
     /// Resetting overwrite mode (used when the preference is toggled off).
     public func resetOverwriteMode() { isOverwriteMode = false }
 
+    /// Toggle overwrite (type-over) mode from the UI (e.g. clicking the INS/OVR
+    /// status-bar segment). Gated on `pcStyleNavigationKeys` to match the Insert-key
+    /// path — when PC-style keys are off the overwrite feature is inactive, so the
+    /// click is a no-op rather than entering a mode that typing wouldn't honor.
+    public func toggleOverwriteMode() {
+        guard pcStyleNavigationKeys else { return }
+        isOverwriteMode.toggle()
+    }
+
     /// Test hook: flip overwrite mode.
     func toggleOverwriteForTesting() { isOverwriteMode.toggle() }
 
@@ -569,6 +578,33 @@ public final class EditorTextView: NSTextView {
     }
 
     public override func paste(_ sender: Any?) {
+        // Overwrite (type-over) mode: a paste should replace the characters it lands
+        // on, matching insertText's single-char behavior, not push them right.
+        // Only applies to a plain (non-block) caret paste of single-line text; a
+        // multi-line paste or a selection falls through to the normal paste so we
+        // never overwrite across line boundaries.
+        if isOverwriteMode, columnBlock == nil,
+           let clip = NSPasteboard.general.string(forType: .string),
+           !clip.contains("\n") {
+            let sel = selectedRange()
+            let ns = self.string as NSString
+            if sel.length == 0 {
+                // Replace up to clip.count chars, stopping at the end of the current
+                // line (never consume the newline or run past the document).
+                let lineEnd = ns.range(of: "\n", options: [],
+                                       range: NSRange(location: sel.location,
+                                                      length: ns.length - sel.location))
+                let maxOnLine = (lineEnd.location == NSNotFound ? ns.length : lineEnd.location) - sel.location
+                let overwriteLen = min((clip as NSString).length, maxOnLine)
+                let target = NSRange(location: sel.location, length: overwriteLen)
+                if shouldChangeText(in: target, replacementString: clip) {
+                    replaceCharacters(in: target, with: clip)
+                    didChangeText()
+                    setSelectedRange(NSRange(location: sel.location + (clip as NSString).length, length: 0))
+                }
+                return
+            }
+        }
         guard let b = columnBlock,
               let clip = NSPasteboard.general.string(forType: .string) else {
             super.paste(sender); return

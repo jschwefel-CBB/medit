@@ -179,6 +179,9 @@ On by default (toggle in **Settings**):
 - **Shift** with any of the above extends the selection.
 - **Insert** — toggle **overwrite ("type-over") mode**, shown as **OVR** in the
   status bar with a block caret. **Shift+Insert** pastes; **Ctrl+Insert** copies.
+  You can also **click the INS/OVR pill** in the status bar to toggle the mode. In
+  overwrite mode both typing **and pasting** replace the characters under the caret
+  (up to the end of the line) instead of pushing them right.
 
 > **Note on the Insert key:** Mac keyboards label the Insert-position key as
 > **Help** and the OS reports it that way (keyCode 114). medit detects it by
