@@ -16,6 +16,8 @@ public final class StatusBarView: NSView {
     public var onLineEndingPick: ((LineEnding) -> Void)?
     /// Called when the user clicks the wrap segment to toggle word wrap.
     public var onWrapToggle: (() -> Void)?
+    /// Called when the user clicks the INS/OVR segment to toggle overwrite mode.
+    public var onModeToggle: (() -> Void)?
 
     private let positionLabel = StatusBarView.makeLabel(align: .left)
     private let statsLabel = StatusBarView.makeLabel(align: .left)
@@ -42,11 +44,18 @@ public final class StatusBarView: NSView {
         wrapButton.target = self
         wrapButton.action = #selector(wrapButtonClicked)
 
+        // The INS/OVR field is a styled label (for the pill look), so make it
+        // clickable via a gesture recognizer to toggle overwrite mode.
+        let modeClick = NSClickGestureRecognizer(target: self, action: #selector(modeLabelClicked))
+        modeLabel.addGestureRecognizer(modeClick)
+
         // Accessibility identifiers for autopilot GUI tests.
         positionLabel.setAccessibilityIdentifier("positionLabel")
         statsLabel.setAccessibilityIdentifier("documentStatsLabel")
         languageButton.setAccessibilityIdentifier("languageButton")
         encodingButton.setAccessibilityIdentifier("encodingButton")
+        lineEndingButton.setAccessibilityIdentifier("lineEndingButton")
+        modeLabel.setAccessibilityIdentifier("modeLabel")
 
         columnModeLabel.setAccessibilityIdentifier("columnModeLabel")
         let stack = NSStackView(views: [positionLabel, sep(), statsLabel, NSView(), languageButton, sep(), encodingButton, sep(), lineEndingButton, sep(), wrapButton, sep(), columnModeLabel, modeLabel])
@@ -222,8 +231,11 @@ public final class StatusBarView: NSView {
 
     @objc private func wrapButtonClicked() { onWrapToggle?() }
 
+    @objc private func modeLabelClicked() { onModeToggle?() }
+
     /// Test hook: invoke the wrap action as if the segment were clicked.
     func simulateWrapClickForTesting() { onWrapToggle?() }
+    func simulateModeClickForTesting() { onModeToggle?() }
     /// Test hook: the wrap segment's current title.
     var wrapTitleForTesting: String { wrapButton.title }
 

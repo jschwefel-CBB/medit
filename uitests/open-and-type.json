@@ -1,49 +1,60 @@
 {
   "schemaVersion": "1.1",
-  "name": "type text into editor",
-  "include": [
-    "setups/launch.json"
-  ],
+  "name": "open-and-type: basic editing with undo and large paste",
   "target": {
-    "bundleId": "com.jschwefel.medit",
-    "launchArgs": [
-      "--reset-state"
-    ]
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"]
   },
-  "defaults": {
-    "timeoutMs": 6000,
-    "retryIntervalMs": 100
-  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 100 },
   "steps": [
-    {
-      "id": "type",
-      "action": "type",
-      "target": {
-        "role": "AXTextArea",
-        "identifier": "editorTextView"
-      },
-      "args": {
-        "text": "hello world"
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "assert-value",
-      "action": "assert",
-      "target": {
-        "identifier": "editorTextView"
-      },
-      "assert": {
-        "property": "value",
-        "op": "contains",
-        "expected": "hello world"
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "quit",
-      "action": "terminate",
-      "level": "happyPath"
-    }
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+
+    { "id": "type-text", "action": "type", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "hello world" } },
+    { "id": "assert-typed", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "hello world" } },
+
+    { "id": "select-all", "action": "keyPress", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "cmd+a" } },
+    { "id": "type-replacement", "action": "type", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "line one\nline two\nline three" } },
+    { "id": "assert-multiline", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "line two" } },
+    { "id": "undo-all", "action": "keyPress", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "cmd+z" } },
+    { "id": "assert-undo-fired", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "notEquals", "expected": "line one\nline two\nline three" } },
+
+    { "id": "select-all-2", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "cmd+a" } },
+    { "id": "delete-all", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "delete" } },
+    { "id": "assert-empty", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "equals", "expected": "" } },
+    { "id": "type-after-clear", "action": "type", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "typed after clear" } },
+    { "id": "assert-after-clear", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "typed after clear" } },
+
+    { "id": "clear-before-quit", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "cmd+a" } },
+    { "id": "delete-before-quit", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "delete" } },
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
   ]
 }

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.1",
+  "name": "find: regex metacharacters are literal when regex is off; malformed regex when on",
+  "comment": "Opens regex-metachars.txt (contains literal . * [ ] ( ) ^ $). Regex is OFF by default. happyPath: cmd+f, type a literal dot, assert the find bar shows a status (findStatusLabel exists) — a literal '.' must match only real dots, not every character. integrationSuite: search a literal '[x]' substring present in the file. tryToBreakIt: turn the Regex toggle ON (findRegexToggle) and type a MALFORMED pattern '[' — medit must not crash and the status label must still be present (graceful). Documented primitives only: menu/keyPress to open the bar, type with focus:false into the already-focused findField, press on the regex toggle, assert on findStatusLabel. Requires the Debug build; stage fixtures first.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": ["/tmp/medit-ap-regex-metachars.txt"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "open-find", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+f" } },
+    { "id": "wait-find-field", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "findField" }, "args": { "present": true } },
+
+    { "id": "type-literal-dot", "action": "type", "level": "happyPath",
+      "target": { "identifier": "findField" },
+      "args": { "text": ".", "focus": false } },
+    { "id": "settle-dot", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "status-present-dot", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "findStatusLabel" }, "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "type-literal-bracket", "action": "type", "level": "integrationSuite",
+      "target": { "identifier": "findField" },
+      "args": { "text": "[x]", "focus": false, "clear": true } },
+    { "id": "settle-bracket", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "status-present-bracket", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "findStatusLabel" }, "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "enable-regex", "action": "press", "level": "tryToBreakIt",
+      "target": { "identifier": "findRegexToggle" } },
+    { "id": "regex-is-on", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "findRegexToggle" },
+      "assert": { "property": "value", "op": "equals", "expected": "1" } },
+    { "id": "type-malformed-regex", "action": "type", "level": "tryToBreakIt",
+      "target": { "identifier": "findField" },
+      "args": { "text": "[", "focus": false, "clear": true } },
+    { "id": "settle-malformed", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "survives-malformed-regex", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "findStatusLabel" }, "assert": { "property": "value", "op": "exists" } },
+    { "id": "editor-still-alive", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "close-find", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "findField" }, "args": { "keys": "escape" } },
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

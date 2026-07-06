@@ -53,6 +53,18 @@ public enum LaunchReset {
         return paths
     }
 
+    /// The launch argument that suppresses the auto-open of the Markdown preview at
+    /// document open, regardless of the `autoShowPreviewForMarkdown` preference. This
+    /// is a GUI-test hook: a plan that opens a `.md` file to drive the EDITOR (or to
+    /// toggle the preview from a known off state) needs a deterministic starting point
+    /// that does not depend on the user-facing default. Usage: `--no-auto-preview`.
+    public static let noAutoPreviewFlag = "--no-auto-preview"
+
+    /// Whether the given process arguments request suppressing auto-preview.
+    public static func isAutoPreviewSuppressed(in arguments: [String]) -> Bool {
+        arguments.contains(noAutoPreviewFlag)
+    }
+
     /// Wipe every persisted preference for the app, including the sidebar root
     /// bookmarks, from the given defaults. Clearing the whole domain *and* the
     /// individual keys is deliberate belt-and-suspenders: `removePersistentDomain`

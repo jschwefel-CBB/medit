@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "1.1",
+  "name": "overwrite (type-over) mode: Insert key, type-over, paste-over, click INS/OVR pill",
+  "comment": "Drives medit's overwrite (type-over) mode end-to-end. Requires AutoPilot >= 3.2 (the `insert` key + `exec` step) and the medit build with the modeLabel AX id + the overwrite paste/click fixes. pcStyleNavigationKeys defaults on (the gate for overwrite). happyPath: type ABCDEF, caret to start, press `insert` -> the status-bar INS/OVR pill (modeLabel) reads OVR; type XY -> content becomes XYCDEF (type-over replaces, does not insert). integrationSuite: set the clipboard via exec (pbcopy), caret to start, paste -> content becomes PQCDEF (PASTE overwrites too - regression guard for the bug where paste in OVR inserted instead of overwriting). integrationSuite: CLICK the INS/OVR pill (modeLabel) -> it toggles back to INS (regression guard for the bug where the pill was a static label and clicking did nothing); click again -> OVR. Documented primitives only; requires the Debug build; stage fixtures first (none needed here, starts from an untitled doc).",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"]
+  },
+  "defaults": { "timeoutMs": 9000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+
+    { "comment": "=== type-over: Insert toggles OVR, then typing replaces ===",
+      "id": "type-base", "action": "type", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "text": "ABCDEF", "clear": true, "focus": true } },
+    { "id": "settle-base", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "assert-ins-initial", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "modeLabel" }, "assert": { "property": "value", "op": "contains", "expected": "INS" } },
+    { "id": "caret-start-1", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "ctrl+home" } },
+    { "id": "press-insert", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "insert" } },
+    { "id": "settle-ovr", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "assert-ovr", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "modeLabel" }, "assert": { "property": "value", "op": "contains", "expected": "OVR" } },
+    { "id": "type-over", "action": "type", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "text": "XY", "focus": false } },
+    { "id": "settle-typeover", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "assert-typeover", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "equals", "expected": "XYCDEF" } },
+
+    { "comment": "=== paste-over: paste in OVR must REPLACE, not insert (bug fix regression guard) ===",
+      "id": "set-clipboard", "action": "exec", "level": "integrationSuite",
+      "args": { "command": "printf 'PQ' | pbcopy" } },
+    { "id": "caret-start-2", "action": "keyPress", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "ctrl+home" } },
+    { "id": "paste-over", "action": "keyPress", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+v" } },
+    { "id": "settle-pasteover", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "assert-pasteover", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "equals", "expected": "PQCDEF" } },
+
+    { "comment": "=== click the INS/OVR pill to toggle overwrite (bug fix regression guard) ===",
+      "id": "click-pill-off", "action": "click", "level": "integrationSuite",
+      "target": { "identifier": "modeLabel" } },
+    { "id": "settle-click-off", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "assert-ins-after-click", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "modeLabel" }, "assert": { "property": "value", "op": "contains", "expected": "INS" } },
+    { "id": "click-pill-on", "action": "click", "level": "integrationSuite",
+      "target": { "identifier": "modeLabel" } },
+    { "id": "settle-click-on", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "assert-ovr-after-click", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "modeLabel" }, "assert": { "property": "value", "op": "contains", "expected": "OVR" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.1",
+  "name": "KNOWN-FAILING: preview find bar scrolls to match (regression guard)",
+  "comment": "KNOWN BUG — do not fix yet (as of v2.7.4). The find bar in the rendered Markdown preview finds matches (the match count increments) but never scrolls the preview WebView to make the match visible. This plan is a regression guard: it opens a long .md file, shows the preview, opens Find, searches for a term that appears near the bottom, then captures a screenshot of the preview. The screenshot should show the matched term in view — but currently it shows the top of the document (the scroll never fires). When the bug is fixed, this plan will start passing and the comment can be updated. Level is tryToBreakIt throughout since this is an adversarial check that the find-then-scroll path works end to end. Requires staged /tmp/medit-ap-long.md fixture.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state", "--no-auto-preview"],
+    "launchFiles": ["/tmp/medit-ap-long.md"]
+  },
+  "defaults": { "timeoutMs": 10000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "tryToBreakIt",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "focus-editor", "action": "click", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" } },
+    { "id": "show-preview", "action": "menu", "level": "tryToBreakIt",
+      "args": { "menuPath": ["View", "Show Markdown Preview"] } },
+    { "id": "wait-preview", "action": "waitFor", "level": "tryToBreakIt",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+    { "id": "settle-render", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "shot-before-find", "action": "screenshot", "level": "tryToBreakIt",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "padding": 0 } },
+    { "id": "open-find", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "keys": "cmd+f" } },
+    { "id": "wait-find-field", "action": "waitFor", "level": "tryToBreakIt",
+      "target": { "identifier": "findField" }, "args": { "present": true } },
+    { "id": "type-bottom-term", "action": "type", "level": "tryToBreakIt",
+      "target": { "identifier": "findField" },
+      "args": { "text": "Line 120", "focus": false } },
+    { "id": "settle-find", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "find-status-shows-match", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "findStatusLabel" },
+      "assert": { "property": "value", "op": "exists" } },
+    { "id": "shot-after-find", "action": "screenshot", "level": "tryToBreakIt",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "padding": 0 } },
+    { "id": "escape-find", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "findField" },
+      "args": { "keys": "escape" } },
+    { "id": "hide-preview", "action": "menu", "level": "tryToBreakIt",
+      "args": { "menuPath": ["View", "Show Markdown Preview"] } },
+    { "id": "settle-hide", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+
+    { "id": "quit", "action": "terminate", "level": "tryToBreakIt" }
+  ]
+}

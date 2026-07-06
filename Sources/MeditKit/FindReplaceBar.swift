@@ -94,10 +94,14 @@ public final class FindReplaceBar: NSView {
         statusLabel.alignment = .right
         statusLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        // Accessibility identifiers for autopilot GUI tests.
+        // Accessibility identifiers for autopilot GUI tests. The regex/case
+        // toggles are cell-based NSButtons, so use the cell-aware setter (an
+        // identifier set only on the control is not vended to the AX tree).
         findField.setAccessibilityIdentifier("findField")
         replaceField.setAccessibilityIdentifier("replaceField")
         statusLabel.setAccessibilityIdentifier("findStatusLabel")
+        regexToggle.setTestAXIdentifier("findRegexToggle")
+        caseToggle.setTestAXIdentifier("findCaseToggle")
 
         let prevButton = makeButton(symbol: "chevron.left", fallback: "<", action: #selector(findPrev))
         let nextButton = makeButton(symbol: "chevron.right", fallback: ">", action: #selector(findNext))

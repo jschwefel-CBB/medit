@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.1",
+  "name": "settings persistence (2/2): relaunch and verify changes survived",
+  "comment": "Part 2 of the two-plan persistence check. Launches WITHOUT --reset-state so persisted UserDefaults are loaded, opens Settings, and asserts the four checkboxes changed by settings-persistence-set.json survived the close/relaunch: showLineNumbers=0, showInvisibles=1, rainbowBrackets=0, smartQuotes=1. Run settings-persistence-set.json FIRST. This proves Settings changes survive close/start (user requirement). Documented primitives only. Requires the Debug build. If run standalone (defaults present), it will fail — that is expected; it is the second half of a pair.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app"
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "open-settings", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+," } },
+    { "id": "wait-settings", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "settings.showLineNumbers" }, "args": { "present": true } },
+
+    { "id": "lineNumbers-persisted", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "settings.showLineNumbers" },
+      "assert": { "property": "value", "op": "equals", "expected": "0" } },
+    { "id": "invisibles-persisted", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "settings.showInvisibles" },
+      "assert": { "property": "value", "op": "equals", "expected": "1" } },
+    { "id": "rainbow-persisted", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "settings.rainbowBrackets" },
+      "assert": { "property": "value", "op": "equals", "expected": "0" } },
+    { "id": "smartQuotes-persisted", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "settings.smartQuotes" },
+      "assert": { "property": "value", "op": "equals", "expected": "1" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

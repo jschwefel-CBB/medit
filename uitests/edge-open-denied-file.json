@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.1",
+  "name": "edge: opening a permission-denied file fails gracefully",
+  "comment": "Launches with a chmod 000 file in launchFiles. tryToBreakIt: medit cannot read the file, so it must fail gracefully - no crash, the app stays up with a healthy, present editor. IMPORTANT: on a failed open, macOS LaunchServices itself puts up a modal permission alert ('You do not have permission to open the document ...'). That alert is owned by CoreServicesUIAgent, a SEPARATE process - NOT by medit - so it does not appear in medit's accessibility tree and AutoPilot (attached to medit) cannot see or dismiss it. While it is up it steals keyboard focus, so typing into medit's editor is unreliable (a race between the system alert appearing and the type step). We therefore assert the SAFETY PROPERTY AutoPilot can actually observe on the app under test: medit survived the failed open and its window + editor remain present and readable (no crash, no hang, editor value is a real string). We deliberately do NOT round-trip typed text here, because the failure mode would be the system modal stealing focus - a macOS behavior, not a medit defect - and there is no documented AutoPilot primitive to dismiss another process's alert (tracked in docs/autopilot-feedback.md, medit defect M2 / AP-doc defect D7). Documented primitives only. Requires the Debug build; stage fixtures first (generates /tmp/medit-ap-denied.txt with chmod 000).",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": ["/tmp/medit-ap-denied.txt"]
+  },
+  "defaults": { "timeoutMs": 12000, "retryIntervalMs": 200 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "tryToBreakIt",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "settle-open", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 2 } },
+
+    { "id": "window-alive", "action": "assert", "level": "tryToBreakIt",
+      "target": { "role": "AXWindow" }, "assert": { "property": "value", "op": "exists" } },
+    { "id": "editor-readable", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "exists" },
+      "captureTarget": true },
+    { "id": "editor-not-tainted", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "notEquals", "expected": "you should not be able to read this" } },
+
+    { "id": "quit", "action": "terminate", "level": "tryToBreakIt" }
+  ]
+}

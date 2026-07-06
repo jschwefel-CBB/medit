@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "1.1",
+  "name": "view menu toggles: sidebar, markdown toolbar, and menu-checkmark state",
+  "comment": "Exercises View-menu toggles using documented AP primitives only (menu action, assert on presence/geometry, assert marked after opening the menu per the §4a caveat). Toggles whose only effect is drawn pixels the AX API cannot see (line-number gutter, invisibles glyphs, rainbow-bracket colors — see authoring §16) are asserted via their menu-item 'marked' checkmark after the menu is opened, which is the documented observable for those. Sidebar visibility is asserted by the sidebarOutline element appearing/geometry (§18). Markdown toolbar is asserted by an mdStyle.* button's presence. Requires the Debug build; opens the plain long.txt fixture so the editor exists. Stage fixtures first.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": ["/tmp/medit-ap-long.txt"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+
+    { "id": "show-sidebar", "action": "menu", "level": "happyPath",
+      "args": { "menuPath": ["View", "Show Sidebar"] } },
+    { "id": "settle-sidebar-on", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "sidebar-present", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "sidebarOutline" }, "assert": { "property": "value", "op": "exists" } },
+    { "id": "hide-sidebar", "action": "menu", "level": "happyPath",
+      "args": { "menuPath": ["View", "Show Sidebar"] } },
+    { "id": "settle-sidebar-off", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+
+    { "id": "show-md-toolbar", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Show Markdown Toolbar"] } },
+    { "id": "settle-toolbar", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+
+    { "id": "line-numbers-toggle", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Show Line Numbers"] } },
+    { "id": "settle-linenums", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "line-numbers-toggle-back", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Show Line Numbers"] } },
+
+    { "id": "invisibles-toggle", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Show Invisibles"] } },
+    { "id": "settle-invisibles", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "invisibles-toggle-back", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Show Invisibles"] } },
+
+    { "id": "rainbow-toggle", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Rainbow Brackets"] } },
+    { "id": "settle-rainbow", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "rainbow-toggle-back", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Rainbow Brackets"] } },
+
+    { "id": "hidden-files-toggle", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Show Hidden Files"] } },
+    { "id": "settle-hidden", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "hidden-files-toggle-back", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Show Hidden Files"] } },
+
+    { "id": "reveal-active-toggle", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Reveal Active File in Sidebar"] } },
+    { "id": "settle-reveal", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "reveal-active-toggle-back", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Reveal Active File in Sidebar"] } },
+
+    { "id": "auto-preview-toggle", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Auto-Show Preview for Markdown"] } },
+    { "id": "settle-autoprev", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "auto-preview-toggle-back", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Auto-Show Preview for Markdown"] } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

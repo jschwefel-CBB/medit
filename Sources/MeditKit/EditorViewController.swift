@@ -227,6 +227,11 @@ public final class EditorViewController: NSViewController {
             self.applyWrapMode(self.prefs.wrapLines)
             self.updateStatusBar()
         }
+        statusBar.onModeToggle = { [weak self] in
+            guard let self, let editor = self.textView as? EditorTextView else { return }
+            editor.toggleOverwriteMode()
+            self.updateStatusBar()
+        }
         self.statusBar = statusBar
         container.addSubview(statusBar)
 
@@ -264,7 +269,12 @@ public final class EditorViewController: NSViewController {
         observePreferences()
         observeResize()
         // Auto-open the preview for Markdown documents when the user opted in.
-        if prefs.autoShowPreviewForMarkdown, document?.highlightLanguage == "markdown" {
+        // The `--no-auto-preview` launch flag (GUI-test hook) suppresses this so a
+        // test that drives the editor of a .md file starts from a deterministic
+        // preview-off state regardless of the user's autoShowPreviewForMarkdown default.
+        if prefs.autoShowPreviewForMarkdown,
+           document?.highlightLanguage == "markdown",
+           !LaunchReset.isAutoPreviewSuppressed(in: CommandLine.arguments) {
             showPreview(true)
         }
         applyStyleBarVisibility()
@@ -893,6 +903,7 @@ public final class EditorViewController: NSViewController {
     var wrapLinesForTesting: Bool { prefs.wrapLines }
     /// Test hook: invoke the status bar's wrap toggle as if clicked.
     func simulateStatusBarWrapClickForTesting() { statusBar?.simulateWrapClickForTesting() }
+    func simulateStatusBarModeClickForTesting() { statusBar?.simulateModeClickForTesting() }
     /// Test hook: force a synchronous bracket-overlay repaint.
     func refreshBracketColorizerForTesting() { bracketColorizer?.refresh() }
     /// Test hook: re-run the preference-changed handler.

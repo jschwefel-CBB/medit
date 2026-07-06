@@ -1,84 +1,34 @@
 {
   "schemaVersion": "1.1",
-  "name": "multi-window: New Window makes a 2nd window; New Tab does not",
-  "comment": "Verifies the multi-window model in the real app: ⇧⌘N opens a separate window (tabs stay the default for ⌘N/Open/sidebar). Requires the Debug build; fixtures staged to /tmp by stage-fixtures.sh (sandbox blocks repo-path launchFiles). NOTE(harden): if AutoPilot's `count` assertion on AXWindow is unsupported, drop the two-windows assert and verify the window count via `autopilot dump-axtree | grep -c AXWindow` in manual verification.",
+  "name": "multi-window: New Window makes 2nd window; New Tab stays in same window",
+  "comment": "Verifies the multi-window model: ⇧⌘N (cmd+shift+n) opens a SEPARATE window; ⌘N (cmd+n) adds a tab in the existing window, NOT a new window. Requires Debug build and staged /tmp/medit-ap-mw-a.txt fixture.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
-    "launchFiles": [
-      "/tmp/medit-ap-mw-a.txt"
-    ]
+    "launchFiles": ["/tmp/medit-ap-mw-a.txt"]
   },
-  "defaults": {
-    "timeoutMs": 8000,
-    "retryIntervalMs": 150
-  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
   "steps": [
-    {
-      "id": "wait-window",
-      "action": "waitFor",
-      "target": {
-        "role": "AXWindow"
-      },
-      "args": {
-        "present": true
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "wait-editor",
-      "action": "waitFor",
-      "target": {
-        "identifier": "editorTextView"
-      },
-      "args": {
-        "present": true
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "focus-editor",
-      "action": "click",
-      "target": {
-        "identifier": "editorTextView"
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "new-window",
-      "action": "keyPress",
-      "target": {
-        "identifier": "editorTextView"
-      },
-      "args": {
-        "keys": "cmd+shift+n"
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "settle-window",
-      "action": "wait",
-      "args": {
-        "seconds": 1
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "two-windows",
-      "action": "assert",
-      "target": {
-        "role": "AXWindow"
-      },
-      "assert": {
-        "property": "count",
-        "op": "greaterThan",
-        "expected": "1"
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "quit",
-      "action": "terminate",
-      "level": "happyPath"
-    }
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "focus-editor", "action": "click", "level": "happyPath",
+      "target": { "identifier": "editorTextView" } },
+    { "id": "new-window", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "args": { "keys": "cmd+shift+n" } },
+    { "id": "settle-window", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "two-windows", "action": "assert", "level": "happyPath",
+      "target": { "role": "AXWindow" },
+      "assert": { "property": "count", "op": "greaterThan", "expected": "1" } },
+
+    { "id": "new-tab", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["File", "New"] } },
+    { "id": "settle-tab", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "still-two-windows", "action": "assert", "level": "integrationSuite",
+      "target": { "role": "AXWindow" },
+      "assert": { "property": "count", "op": "equals", "expected": "2" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
   ]
 }

@@ -1,0 +1,5 @@
+line with a dot .
+glob star *
+bracket [x] and paren (y)
+anchor ^start end$
+plain line no specials

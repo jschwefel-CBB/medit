@@ -1,0 +1,3 @@
+valid ascii start
+ÿşÃ( ¡ bad bytes above
+valid ascii end

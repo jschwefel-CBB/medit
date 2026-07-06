@@ -26,6 +26,13 @@ final class LaunchResetTests: XCTestCase {
         XCTAssertFalse(LaunchReset.isRequested(in: []))
     }
 
+    func testAutoPreviewSuppressionFlag() {
+        XCTAssertTrue(LaunchReset.isAutoPreviewSuppressed(in: ["medit", "--no-auto-preview"]))
+        XCTAssertTrue(LaunchReset.isAutoPreviewSuppressed(in: ["--reset-state", "--no-auto-preview"]))
+        XCTAssertFalse(LaunchReset.isAutoPreviewSuppressed(in: ["medit", "--reset-state"]))
+        XCTAssertFalse(LaunchReset.isAutoPreviewSuppressed(in: []))
+    }
+
     func testClearDefaultsRemovesSidebarBookmarks() {
         // Seed a sidebar root bookmark and a preference, as a real session would.
         defaults.set([Data([1, 2, 3])], forKey: "sidebarRootBookmarks")

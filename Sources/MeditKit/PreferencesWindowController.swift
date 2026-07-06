@@ -3,7 +3,7 @@ import AppKit
 /// The Settings window. Edits the shared `Preferences`; changes propagate to all
 /// open editors via `Preferences.didChangeNotification`. Built programmatically
 /// with a simple top-down stacked layout (no nib).
-public final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
+public final class PreferencesWindowController: NSWindowController, NSWindowDelegate, NSTextFieldDelegate {
 
     private let prefs: Preferences
     private var fontLabel: NSTextField!
@@ -244,101 +244,139 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         let fontButton = NSButton(title: "Change…", target: self, action: #selector(chooseFont))
         fontButton.bezelStyle = .rounded
         fontButton.toolTip = "Choose the editor's font family and size"
+        fontButton.setTestAXIdentifier("settings.chooseFont")
 
         appearancePopup = NSPopUpButton(frame: .zero, pullsDown: false)
         appearancePopup.addItems(withTitles: ["System", "Light", "Dark"])
         appearancePopup.target = self
         appearancePopup.action = #selector(appearanceChanged)
         appearancePopup.toolTip = "Match the system appearance, or force a light or dark theme"
+        appearancePopup.setTestAXIdentifier("settings.appearance")
 
         lineNumbersCheck = check("Show line numbers", #selector(checkChanged))
         lineNumbersCheck.toolTip = "Display a line-number gutter down the left edge"
+        lineNumbersCheck.setTestAXIdentifier("settings.showLineNumbers")
         wrapCheck = check("Wrap long lines", #selector(checkChanged))
         wrapCheck.toolTip = "Wrap text to the window width instead of scrolling horizontally"
+        wrapCheck.setTestAXIdentifier("settings.wrapLines")
         showStatusBarCheck = check("Show status bar", #selector(checkChanged))
         showStatusBarCheck.toolTip = "Show the bottom bar with line/column, language, and encoding"
+        showStatusBarCheck.setTestAXIdentifier("settings.showStatusBar")
         showInvisiblesCheck = check("Show invisibles", #selector(checkChanged))
         showInvisiblesCheck.toolTip = "Reveal spaces, tabs, and line breaks as faint marks"
+        showInvisiblesCheck.setTestAXIdentifier("settings.showInvisibles")
         showDocumentStatsCheck = check("Show word/line count in status bar", #selector(checkChanged))
         showDocumentStatsCheck.toolTip = "Show a live word, line, and character count (and selection count) in the status bar"
+        showDocumentStatsCheck.setTestAXIdentifier("settings.showDocumentStats")
         reopenLastSessionCheck = check("Reopen last session's files at launch", #selector(checkChanged))
         reopenLastSessionCheck.toolTip = "When medit starts, reopen the files you had open when you last quit"
+        reopenLastSessionCheck.setTestAXIdentifier("settings.reopenLastSession")
         rainbowBracketsCheck = check("Rainbow brackets", #selector(checkChanged))
         rainbowBracketsCheck.toolTip = "Color brackets by nesting depth so matching pairs are easy to spot"
+        rainbowBracketsCheck.setTestAXIdentifier("settings.rainbowBrackets")
         emphasizePairCheck = check("Emphasize enclosing pair at caret", #selector(checkChanged))
         emphasizePairCheck.toolTip = "Highlight the bracket pair that surrounds the cursor"
+        emphasizePairCheck.setTestAXIdentifier("settings.emphasizeEnclosingPair")
         emphasisStylePopup = NSPopUpButton(frame: .zero, pullsDown: false)
         emphasisStylePopup.addItems(withTitles: ["Bold", "Underline", "Background"])
         emphasisStylePopup.target = self
         emphasisStylePopup.action = #selector(emphasisStyleChanged)
         emphasisStylePopup.toolTip = "How the enclosing pair is emphasized: bold, underline, or background"
+        emphasisStylePopup.setTestAXIdentifier("settings.enclosingPairEmphasisStyle")
 
         autoRefreshPreviewCheck = check("Auto-refresh preview", #selector(checkChanged))
         autoRefreshPreviewCheck.toolTip = "Keep the Markdown preview up to date as you edit or the file changes"
+        autoRefreshPreviewCheck.setTestAXIdentifier("settings.autoRefreshPreview")
         autoShowPreviewCheck = check("Auto-show preview for Markdown", #selector(checkChanged))
         autoShowPreviewCheck.toolTip = "Open the rendered preview automatically when you open a Markdown file"
+        autoShowPreviewCheck.setTestAXIdentifier("settings.autoShowPreviewForMarkdown")
         showMarkdownToolbarCheck = check("Show formatting toolbar", #selector(checkChanged))
         showMarkdownToolbarCheck.toolTip = "Show a formatting toolbar above Markdown documents for one-click bold, lists, headings, and more"
+        showMarkdownToolbarCheck.setTestAXIdentifier("settings.showMarkdownToolbar")
         printLineNumbersCheck = check("Print line numbers (plain text)", #selector(checkChanged))
         printLineNumbersCheck.toolTip = "Add line numbers and a filename header when printing plain or source files"
+        printLineNumbersCheck.setTestAXIdentifier("settings.printLineNumbers")
 
         let paddingTitle = label("Text padding:")
         paddingField = NSTextField()
         paddingField.formatter = paddingFormatter()
         paddingField.target = self
         paddingField.action = #selector(paddingChanged)
+        paddingField.delegate = self
         paddingField.toolTip = "Blank space between the text and the editor's edges, in points"
+        paddingField.setTestAXIdentifier("settings.editorPadding")
 
         smartQuotesCheck = check("Smart quotes", #selector(smartSubstChanged))
         smartQuotesCheck.toolTip = "Convert straight quotes to curly typographic quotes as you type"
+        smartQuotesCheck.setTestAXIdentifier("settings.smartQuotes")
         smartDashesCheck = check("Smart dashes", #selector(smartSubstChanged))
         smartDashesCheck.toolTip = "Convert double hyphens to en and em dashes as you type"
+        smartDashesCheck.setTestAXIdentifier("settings.smartDashes")
         textReplacementCheck = check("Automatic text replacement", #selector(smartSubstChanged))
         textReplacementCheck.toolTip = "Apply your macOS text-replacement shortcuts while typing"
+        textReplacementCheck.setTestAXIdentifier("settings.automaticTextReplacement")
         spellingCorrectionCheck = check("Correct spelling automatically", #selector(smartSubstChanged))
         spellingCorrectionCheck.toolTip = "Fix misspellings automatically as you type"
+        spellingCorrectionCheck.setTestAXIdentifier("settings.automaticSpellingCorrection")
         smartInsertDeleteCheck = check("Smart copy/paste spacing", #selector(smartSubstChanged))
         smartInsertDeleteCheck.toolTip = "Adjust spaces automatically when cutting and pasting words"
+        smartInsertDeleteCheck.setTestAXIdentifier("settings.smartInsertDelete")
         continuousSpellCheck = check("Check spelling while typing", #selector(smartSubstChanged))
         continuousSpellCheck.toolTip = "Underline misspelled words as you type"
+        continuousSpellCheck.setTestAXIdentifier("settings.continuousSpellChecking")
 
         spacesCheck = check("Insert spaces instead of tabs", #selector(checkChanged))
         spacesCheck.toolTip = "Indent with spaces rather than tab characters"
+        spacesCheck.setTestAXIdentifier("settings.insertSpacesForTab")
         let tabTitle = label("Tab width:")
         tabWidthField = NSTextField()
         tabWidthField.formatter = integerFormatter()
         tabWidthField.target = self
         tabWidthField.action = #selector(tabWidthChanged)
+        tabWidthField.delegate = self
         tabWidthField.toolTip = "Number of spaces a tab represents"
+        tabWidthField.setTestAXIdentifier("settings.tabWidth")
         pcKeysCheck = check("PC-style Home/End/Insert keys", #selector(checkChanged))
         pcKeysCheck.toolTip = "Home/End jump to line start/end, and Insert toggles overwrite"
+        pcKeysCheck.setTestAXIdentifier("settings.pcStyleNavigationKeys")
         autoIndentCheck = check("Auto-indent new lines", #selector(checkChanged))
         autoIndentCheck.toolTip = "Match the previous line's indentation on Return"
+        autoIndentCheck.setTestAXIdentifier("settings.autoIndent")
         indentBetweenBracketsCheck = check("Indent between brackets on Return", #selector(checkChanged))
         indentBetweenBracketsCheck.toolTip = "Pressing Return between a bracket pair opens an indented line between them"
+        indentBetweenBracketsCheck.setTestAXIdentifier("settings.indentBetweenBrackets")
         autoCloseCheck = check("Auto-close brackets", #selector(checkChanged))
         autoCloseCheck.toolTip = "Type an opening bracket and the matching closing one is inserted"
+        autoCloseCheck.setTestAXIdentifier("settings.autoCloseBrackets")
         stripWSCheck = check("Strip trailing whitespace on save", #selector(checkChanged))
         stripWSCheck.toolTip = "Remove trailing spaces and tabs from each line when saving"
+        stripWSCheck.setTestAXIdentifier("settings.stripTrailingWhitespaceOnSave")
 
         externalChangePopup = NSPopUpButton(frame: .zero, pullsDown: false)
         externalChangePopup.addItems(withTitles: ["Notify", "Prompt", "Auto-reload if clean"])
         externalChangePopup.target = self
         externalChangePopup.action = #selector(externalChangePolicyChanged)
         externalChangePopup.toolTip = "What to do when a file changes on disk outside medit"
+        externalChangePopup.setTestAXIdentifier("settings.externalChangePolicy")
 
         sortFoldersFirstCheck = check("Sort folders first", #selector(sidebarCheckChanged))
         sortFoldersFirstCheck.toolTip = "List folders above files in the sidebar"
+        sortFoldersFirstCheck.setTestAXIdentifier("settings.sidebarSortFoldersFirst")
         sortAscendingCheck = check("Sort A→Z (off = Z→A)", #selector(sidebarCheckChanged))
         sortAscendingCheck.toolTip = "Sort sidebar entries alphabetically; turn off to reverse"
+        sortAscendingCheck.setTestAXIdentifier("settings.sidebarSortAscending")
         openOnSingleClickCheck = check("Open on single click", #selector(sidebarCheckChanged))
         openOnSingleClickCheck.toolTip = "Open files with a single click instead of a double click"
+        openOnSingleClickCheck.setTestAXIdentifier("settings.sidebarOpenOnSingleClick")
         sidebarOnRightCheck = check("Sidebar on the right", #selector(sidebarCheckChanged))
         sidebarOnRightCheck.toolTip = "Place the file sidebar on the right side of the window"
+        sidebarOnRightCheck.setTestAXIdentifier("settings.sidebarOnRight")
         confirmDeleteCheck = check("Confirm before deleting", #selector(sidebarCheckChanged))
         confirmDeleteCheck.toolTip = "Ask for confirmation before moving an item to the Trash"
+        confirmDeleteCheck.setTestAXIdentifier("settings.confirmBeforeDelete")
         revealActiveFileCheck = check("Reveal the active file", #selector(sidebarCheckChanged))
         revealActiveFileCheck.toolTip = "Select the current document in the sidebar as you switch tabs"
+        revealActiveFileCheck.setTestAXIdentifier("settings.syncSidebarWithActiveTab")
 
         // Stack everything top-down with section headers.
         let leftMargin: CGFloat = 20
@@ -599,11 +637,54 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     }
 
     @objc private func tabWidthChanged(_ sender: Any?) {
-        prefs.tabWidth = max(1, tabWidthField.integerValue)
+        commitTabWidth()
     }
 
     @objc private func paddingChanged(_ sender: Any?) {
-        prefs.editorPadding = paddingField.integerValue
+        commitPadding()
+    }
+
+    /// Parse `field`'s text as an integer using its NumberFormatter. Returns nil
+    /// when the text is not a valid number the formatter accepts (letters,
+    /// negatives below the minimum, non-integers, empty) — the signal to revert
+    /// the display to the stored value rather than coerce garbage to a number.
+    private func validInteger(from field: NSTextField) -> Int? {
+        guard let formatter = field.formatter as? NumberFormatter,
+              let number = formatter.number(from: field.stringValue) else { return nil }
+        return number.intValue
+    }
+
+    /// Commit the tab-width field: a valid entry updates the pref (which clamps
+    /// 1…16); an invalid entry is discarded. Either way the field is redisplayed
+    /// from the stored value, so invalid text never lingers on screen.
+    private func commitTabWidth() {
+        if let value = validInteger(from: tabWidthField) {
+            prefs.tabWidth = value
+        }
+        tabWidthField.integerValue = prefs.tabWidth
+    }
+
+    /// Commit the text-padding field: valid entry updates the pref (clamped
+    /// 0…40); invalid entry discarded; field redisplayed from the stored value.
+    private func commitPadding() {
+        if let value = validInteger(from: paddingField) {
+            prefs.editorPadding = value
+        }
+        paddingField.integerValue = prefs.editorPadding
+    }
+
+    /// When editing a numeric field ends (Return, or focus moves away), commit it
+    /// through the same clamp-and-redisplay path as its action. This is what fixes
+    /// the display bug where invalid input the NumberFormatter refuses (letters,
+    /// negatives, out-of-range) was left visible even though the underlying
+    /// setting was unchanged.
+    public func controlTextDidEndEditing(_ obj: Notification) {
+        guard let field = obj.object as? NSTextField else { return }
+        if field === tabWidthField {
+            commitTabWidth()
+        } else if field === paddingField {
+            commitPadding()
+        }
     }
 
     @objc private func emphasisStyleChanged(_ sender: Any?) {

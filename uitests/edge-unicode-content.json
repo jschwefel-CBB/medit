@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.1",
+  "name": "edge: unicode and emoji content opens and can be edited",
+  "comment": "Opens unicode-content.md (emoji, accents, CJK, RTL, combining marks). happyPath: assert the editor loaded it and contains an ASCII-safe marker word present in the file ('Unicode'). integrationSuite: type an ASCII marker into the editor and assert it appears (proves editing on top of unicode content works). tryToBreakIt: type a mixed ASCII+emoji string; assert the ASCII marker part is present — per authoring §5, non-ANSI characters fall back to unicode-string synthesis and a field editor MAY reject them (a documented limit), so we assert the ASCII portion, not the emoji round-trip. Documented primitives only. Requires the Debug build; stage fixtures first.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state", "--no-auto-preview"],
+    "launchFiles": ["/tmp/medit-ap-unicode-content.md"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "loaded-unicode", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "Unicode" } },
+
+    { "id": "go-to-end", "action": "keyPress", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+down" } },
+    { "id": "type-ascii-marker", "action": "type", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "\nASCIIMARKER123" } },
+    { "id": "settle-ascii", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "ascii-present", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "ASCIIMARKER123" } },
+
+    { "id": "type-mixed", "action": "type", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "args": { "text": "\nMIXEDMARKER 🚀 é 日本" } },
+    { "id": "settle-mixed", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "mixed-ascii-present", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "MIXEDMARKER" } },
+    { "id": "editor-alive", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "clear-a", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "clear-b", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "delete" } },
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

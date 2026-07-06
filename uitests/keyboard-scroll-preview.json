@@ -1,114 +1,50 @@
 {
   "schemaVersion": "1.1",
-  "name": "End scrolls the Markdown preview to the bottom",
-  "comment": "Regression for the 2.6.x preview keyboard-scroll bug: navigation keys did nothing in the WKWebView preview because it never took first responder and content JS was disabled. Opens a long Markdown file, shows the preview, focuses it, presses End, and captures before/after screenshots. NOTE(harden): element-scoped screenshots of the WKWebView come back blank unless medit is frontmost during capture (a WebKit/ScreenCaptureKit limitation) — so the captured PNGs are not yet reliable evidence here; the preview-scroll behavior is proven by the dev probe (Line 1 -> Line 120 on End) and by PreviewScrollKeyTests in MeditKitTests. Make the capture frontmost-gated in the follow-up. Requires the Debug build; fixtures are staged to /tmp by stage-fixtures.sh because the sandbox blocks opening repo-path files.",
+  "name": "Markdown preview keyboard scroll: End to bottom, Home back to top",
+  "comment": "Regression for the 2.6.x preview keyboard-scroll bug: navigation keys did nothing in the WKWebView preview because it never took first responder and content JS was disabled. Opens a long Markdown file, shows the preview, focuses it, presses End, captures before/after. integrationSuite adds Home to verify scrolling back up. NOTE: element-scoped WKWebView screenshots require medit to be frontmost during capture (WebKit/ScreenCaptureKit limitation). Requires staged /tmp/medit-ap-long.md fixture.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
-    "launchFiles": [
-      "/tmp/medit-ap-long.md"
-    ]
+    "launchArgs": ["--reset-state", "--no-auto-preview"],
+    "launchFiles": ["/tmp/medit-ap-long.md"]
   },
-  "defaults": {
-    "timeoutMs": 8000,
-    "retryIntervalMs": 150
-  },
+  "defaults": { "timeoutMs": 10000, "retryIntervalMs": 150 },
   "steps": [
-    {
-      "id": "wait-window",
-      "action": "waitFor",
-      "target": {
-        "role": "AXWindow"
-      },
-      "args": {
-        "present": true
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "focus-editor",
-      "action": "click",
-      "target": {
-        "identifier": "editorTextView"
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "show-preview",
-      "action": "menu",
-      "args": {
-        "menuPath": [
-          "View",
-          "Show Markdown Preview"
-        ]
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "wait-preview",
-      "action": "waitFor",
-      "target": {
-        "identifier": "markdownPreviewWebView"
-      },
-      "args": {
-        "present": true
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "shot-top",
-      "action": "screenshot",
-      "target": {
-        "identifier": "markdownPreviewWebView"
-      },
-      "args": {
-        "path": "/tmp/medit-uitests/preview-top.png",
-        "padding": 0
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "focus-preview",
-      "action": "click",
-      "target": {
-        "identifier": "markdownPreviewWebView"
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "press-end",
-      "action": "keyPress",
-      "target": {
-        "identifier": "markdownPreviewWebView"
-      },
-      "args": {
-        "keys": "end"
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "settle",
-      "action": "wait",
-      "args": {
-        "seconds": 1
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "shot-bottom",
-      "action": "screenshot",
-      "target": {
-        "identifier": "markdownPreviewWebView"
-      },
-      "args": {
-        "path": "/tmp/medit-uitests/preview-bottom.png",
-        "padding": 0
-      },
-      "level": "happyPath"
-    },
-    {
-      "id": "quit",
-      "action": "terminate",
-      "level": "happyPath"
-    }
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "focus-editor", "action": "click", "level": "happyPath",
+      "target": { "identifier": "editorTextView" } },
+    { "id": "show-preview", "action": "menu", "level": "happyPath",
+      "args": { "menuPath": ["View", "Show Markdown Preview"] } },
+    { "id": "wait-preview", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+    { "id": "shot-top", "action": "screenshot", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "padding": 0 } },
+    { "id": "focus-preview", "action": "click", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" } },
+    { "id": "press-end", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "keys": "end" } },
+    { "id": "settle-end", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "shot-bottom", "action": "screenshot", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "padding": 0 } },
+
+    { "id": "press-home", "action": "keyPress", "level": "integrationSuite",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "keys": "home" } },
+    { "id": "settle-home", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "shot-top-again", "action": "screenshot", "level": "integrationSuite",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "padding": 0 } },
+    { "id": "pagedown-preview", "action": "keyPress", "level": "integrationSuite",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "keys": "pagedown" } },
+    { "id": "settle-pd", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "hide-preview", "action": "menu", "level": "happyPath",
+      "args": { "menuPath": ["View", "Show Markdown Preview"] } },
+    { "id": "settle-hide", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
   ]
 }

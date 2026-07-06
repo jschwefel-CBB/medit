@@ -26,10 +26,10 @@ final class PreferencesTests: XCTestCase {
         XCTAssertFalse(Preferences(defaults: defaults).autoRefreshPreview)
     }
 
-    func testAutoShowPreviewForMarkdownDefaultsOffAndPersists() {
-        XCTAssertFalse(prefs.autoShowPreviewForMarkdown)
-        prefs.autoShowPreviewForMarkdown = true
-        XCTAssertTrue(Preferences(defaults: defaults).autoShowPreviewForMarkdown)
+    func testAutoShowPreviewForMarkdownDefaultsOnAndPersists() {
+        XCTAssertTrue(prefs.autoShowPreviewForMarkdown)
+        prefs.autoShowPreviewForMarkdown = false
+        XCTAssertFalse(Preferences(defaults: defaults).autoShowPreviewForMarkdown)
     }
 
     func testDefaultsAreSane() {

@@ -6,6 +6,310 @@
 
 ---
 
+## medit 2.7.5 — comprehensive suite: full Settings + edge-case coverage
+
+This session added exhaustive coverage of the Settings panel and adversarial
+edge cases (bad/empty/malformed input). To make the Settings panel targetable,
+medit added stable `settings.*` AX identifiers to all 33 checkboxes, 3 popups,
+2 numeric fields, and the font button, plus `findRegexToggle`/`findCaseToggle`
+on the find bar (all verified resolving 1:1). New plans: `settings-toggles`,
+`settings-popup-appearance/emphasis/external-change`, `settings-field-valid`,
+`settings-field-tabwidth-reject`, `settings-field-padding-reject`,
+`settings-persistence-set`/`-verify`, `view-toggles`, `find-regex-metachars-off`,
+`edge-unicode-content`, `edge-empty-doc-ops`, `edge-copy-nothing-selected`,
+`edge-undo-past-history`, `edge-open-bad-files` (malformed-content batch),
+`edge-open-large-file` (bounded 1 MB large-file open), `edge-open-denied-file`,
+`edge-rapid-new-tabs`, `encoding-language-switch`; `column-select` extended with
+Capitalize and column-mode-via-⌥⌘B. Two medit bugs surfaced here (M1 large-file
+main-thread stall, M2 denied-file system modal) — see below.
+
+**Result: 37/37 plans pass in a full sequential suite run.** The suite is run with a
+kill-medit + restage-fixtures + dismiss-system-alerts step between plans (the last is
+needed only because of the denied-file case — see D7/M2). Individually every plan also
+passes. The AX-linger race that previously flaked back-to-back launches is avoided by
+killing the prior instance between plans rather than relying on teardown.
+
+### VALIDATED against AutoPilot `feature/ap-feedback` (the branch that closes this report)
+
+> AutoPilot handed medit a validation checklist for the branch that answers this field
+> report. Validated on 2026-07-03 with a release build of `feature/ap-feedback` (core +
+> macos). Results:
+>
+> - **D6 — clipboard assert:** ✅ works. Target-less `{ "property": "clipboard" }` reads
+>   the pasteboard directly (validated: a copy-then-assert-clipboard plan passes; the
+>   released AP rejects the property). Simplifies `edge-copy-nothing-selected` from the
+>   paste-into-a-new-tab workaround (19 steps) to a direct clipboard assert (12 steps) —
+>   **held for adoption** until this AP release ships, so the committed suite stays green
+>   on the AP black-box testers have today. The ready replacement is checked in as
+>   `uitests/edge-copy-nothing-selected.clipboard-assert.json.pending` (the `.pending`
+>   suffix keeps it out of the `*.json` suite glob) — swap it in when AP releases.
+> - **D7 — `dismiss-alert`:** ✅ works, with a caveat. `autopilot dismiss-alert --pid
+>   <CoreServicesUIAgent> --button OK` presses the LaunchServices permission modal that a
+>   medit-attached run can't see. **Caveat:** that alert self-expires in ~2–10 s, so
+>   dismiss-alert only succeeds while it is still up (otherwise "No matching button
+>   found") — invoke it immediately after the denied-file plan.
+> - **D1/D2 — popup recipe:** ✅ the documented press→click-AXMenuItem + focus-reset
+>   recipe drives medit's `settings.*` popups (all three `settings-popup-*` plans green).
+> - **Menu discovery (`autopilot menu`):** ✅ "Column Selection Mode" is now visible in
+>   discovery with its `enabled` flag. Note: `markChar` cold-reads empty for checked
+>   items (the known AppKit "mark not populated until the menu is opened" caveat) — a
+>   cold `menu` dump can't report toggle checkmarks yet.
+> - **dump-axtree filters:** ✅ `--omit-menubar` (261→23 nodes) and `--under-role
+>   AXWindow` work. Minor: `--under-role AXWindow --interactive-only` combined returned
+>   0 on medit (the interactive set is mostly menu items outside the window subtree) —
+>   each filter alone is fine.
+> - **Exit code 4 (unsupported key):** ✅ distinct from exit 2.
+> - **AX-linger race fix:** ✅ mostly. 8 historically-linger-flaky plans ran back-to-back
+>   with **no** `pkill`/`sleep` guard, all green. BUT a full no-guard suite run flaked
+>   twice — `edge-open-large-file` (the denied-file alert bled into the next plan's
+>   `type`) and `keyboard-scroll-preview` (state/focus residue). So the guard can be
+>   *reduced* (drop `-9` and the fixed sleep) but the denied-file alert still needs an
+>   explicit `dismiss-alert`, and restaging between plans is still required for state.
+>   Both flakes pass clean when run individually — not regressions.
+>
+> Net (updated 2026-07-04): every new primitive works AND every remaining item is now
+> closed. The first pass at `5cf7cfe` left **D3** (same-field re-edit) and a **new**
+> prefs-field-not-ready-after-`waitFor` flake open; AP's follow-up `23a69c3` (macOS-driver
+> only) **fixes both** — re-validated on this host (see the "RE-VALIDATED — now CLOSED"
+> block immediately below). **D4** is resolved too. So all of D1–D7 are closed on the
+> branch. Green light from medit's side to cut the AutoPilot release (still gated on AP's
+> explicit "go"); adopting the branch-only primitives + dropping the D3/settle workarounds
+> in medit's committed suite stays HELD until that AP release ships.
+
+### RE-VALIDATED — now CLOSED on `feature/ap-feedback` @ `23a69c3` (2026-07-04)
+
+> AP fixed the two AutoPilot-runtime items the 2.7.5 re-validation left open, in
+> **autopilot-macos `23a69c3`** (macOS-driver only; autopilot-core unchanged at
+> `4e57986`). Re-validated 2026-07-04 with a fresh release build of that branch against
+> a fresh medit Debug build. Both confirmed fixed on this host. History preserved below.
+
+**D3 — same text field re-edited twice now takes. ✅ FIXED (was ❌).**
+The exact repro (`settings.tabWidth` set `6`, assert `6`, set `3`, assert `3`) now ends at
+`3`. Verified: of the runs that reached the second edit, **the second value took every time**
+(`check2` read `3`, never the stale `6`) — 9/9 across two batches. No plan change was
+required. Per AP, `type` now confirms focus and re-arms the field editor (AXPress) before
+typing instead of firing keystrokes into a torn-down field editor. **The D3 workaround is no
+longer necessary** — a plan may now re-edit the same field multiple times in one run. (medit's
+suite never actually split plans *because* of D3 — each field was simply edited once, which
+is still fine — so nothing in the committed suite needs restructuring; future plans can
+re-edit freely.)
+
+> _Original (pre-fix, build `5cf7cfe`): the second `type` into the same field was silently
+> dropped — `settings.tabWidth` set `6` then `3` stayed `6` (`actual=6`, never `3`), and an
+> explicit `click` between edits did not help. That is the bug AP `23a69c3` fixes._
+
+**D4 — `commit:true` on a formatter field: PASSES.** ✅ (unchanged from prior re-validation)
+An invalid value (`abc`) typed with `commit:true` reverts to a valid number instead of
+persisting. Closed.
+
+**Settings-field first-edit readiness after `cmd+,`: ✅ RESOLVED on this host (was ⚠️).**
+The same `23a69c3` change addresses the `waitFor <field> present` → first-`type`-lands-nothing
+flake. Re-measured on this host **with no extra settle**: **25/25 first edits landed** (two
+batches of 10 + 15), versus ~3/5 failing pre-fix. `type` now polls focus/editability and
+retries before sending keystrokes, so `waitFor present` no longer gives a false "ready."
+(AP noted this race did not reproduce on their host — it is host-load-dependent — so they
+couldn't A/B it; confirming here: **it was real on this host and is now gone.** The short
+settle medit added after opening the panel can be dropped once AP releases.)
+
+> _Original (pre-fix): after `cmd+,` opened Settings and `waitFor settings.tabWidth` resolved
+> present, the first `type` no-op'd in ~3 of 5 runs (field stayed at default). Presence ≠
+> editable for a freshly-opened panel's field._
+
+**Two caveats confirmed inherent (AP's note — usage guidance, no fix expected):**
+- **`dismiss-alert` timing** — the LaunchServices modal self-expires in ~2–10 s, so call
+  `dismiss-alert` immediately after the denied-file plan (else "No matching button found").
+  Keep it out-of-band in the suite runner.
+- **Cold `menu` `markChar`** — a checked item's checkmark isn't populated until AppKit
+  opens/validates the menu, so a cold `menu` dump reads `markChar` empty. Assert toggle
+  state via the app's own side-effect surface (e.g. `columnModeLabel`/status pill), not
+  `markChar`. `menu` still gives the item + `enabled` flag (the discovery gap that's closed).
+
+**Net: every item medit filed against AutoPilot is now resolved on `feature/ap-feedback`
+`23a69c3` (D1, D2, D5, D6, D7, D3, D4 + menu discovery + dump filters + exit-4).** The two
+remaining points are inherent-behavior usage notes, not defects. Green light from medit's
+side to cut the AutoPilot release (still behind AP's explicit "go"). ADOPTION of the
+branch-only primitives + dropping the D3/settle workarounds in medit's committed suite stays
+HELD until that AP release ships (the released `autopilot` still rejects the `clipboard`
+property and lacks these fixes — adopting now would break the suite for black-box testers).
+
+### AUTHORING-DOC DEFECTS (undocumented behavior we had to discover the hard way)
+
+> The authoring guide is presented as the complete contract for writing a plan,
+> but several behaviors below are **not stated anywhere in it**, so a plan author
+> working strictly within the four corners of the docs cannot know them. Each is a
+> **documentation defect**: please add explicit guidance. These are not medit bugs
+> and not runtime bugs in AP — they are *gaps in what the docs tell an author.*
+
+**D1 — How to select an `NSPopUpButton` item is unspecified.**
+The action table documents `type`, `press`, `click`, `menu`, but never says how to
+choose a value from a **pop-up button** (`AXPopUpButton`). Empirically `type` with the
+item title does NOT select it (the value stays unchanged); the working sequence is
+`press` to open the menu, then `click` an `{ "role": "AXMenuItem", "title": "…" }`.
+Please document the canonical popup-selection recipe in the action reference.
+
+**D2 — A pop-up cannot be re-opened after a selection without a focus reset.**
+After committing a selection, a second `press` on the same `AXPopUpButton` does **not**
+re-open its menu, and (worse) opening a *different* pop-up later in the same session can
+also fail — the prior menu's teardown leaves focus/first-responder in a state that
+swallows the next open. The only reliable workaround we found is to move focus off the
+control between opens (e.g. click a neutral control) to dismiss the lingering menu.
+Nothing in the docs warns of this; please document the constraint and the recommended
+reset, or fix the executor so consecutive pop-up opens are reliable.
+
+**D3 — Re-editing the SAME text field twice in one session does not commit.**
+_Status: FIXED on `feature/ap-feedback` @ `23a69c3` (re-validated 2026-07-04, 9/9 —
+second edit now takes; see the "RE-VALIDATED — now CLOSED" block above)._
+A `type` (with `clear`/`commit`) into a field works the first time; a *second* `type`
+into the **same** field later in the run does not commit — the field keeps its prior
+value. Editing two *different* fields in one session is fine. The docs describe `type`
+as if it is freely repeatable on any field; they should state this same-field re-edit
+limitation (or the executor should be fixed). Our suite works around it by editing each
+field at most once per plan run and splitting cases across plans.
+
+**D4 — Whether `commit:true` fires `controlTextDidEndEditing` on a formatter field is unspecified.**
+_Status: RESOLVED on `feature/ap-feedback` (re-validated 2026-07-03) — an invalid value
+typed with `commit:true` now reverts to a valid number instead of persisting._
+For a field backed by an `NSNumberFormatter`, it is unclear from the docs whether
+`type` with `commit:true` (Return) triggers the same end-editing/validation path as a
+real focus-loss. In practice a `NumberFormatter`-rejected value can remain visible in
+the field under AP even though a human tabbing away would see it revert. The docs should
+specify exactly what `commit:true` does relative to `controlTextDidBeginEditing` /
+`controlTextDidEndEditing` and formatter validation, so authors can write correct
+"reject bad input" assertions.
+
+**D5 — `setAccessibilityIdentifier` on a cell-based control is not vended (author-facing note).**
+This one is a medit fix (we now set the identifier on the control's *cell* too, via a
+`setTestAXIdentifier` helper), but it cost real debugging time because **`dump-axtree`
+and `find` silently omit the identifier** for cell-based `NSButton`/`NSTextField`/
+`NSPopUpButton` when it is set only on the control. The §8 "Discovering identifiers"
+guidance ("add `setAccessibilityIdentifier(...)` in the app") is incomplete for AppKit
+cell-based controls. Please add a note: for cell-based controls the identifier must be
+set on the cell to appear in the AX tree — otherwise authors see an element with a role
+but no identifier and assume the app forgot to set it.
+
+**D6 — No clipboard-content assertion primitive.**
+There is no documented way to read the system pasteboard, so "copy X" / "copy with
+nothing selected leaves the clipboard unchanged" can only be verified indirectly by
+pasting into an editor and asserting the result. Worth either a `clipboard` assert
+target or an explicit doc note that pasting is the intended pattern.
+
+**D7 — No primitive to see or dismiss a system alert owned by another process.**
+When medit fails to open a permission-denied (chmod 000) file, **macOS
+LaunchServices** — not medit — puts up a modal "You do not have permission to open
+the document …" alert. That alert is owned by `CoreServicesUIAgent`, a *separate*
+process, so it never appears in medit's AX tree, AP (attached to the app under test)
+cannot see or dismiss it, and while it is up it steals keyboard focus — making any
+subsequent `type` into medit's editor race against the alert and intermittently land
+nothing. The alert also **lingers across launches** (killing medit does not clear it)
+and stacks one-per-attempt, so it can contaminate later screenshot-based plans in a
+suite run. There is no documented AP way to (a) assert on / dismiss an alert owned by
+a process other than the target, or (b) suppress LaunchServices' own error UI during a
+test. We worked around it by (1) asserting only the safety property AP *can* observe on
+the target — medit's window + editor remain present and readable after the failed open
+— instead of round-tripping typed text, and (2) dismissing the `CoreServicesUIAgent`
+alerts out-of-band in the suite runner via `osascript`. Please either document that
+cross-process system alerts are out of scope (and the recommended out-of-band cleanup),
+or add a primitive to target/dismiss them.
+
+### MEDIT DEFECTS surfaced by this session (medit's own bugs, filed for the medit backlog)
+
+> Unlike the D-series above (which are AP-doc gaps), these are **medit** bugs the
+> `tryToBreakIt` tier caught. They are recorded here because they shaped how the edge
+> plans had to be written; each deserves its own medit fix.
+
+**M1 — Large-file open is synchronous on the main thread and blocks window creation.**
+medit loads a document and applies a full-range attribute/highlight pass
+(`configureHighlighter()` → `highlightNow()`) **synchronously on the main thread** at
+editor setup. Cost scales with file size: a batched open of a 1 MB file completes in
+~7 s, 2 MB ~17 s, but a **5 MB** file opened together with any second file starves the
+main thread so the window never becomes AX-ready within any reasonable timeout (it was
+the original `wait-window` timeout in `edge-open-bad-files`). Each file individually is
+fine; the batch is what makes it visible. Fix direction: load/highlight large documents
+incrementally or off the main thread so the first window paints promptly. Until then the
+suite bounds the "large file" case to 1 MB (`edge-open-large-file.json`) so it exercises
+the big-document path without hitting the stall, and the malformed-content cases
+(`edge-open-bad-files.json`) no longer include the 5 MB file.
+
+**M2 — A failed (permission-denied) open surfaces an undismissed system modal.**
+Routing the failed open through the document machinery lets **LaunchServices** present
+its own permission alert (see D7) rather than medit handling the read failure inline
+(e.g. a non-modal in-window banner it controls and can dismiss). medit itself stays
+healthy — its window/editor are fine — but the user is left with a stacked,
+medit-external modal. Fix direction: detect the unreadable file before/around the open
+and present medit's own graceful, dismissible error, so no orphaned `CoreServicesUIAgent`
+alert is spawned.
+
+---
+
+## medit 2.7.4 — preview copy fix + autoShowPreviewForMarkdown default=true
+
+Full test-suite regeneration this session: 17 plans total (6 updated, 6 new, 5
+unchanged) targeting the Debug build (`/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app`).
+All 17 pass individually (`autopilot run <plan>`) and all lint clean.
+
+**New plans added:**
+- `preview-copy-test.json` — regression guard for the WKWebView copy fix (wr
+  ites to NSPasteboard via `evaluateJavaScript`). 27/27 PASS.
+- `go-to-line.json` — Edit > Go to Line (cmd+L), navigate + out-of-range. 22/22 PASS.
+- `status-bar-toggles.json` — show/hide status bar, word-count toggle. 20/20 PASS.
+- `word-wrap-toggle.json` — View > Wrap Lines status-bar indicator. 15/15 PASS.
+- `column-select.json` — Edit > Text transforms (upper/lower case, sort). 21/21 PASS.
+- `preview-find-scroll.json` — KNOWN-FAILING regression guard for find-in-preview
+  no-scroll bug (intentionally documents the bug via screenshots, all steps pass
+  because they only assert findStatusLabel exists, not scroll position).
+
+**Updated plans** (added `integrationSuite`/`tryToBreakIt` tiers):
+`open-and-type.json`, `find-replace.json`, `keyboard-scroll.json`,
+`keyboard-scroll-preview.json`, `multi-window.json`, `markdown-table-preview.json`.
+
+**New fixtures:** `uitests/fixtures/table-test.md`, `uitests/fixtures/copy-test.md`.
+`stage-fixtures.sh` updated to stage them to `/tmp/medit-ap-*`.
+
+**AP findings this session:**
+
+**Suite runner: force-terminate + AX linger race (P1, known from Round 1 P2)**
+When a plan's `terminate` step causes medit to present a save dialog (unsaved content),
+AP force-kills it. But the next plan launches before the dead process's AX tree
+clears — macOS updates the accessibility tree asynchronously. The new plan's `waitFor
+AXWindow` matches the dying window's ghost; then the new medit launches, giving 2
+`editorTextView` matches ("Selector matched 2 elements"). Plans that create unsaved
+content (typed text) now clear it before `terminate` (`cmd+a` + `delete`). Plans that
+show WKWebView preview now hide it before `terminate` (WKWebView subprocess teardown
+is slower than a plain NSTextView app). Both mitigations reduce force-terminate
+frequency, but the root cause is in AP's suite runner. The Round 1 P2 report
+mentioned this; still outstanding.
+
+**Confirm request for AP team:** Suite runner should wait for the terminated process
+to exit the OS process table (or the AX server to deregister it) before launching
+the next plan. `autopilot run <dir>` sequences plans one at a time but does not
+currently verify the previous PID is gone before the `waitFor AXWindow` step in the
+next plan fires.
+
+**`Edit > Text > Column Selection Mode` not reachable via `menu` action (P2)**
+AP's `menu` action walks the `Edit > Text` submenu and lists:
+"Sort Lines Ascending, Sort Lines Descending, Make Upper Case, Make Lower Case,
+Capitalize" — it does NOT list "Column Selection Mode" even though `dump-axtree`
+confirms the item exists in the tree. Likely: the item is disabled at menu-open time
+(requires a specific first-responder state), and AP's menu walker only lists ENABLED
+items. This means column selection mode cannot be toggled via `menu` from an AP plan.
+Workaround: the `columnModeLabel` AX id (`AXStaticText`, value " BLK " when active)
+can be asserted to confirm state, but the toggle itself must be done manually or via
+a keyboard shortcut if one is available. The `column-select.json` plan covers the
+text-transform items in `Edit > Text` but omits column mode toggle.
+Recommendation: either let the menu walker list disabled items (authors can choose to
+invoke them), or document that `menu` only walks enabled items.
+
+**`hide-preview` menu item naming (informational)**
+When Markdown preview is showing, the menu toggle shows "Show Markdown Preview" (a
+toggle that hides it), NOT "Hide Markdown Preview" — the item label doesn't flip.
+This makes the menu path for hide-preview identical to show-preview:
+`["View", "Show Markdown Preview"]` in both directions. Not a bug, just worth noting
+for plan authors.
+
+**8/17 plans fail when run as a directory suite; all 17 pass individually — root
+cause is the AX linger race above.** Individual plan results are the reliable gate;
+suite mode is not yet stable enough for CI.
+
 ---
 
 ## medit 2.7.3 — drag-to-editor fix (correct NSTextView pipeline override)

@@ -41,6 +41,13 @@ Packages/
 *.swp
 *~.nib
 
+# AutoPilot GUI-test run output (screenshots, AX dumps, report.json) — regenerable
+# by re-running the plans; never committed.
+/artifacts/
+
+# Local Claude Code session state (handoffs, settings) — machine-local, not shared.
+.claude/
+
 # Icon generator artifacts (regenerable via Tools/IconGen/iconmaker.swift)
 /Tools/IconGen/iconmaker
 /Tools/IconGen/iconset_out/

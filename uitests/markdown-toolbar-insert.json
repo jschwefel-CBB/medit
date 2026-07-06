@@ -1,0 +1,282 @@
+{
+  "schemaVersion": "1.1",
+  "name": "markdown toolbar: buttons wrap the selection (bold, italic, code)",
+  "comment": "Verifies the Markdown formatting toolbar buttons actually INSERT markdown into the editor (view-toggles only checks the buttons' presence). Opens a .md document with --no-auto-preview so the EDITOR is present at launch (without that flag, autoShowPreviewForMarkdown defaults ON and the .md would auto-open into the WKWebView preview, displacing the editor). The .md language still enables the markdown toolbar. happyPath: select a word, click mdStyle.bold, assert it becomes **word**. integrationSuite: italic -> *word*, and inline code -> `word` (each applied to a fresh selection). The mdStyle.* buttons carry stable AX ids (mdStyle.<action>). MarkdownEditing is unit-tested; this asserts the button->editor wiring. Documented primitives only; requires the Debug build; stage fixtures first.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": [
+      "--reset-state",
+      "--no-auto-preview"
+    ],
+    "launchFiles": [
+      "/tmp/medit-ap-long.md"
+    ]
+  },
+  "defaults": {
+    "timeoutMs": 9000,
+    "retryIntervalMs": 150
+  },
+  "steps": [
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "role": "AXWindow"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "wait-editor",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "wait-bold",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "mdStyle.bold"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "comment": "=== Bold: **word**. Use a single `type` with clear:true (focus-clicks, selects-all, deletes, then types atomically) to set the content to exactly 'word' \u2014 separate keyPress cmd+a/delete steps can race the editor's first responder. Then select-all and click Bold. ===",
+      "id": "b-type",
+      "action": "type",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "text": "word",
+        "clear": true,
+        "focus": true
+      }
+    },
+    {
+      "id": "b-type-settle",
+      "action": "wait",
+      "level": "happyPath",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "assert-typed",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "word"
+      }
+    },
+    {
+      "id": "b-selword",
+      "action": "keyPress",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "keys": "cmd+a"
+      }
+    },
+    {
+      "id": "b-sel-settle",
+      "action": "wait",
+      "level": "happyPath",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "b-bold",
+      "action": "click",
+      "level": "happyPath",
+      "target": {
+        "identifier": "mdStyle.bold"
+      }
+    },
+    {
+      "id": "b-settle",
+      "action": "wait",
+      "level": "happyPath",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "assert-bold",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "assert": {
+        "property": "value",
+        "op": "contains",
+        "expected": "**word**"
+      }
+    },
+    {
+      "comment": "=== Italic: *word* (fresh selection) ===",
+      "id": "i-type",
+      "action": "type",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "text": "word",
+        "clear": true,
+        "focus": true
+      }
+    },
+    {
+      "id": "i-type-settle",
+      "action": "wait",
+      "level": "integrationSuite",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "i-selword",
+      "action": "keyPress",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "keys": "cmd+a"
+      }
+    },
+    {
+      "id": "i-sel-settle",
+      "action": "wait",
+      "level": "integrationSuite",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "i-italic",
+      "action": "click",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "mdStyle.italic"
+      }
+    },
+    {
+      "id": "i-settle",
+      "action": "wait",
+      "level": "integrationSuite",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "assert-italic",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "assert": {
+        "property": "value",
+        "op": "matches",
+        "expected": "(^|[^*])\\*word\\*"
+      }
+    },
+    {
+      "comment": "=== Inline code: `word` (fresh selection) ===",
+      "id": "c-type",
+      "action": "type",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "text": "word",
+        "clear": true,
+        "focus": true
+      }
+    },
+    {
+      "id": "c-type-settle",
+      "action": "wait",
+      "level": "integrationSuite",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "c-selword",
+      "action": "keyPress",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "keys": "cmd+a"
+      }
+    },
+    {
+      "id": "c-sel-settle",
+      "action": "wait",
+      "level": "integrationSuite",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "c-code",
+      "action": "click",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "mdStyle.code"
+      }
+    },
+    {
+      "id": "c-settle",
+      "action": "wait",
+      "level": "integrationSuite",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "assert-code",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "assert": {
+        "property": "value",
+        "op": "contains",
+        "expected": "`word`"
+      }
+    },
+    {
+      "id": "quit",
+      "action": "terminate",
+      "level": "happyPath"
+    }
+  ]
+}

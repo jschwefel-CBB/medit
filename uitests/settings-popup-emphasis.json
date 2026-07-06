@@ -1,0 +1,282 @@
+{
+  "schemaVersion": "1.1",
+  "name": "settings: enclosing-pair emphasis popup cycles Bold/Underline/Background",
+  "comment": "Drives the enclosing-pair emphasis-style popup through all three values. One popup per plan: AutoPilot cannot reliably open a SECOND NSPopUpButton in the same session, and cannot RE-open the same popup after a committed selection unless focus is first moved off it \u2014 so between each open we click a neutral checkbox (settings.showInvisibles, whose state is never asserted; --reset-state wipes it) to dismiss the prior menu. See docs/autopilot-feedback.md. Popup value = selected item title. Requires the Debug build.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": [
+      "--reset-state"
+    ]
+  },
+  "defaults": {
+    "timeoutMs": 8000,
+    "retryIntervalMs": 150
+  },
+  "steps": [
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "role": "AXWindow"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "wait-editor",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "open-settings",
+      "action": "keyPress",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "keys": "cmd+,"
+      }
+    },
+    {
+      "id": "wait-popup",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.enclosingPairEmphasisStyle"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "open-0",
+      "action": "press",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.enclosingPairEmphasisStyle"
+      }
+    },
+    {
+      "id": "wait-item-0",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "role": "AXMenuItem",
+        "title": "Underline"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "pick-0",
+      "action": "click",
+      "level": "happyPath",
+      "target": {
+        "role": "AXMenuItem",
+        "title": "Underline"
+      }
+    },
+    {
+      "id": "assert-0",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.enclosingPairEmphasisStyle"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "Underline"
+      }
+    },
+    {
+      "id": "reset-1",
+      "action": "click",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.showInvisibles"
+      }
+    },
+    {
+      "id": "reset-settle-1",
+      "action": "wait",
+      "level": "integrationSuite",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "open-1",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.enclosingPairEmphasisStyle"
+      }
+    },
+    {
+      "id": "wait-item-1",
+      "action": "waitFor",
+      "level": "integrationSuite",
+      "target": {
+        "role": "AXMenuItem",
+        "title": "Background"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "pick-1",
+      "action": "click",
+      "level": "integrationSuite",
+      "target": {
+        "role": "AXMenuItem",
+        "title": "Background"
+      }
+    },
+    {
+      "id": "assert-1",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.enclosingPairEmphasisStyle"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "Background"
+      }
+    },
+    {
+      "id": "reset-2",
+      "action": "click",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.showInvisibles"
+      }
+    },
+    {
+      "id": "reset-settle-2",
+      "action": "wait",
+      "level": "integrationSuite",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "open-2",
+      "action": "press",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.enclosingPairEmphasisStyle"
+      }
+    },
+    {
+      "id": "wait-item-2",
+      "action": "waitFor",
+      "level": "integrationSuite",
+      "target": {
+        "role": "AXMenuItem",
+        "title": "Bold"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "pick-2",
+      "action": "click",
+      "level": "integrationSuite",
+      "target": {
+        "role": "AXMenuItem",
+        "title": "Bold"
+      }
+    },
+    {
+      "id": "assert-2",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "settings.enclosingPairEmphasisStyle"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "Bold"
+      }
+    },
+    {
+      "id": "reset-final",
+      "action": "click",
+      "level": "tryToBreakIt",
+      "target": {
+        "identifier": "settings.showInvisibles"
+      }
+    },
+    {
+      "id": "reset-final-settle",
+      "action": "wait",
+      "level": "tryToBreakIt",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "reopen",
+      "action": "press",
+      "level": "tryToBreakIt",
+      "target": {
+        "identifier": "settings.enclosingPairEmphasisStyle"
+      }
+    },
+    {
+      "id": "wait-reopen",
+      "action": "waitFor",
+      "level": "tryToBreakIt",
+      "target": {
+        "role": "AXMenuItem",
+        "title": "Bold"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "dismiss-noselect",
+      "action": "click",
+      "level": "tryToBreakIt",
+      "target": {
+        "role": "AXMenuItem",
+        "title": "Bold"
+      }
+    },
+    {
+      "id": "assert-unchanged",
+      "action": "assert",
+      "level": "tryToBreakIt",
+      "target": {
+        "identifier": "settings.enclosingPairEmphasisStyle"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "Bold"
+      }
+    },
+    {
+      "id": "quit",
+      "action": "terminate",
+      "level": "happyPath"
+    }
+  ]
+}

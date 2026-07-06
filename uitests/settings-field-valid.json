@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "1.1",
+  "name": "settings: numeric fields accept valid input",
+  "comment": "happyPath: open Settings and set the two numeric fields to valid in-range values, asserting each commits (tabWidth 1-16, editorPadding 0-40). integrationSuite: also set each field to its boundary (16 / 0). NOTE: AutoPilot cannot re-edit the SAME field twice in one session (the 2nd type does not commit), so this plan sets each field exactly once per run; boundary and malformed cases live in dedicated per-field plans + PreferencesTests. See docs/autopilot-feedback.md. Requires the Debug build.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": [
+      "--reset-state"
+    ]
+  },
+  "defaults": {
+    "timeoutMs": 8000,
+    "retryIntervalMs": 150
+  },
+  "steps": [
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "role": "AXWindow"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "wait-editor",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "open-settings",
+      "action": "keyPress",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "keys": "cmd+,"
+      }
+    },
+    {
+      "id": "wait-tabwidth",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.tabWidth"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "tabwidth-default",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.tabWidth"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "2"
+      }
+    },
+    {
+      "id": "tabwidth-set-8",
+      "action": "type",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.tabWidth"
+      },
+      "args": {
+        "text": "8",
+        "clear": true,
+        "commit": true
+      }
+    },
+    {
+      "id": "tabwidth-settle",
+      "action": "wait",
+      "level": "happyPath",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "tabwidth-is-8",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.tabWidth"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "8"
+      }
+    },
+    {
+      "id": "padding-default",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.editorPadding"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "4"
+      }
+    },
+    {
+      "id": "padding-set-20",
+      "action": "type",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.editorPadding"
+      },
+      "args": {
+        "text": "20",
+        "clear": true,
+        "commit": true
+      }
+    },
+    {
+      "id": "padding-settle",
+      "action": "wait",
+      "level": "happyPath",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "padding-is-20",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "identifier": "settings.editorPadding"
+      },
+      "assert": {
+        "property": "value",
+        "op": "equals",
+        "expected": "20"
+      }
+    },
+    {
+      "id": "quit",
+      "action": "terminate",
+      "level": "happyPath"
+    }
+  ]
+}

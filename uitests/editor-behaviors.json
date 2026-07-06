@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.1",
+  "name": "editor input behaviors: auto-close brackets, literal Tab, auto-indent",
+  "comment": "Verifies the pref-driven editor input behaviors actually take effect in the real editor (the settings-* plans only assert the checkbox state; these assert the observable editor result). Defaults are on for all three. happyPath: auto-close brackets — typing an opener inserts the matching closer with the caret between (assert value == '()'). integrationSuite: auto-indent — Return after an indented line carries the leading whitespace to the new line. tryToBreakIt: literal Tab is NOT remapped to spaces — insertSpacesForTab/tabWidth govern only auto-indent insertion and tab render width, so pressing Tab still inserts a real tab char (a subtle correctness expectation worth pinning). Opens a plain .txt so there is no markdown preview to displace the editor. Documented primitives only; requires the Debug build; stage fixtures first.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": ["/tmp/medit-ap-open-a.txt"]
+  },
+  "defaults": { "timeoutMs": 9000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+    { "id": "focus-editor", "action": "click", "level": "happyPath",
+      "target": { "identifier": "editorTextView" } },
+
+    { "comment": "=== auto-close brackets: opener inserts the matching closer, caret between ===",
+      "id": "clear-1", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "clear-1b", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "delete" } },
+    { "id": "type-paren", "action": "type", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "text": "(", "focus": true } },
+    { "id": "settle-paren", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "assert-autoclose-paren", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "equals", "expected": "()" } },
+    { "id": "type-bracket", "action": "type", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "text": "[", "focus": false } },
+    { "id": "settle-bracket", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "assert-autoclose-bracket", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "equals", "expected": "([])" } },
+
+    { "comment": "=== auto-indent: Return after an indented line carries the leading whitespace ===",
+      "id": "clear-2", "action": "keyPress", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "clear-2b", "action": "keyPress", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "delete" } },
+    { "id": "type-indented", "action": "type", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" }, "args": { "text": "    hello\nworld", "focus": true } },
+    { "id": "settle-indent", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
+    { "id": "assert-autoindent", "action": "assert", "level": "integrationSuite",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "matches", "expected": "    hello\\n    world" } },
+
+    { "comment": "=== literal Tab is NOT remapped to spaces: pressing Tab inserts a real tab char ===",
+      "id": "clear-3", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "clear-3b", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "delete" } },
+    { "id": "type-tab-line", "action": "type", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "text": "\tX", "focus": true } },
+    { "id": "settle-tab", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "assert-literal-tab", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "matches", "expected": "\\tX" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

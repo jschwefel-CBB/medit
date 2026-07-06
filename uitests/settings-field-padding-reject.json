@@ -1,0 +1,133 @@
+{
+  "schemaVersion": "1.1",
+  "name": "settings: text-padding field rejects negative input",
+  "comment": "tryToBreakIt: type invalid input into the text-padding Settings field and commit. medit's fix reverts an invalid entry to the stored value on end-editing, but that revert is triggered by focus-loss and is NOT observable under AutoPilot \u2014 `commit:true` (Return) does not fire the field's controlTextDidEndEditing the way a real focus change does (see AUTHORING-DOC DEFECT D4 in docs/autopilot-feedback.md). So this plan asserts the OBSERVABLE safety properties instead: after the bad input the field control still exists, the Settings window stays interactive (a neighboring checkbox still toggles), and nothing crashes. The value-clamping contract itself is covered exhaustively by PreferencesTests at the model layer. One edit per field per session (AP same-field re-edit limit, D3). Requires the Debug build.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": [
+      "--reset-state"
+    ]
+  },
+  "defaults": {
+    "timeoutMs": 8000,
+    "retryIntervalMs": 150
+  },
+  "steps": [
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "role": "AXWindow"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "wait-editor",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "open-settings",
+      "action": "keyPress",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "keys": "cmd+,"
+      }
+    },
+    {
+      "id": "wait-field",
+      "action": "waitFor",
+      "level": "tryToBreakIt",
+      "target": {
+        "identifier": "settings.editorPadding"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "read-default",
+      "action": "assert",
+      "level": "tryToBreakIt",
+      "target": {
+        "identifier": "settings.editorPadding"
+      },
+      "assert": {
+        "property": "value",
+        "op": "matches",
+        "expected": "^[0-9]+$"
+      }
+    },
+    {
+      "id": "type-garbage",
+      "action": "type",
+      "level": "tryToBreakIt",
+      "target": {
+        "identifier": "settings.editorPadding"
+      },
+      "args": {
+        "text": "-99",
+        "clear": true,
+        "commit": true
+      }
+    },
+    {
+      "id": "settle",
+      "action": "wait",
+      "level": "tryToBreakIt",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "field-still-present",
+      "action": "assert",
+      "level": "tryToBreakIt",
+      "target": {
+        "identifier": "settings.editorPadding"
+      },
+      "assert": {
+        "property": "value",
+        "op": "exists"
+      }
+    },
+    {
+      "id": "settings-still-interactive",
+      "action": "press",
+      "level": "tryToBreakIt",
+      "target": {
+        "identifier": "settings.showInvisibles"
+      }
+    },
+    {
+      "id": "interactive-confirmed",
+      "action": "assert",
+      "level": "tryToBreakIt",
+      "target": {
+        "identifier": "settings.showInvisibles"
+      },
+      "assert": {
+        "property": "value",
+        "op": "matches",
+        "expected": "^(0|1)$"
+      }
+    },
+    {
+      "id": "quit",
+      "action": "terminate",
+      "level": "happyPath"
+    }
+  ]
+}

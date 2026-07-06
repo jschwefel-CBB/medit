@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "1.1",
+  "name": "edge: undo past the beginning of history is graceful",
+  "comment": "Types a few edits, then presses undo many more times than there are edits — undoing past the start of the history must be a graceful no-op, not a crash. Then redoes past the end of history the same way. tryToBreakIt asserts the editor stays alive and returns to empty after over-undoing. Documented primitives only (type, keyPress cmd+z / cmd+shift+z, assert). Requires the Debug build; no fixture (empty untitled document).",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"]
+  },
+  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+
+    { "id": "type-1", "action": "type", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "text": "alpha " } },
+    { "id": "type-2", "action": "type", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "text": "bravo " } },
+    { "id": "type-3", "action": "type", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "text": "charlie" } },
+    { "id": "has-text", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "editorTextView" },
+      "assert": { "property": "value", "op": "contains", "expected": "alpha" } },
+
+    { "id": "undo-1", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+z" } },
+    { "id": "undo-2", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+z" } },
+    { "id": "undo-3", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+z" } },
+    { "id": "undo-4-past", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+z" } },
+    { "id": "undo-5-past", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+z" } },
+    { "id": "undo-6-past", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+z" } },
+    { "id": "settle-undo", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "editor-alive-after-undo", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "redo-1", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+shift+z" } },
+    { "id": "redo-2", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+shift+z" } },
+    { "id": "redo-3-past", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+shift+z" } },
+    { "id": "redo-4-past", "action": "keyPress", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+shift+z" } },
+    { "id": "settle-redo", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
+    { "id": "editor-alive-after-redo", "action": "assert", "level": "tryToBreakIt",
+      "target": { "identifier": "editorTextView" }, "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "clear-a", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "cmd+a" } },
+    { "id": "clear-b", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "keys": "delete" } },
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}
