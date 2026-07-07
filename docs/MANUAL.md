@@ -2,7 +2,7 @@
 
 **A native macOS text editor — a clean-room AppKit reimplementation of the gedit
 experience.** This manual covers every feature, preference, and keyboard shortcut
-in medit **v2.4.1**. For a quick highlights tour, see the [README](../README.md).
+in medit **v2.8.0**. For a quick highlights tour, see the [README](../README.md).
 
 > **About the screenshots:** images in this manual are marked with
 > `<!-- SCREENSHOT: … -->` placeholders and `![](images/…)` references. They are
@@ -88,12 +88,14 @@ A medit window has, from top to bottom:
 | Action | How |
 |--------|-----|
 | New document | **File ▸ New** (⌘N) |
+| New window | **File ▸ New Window** (⇧⌘N) |
 | New tab | **File ▸ New Tab** (⌘T), the **+** button, or the editor's right-click menu |
 | Open a file | **File ▸ Open…** (⌘O), or drag a file from Finder onto the editor |
 | Open a folder in the sidebar | **File ▸ Open Folder…** (⇧⌘O) |
 | Save | **File ▸ Save** (⌘S) |
 | Save as a new file | **File ▸ Save As…** (⇧⌘S) |
-| Revert to the saved version | **File ▸ Revert to Saved** |
+| Revert to the saved version | **File ▸ Revert to Saved** — discards unsaved edits and reloads the file from disk |
+| Delete the current selection | **Edit ▸ Delete** — removes the selection without touching the clipboard |
 | Close the current tab | **File ▸ Close** (⌘W) |
 
 ### Drag and drop to open
@@ -139,7 +141,8 @@ blank tab instead of leaving it behind.
   (`{|}`) splits the pair across three lines with the middle line indented.
 - **Auto-close brackets** — typing `(`, `[`, or `{` inserts the closing partner;
   typing the closer when it's already there just steps over it. (Brackets only —
-  not quotes.)
+  not quotes.) Typing an opener **with an active selection** wraps the selected
+  text in the pair instead (`(selection)`).
 
 All three toggle in **Settings** (on by default).
 
@@ -151,10 +154,11 @@ All three toggle in **Settings** (on by default).
 
 ### Rainbow brackets
 
-Matching brackets are colored by nesting depth so pairs are easy to follow, and the
-**pair enclosing the caret** is emphasized — choose **bold**, **underline**, or
-**background** in **Settings**. Toggle the whole feature in **View ▸ Rainbow
-Brackets** or **Settings**.
+Matching brackets are colored by a repeating 6-color cycle keyed to nesting depth
+so pairs are easy to follow, and the **pair enclosing the caret** is emphasized —
+choose **bold**, **underline**, or **background** in **Settings**. An unmatched
+(stray) bracket is drawn in a distinct red so it stands out from the depth colors.
+Toggle the whole feature in **View ▸ Rainbow Brackets** or **Settings**.
 
 <!-- SCREENSHOT: nested brackets in code colored by depth, caret pair emphasized.
      → images/rainbow-brackets.png -->
@@ -181,7 +185,10 @@ On by default (toggle in **Settings**):
   status bar with a block caret. **Shift+Insert** pastes; **Ctrl+Insert** copies.
   You can also **click the INS/OVR pill** in the status bar to toggle the mode. In
   overwrite mode both typing **and pasting** replace the characters under the caret
-  (up to the end of the line) instead of pushing them right.
+  (up to the end of the line) instead of pushing them right. The paste-replaces
+  behavior applies only to a **single-line clipboard with no active selection** —
+  pasting multi-line content, or pasting over an existing selection, falls back to
+  a normal insert/replace paste.
 
 > **Note on the Insert key:** Mac keyboards label the Insert-position key as
 > **Help** and the OS reports it that way (keyCode 114). medit detects it by
@@ -201,7 +208,8 @@ UI).
   live.
 - **Find & Replace** (⌥⌘F) — adds the replacement row and a **Replace** / **All**.
 - **Find Next / Previous** — ⌘G / ⇧⌘G.
-- **Jump to Selection** — scrolls the current selection into view.
+- **Jump to Selection** (⌘J) — scrolls the current selection into the center of the
+  visible area without changing it.
 
 Toggles in the bar:
 
@@ -225,7 +233,8 @@ straight to it in the right tab.
 
 ### Go to Line
 
-**Edit ▸ Go to Line…** (⌘L, or ⌃G) jumps to a line number.
+**Edit ▸ Go to Line…** (⌘L, or ⌃G) jumps to a line number. ⌃G works even when
+**PC-style navigation keys** is turned off.
 
 ---
 
@@ -252,7 +261,8 @@ Under **Edit ▸ Text**:
 
 - **Sort Lines Ascending / Descending** — sorts the selected lines (or the whole
   document if nothing is selected). Sorting is locale-aware and natural-number
-  friendly, and a trailing newline is preserved.
+  friendly, and a trailing newline is preserved. Sorting is always
+  **case-sensitive** — there's no menu option for case-insensitive sort.
 - **Make Upper Case / Make Lower Case / Capitalize** — transforms the selection;
   with no selection, it acts on the word at the caret.
 
@@ -291,7 +301,9 @@ When block mode is active, a blue **BLK** pill appears in the status bar (next t
 - **Copy / Cut** (⌘C / ⌘X) — copies the rectangle (rows joined by newlines); cut
   also deletes it.
 - **Paste** (⌘V) — pastes as a block: each clipboard line drops onto a successive
-  row at the caret column.
+  row at the caret column. If the clipboard has more lines than there are rows
+  left in the document from the caret down, the extra lines are **silently
+  dropped** — paste near the end of a short document with caution.
 - **Escape** — exits block mode, leaving a normal caret.
 
 > Short rows are space-padded as needed so an insert lands at the requested column.
@@ -300,18 +312,24 @@ When block mode is active, a blue **BLK** pill appears in the status bar (next t
 
 ## 10. Markdown
 
-medit renders Markdown **natively** — no embedded web view.
-
 ### Rendered preview
 
 - **Show Markdown Preview** (⇧⌘V) — toggles the rendered view for the current
-  Markdown document. It supports full **GitHub-Flavored Markdown**, with
-  custom-drawn **code-block panels**, **bordered tables**, heading underline rules,
-  and blockquote bars. The body uses a proportional font; code uses monospace.
-- **Auto-Show Preview for Markdown** (Settings) — open `.md` files straight into
-  the preview.
+  Markdown document. It supports full **GitHub-Flavored Markdown**, including
+  tables, fenced code blocks, headings, and blockquotes. The preview is rendered
+  in a **WKWebView** (HTML + CSS, like most Markdown editors) — this means text
+  selection, copy, and scrolling in the preview behave like a browser, and only
+  `http(s)://` and `mailto:` links open externally (in-page anchors are handled
+  internally). The body uses a proportional font; code uses monospace.
+- **Auto-Show Preview for Markdown** (Settings, **on by default**) — open `.md`
+  files straight into the preview instead of the editor.
 - **Auto-refresh preview** (Settings) — keep the preview current as you edit or as
   the file changes on disk.
+
+**Printing** a Markdown document is a separate, natively-drawn path (see
+[§16 Printing](#16-printing)) — it does not use the web view, and its custom-drawn
+code-block panels, bordered tables, and heading rules are specific to the printed
+page, not the on-screen preview.
 
 <!-- SCREENSHOT: a Markdown document rendered in the preview, showing a table and a
      fenced code block. → images/markdown-preview.png -->
@@ -340,13 +358,22 @@ medit registers as a handler for Markdown files. To make it the default, in Find
 The sidebar (off by default) is an optional multi-root file tree. It has **zero
 overhead when hidden** — no file watchers, no disk reads.
 
-- **Show / hide:** **View ▸ Show Sidebar** (⌘⌃0).
+- **Show / hide:** **View ▸ Show Sidebar** (⌘⌃0). The first time you show the
+  sidebar with no folders added yet, medit opens a folder picker automatically.
 - **Add a root:** **File ▸ Open Folder…** (⇧⌘O). The sidebar can hold multiple
   root folders at once.
+- **Remove a root:** right-click it → **Remove Folder from Sidebar**. This only
+  unpins it from the sidebar — it does **not** touch the folder on disk (unlike
+  **Move to Trash**, which deletes the item and is for files/folders inside a
+  root, not the root itself).
 - **Open a file:** double-click (or single-click, if you enable single-click open
   in Settings).
 - **Manage files** (right-click): **New File**, **New Folder**, **Rename**, **Move
-  to Trash**, **Reveal in Finder**. Drag items to move them.
+  to Trash**, **Reveal in Finder**. Drag items to move them. A folder can't be
+  dropped into itself or one of its own subfolders.
+- **New File / New Folder** auto-numbers on a name collision (e.g. a second
+  "untitled" becomes "untitled 2") rather than failing; **Rename** and **Move**
+  instead reject the operation if the target name already exists.
 
 Sidebar options in **Settings**:
 
@@ -370,9 +397,9 @@ segmented control at the top of the sidebar, or **View ▸ Show Recent Files in
 Sidebar**.
 
 The **Recent** list is the files you've opened or saved in medit, newest first,
-deduplicated, and remembered across launches. Click to open; right-click for
-**Open**, **Reveal in Finder**, **Remove from Recent**, and **Clear Recent Files**.
-Files that no longer exist are dimmed.
+deduplicated, and remembered across launches (capped at the **30** most recent).
+Click to open; right-click for **Open**, **Reveal in Finder**, **Remove from
+Recent**, and **Clear Recent Files**. Files that no longer exist are dimmed.
 
 <!-- SCREENSHOT: the sidebar switched to the Recent pane with a list of files.
      → images/recent-files.png -->
@@ -405,8 +432,10 @@ Along the bottom of the window (toggle in **View ▸ Show Status Bar**):
   fallback) and round-trips it faithfully on save.
 - Click the **encoding** in the status bar to:
   - **Reinterpret as…** — re-decode the existing bytes with a different encoding
-    (use when a file opened with the wrong encoding).
-  - **Convert to…** — re-encode the text (applied on the next save).
+    (use when a file opened with the wrong encoding). Choices: **UTF-8, UTF-16,
+    ISO Latin-1, ASCII**.
+  - **Convert to…** — re-encode the text (applied on the next save), from the same
+    list.
 - Click the **line ending** to choose **LF (Unix/Linux)** or **CRLF (Windows)**.
 
 <!-- SCREENSHOT: the encoding menu open from the status bar. → images/encoding-menu.png -->
@@ -418,11 +447,18 @@ Along the bottom of the window (toggle in **View ▸ Show Status Bar**):
 When a file open in medit changes on disk, medit notices and responds based on your
 **Settings ▸ On external change** choice:
 
-- **Notify** (default) — show a banner offering **Reload** / **Dismiss**.
-- **Prompt** — ask each time.
-- **Auto-reload if clean** — reload automatically when you have no unsaved edits.
+- **Notify** (default) — show a banner offering **Reload** / **Dismiss**. Never
+  reloads or prompts on its own.
+- **Prompt** — reload silently if you have **no unsaved edits**; otherwise show a
+  modal **Reload / Keep** alert. (In practice this behaves the same as **Auto-
+  reload if clean** below — both only differ from **Notify** when the document is
+  dirty, in which case they interrupt you with a modal instead of a banner.)
+- **Auto-reload if clean** — reload silently when you have no unsaved edits;
+  prompt (modal) if you do.
 
-If the file is **deleted** on disk, medit keeps your buffer so you can re-save it.
+If the file is **deleted** on disk, medit shows the same banner/prompt as a
+content change (this is independent of the policy above) and keeps your buffer so
+you can re-save it — it never silently discards what you have open.
 
 <!-- SCREENSHOT: the reload banner across the top of the editor. → images/reload-banner.png -->
 ![External-change banner](images/reload-banner.png)
@@ -444,8 +480,12 @@ Use **File ▸ Page Setup…** for paper size and orientation.
 ## 17. Sessions & window restoration
 
 - **Reopen last session** (Settings, on by default) — medit reopens the files you
-  had open when you last quit.
-- **Window size & position** — medit reopens its window where you left it.
+  had open when you last quit, including **multiple windows**, each window's
+  **tab group** and which tab was active, and any **sidebar folders** open in
+  that window.
+- **Window size & position** — each window reopens at its own remembered frame.
+- Opening a file that's **already open in another tab or window** switches to
+  that existing tab instead of opening a duplicate.
 
 ---
 
@@ -466,15 +506,27 @@ button next to a control for a short explanation.
 | Editor padding | 4 | Inset between the text and the window edge. |
 | Font / size | Menlo 13 | The editor font. |
 | Appearance | System | System / Light / Dark. |
-| Light theme / Dark theme | atom-one-light / atom-one-dark | Syntax color schemes per appearance. |
+
+> The syntax color theme (`atom-one-light` for light appearance, `atom-one-dark`
+> for dark) is currently **fixed** — there's no Settings control to change it yet.
+
+Most of these also have a **View menu** equivalent that toggles the same
+preference for the frontmost window: **Show Line Numbers** (⇧⌘L), **Wrap Lines**,
+**Show Status Bar**, **Show Word Count**, **Show Invisibles**, **Rainbow
+Brackets**, **Show Markdown Preview** (⇧⌘V), **Auto-Show Preview for Markdown**,
+**Show Markdown Toolbar**, **Show Hidden Files**, **Reveal Active File in
+Sidebar**, and **Show Recent Files in Sidebar**.
 
 ### Brackets
 
 | Setting | Default | What it does |
 |---------|---------|--------------|
-| Rainbow brackets | On | Color brackets by nesting depth. |
+| Rainbow brackets | On | Color brackets by nesting depth (fixed 6-color cycle). |
 | Emphasize enclosing pair at caret | On | Highlight the pair around the caret. |
 | Emphasis style | Bold | Bold / Underline / Background. |
+
+> An unmatched bracket is always drawn in a separate red, regardless of these
+> settings.
 
 ### Markdown
 
@@ -482,7 +534,10 @@ button next to a control for a short explanation.
 |---------|---------|--------------|
 | Show formatting toolbar | On | The Markdown toolbar for `.md` files. |
 | Auto-show preview for Markdown | On | Open `.md` files straight into the preview. |
-| Auto-refresh preview | On | Keep the preview current while editing. |
+| Auto-refresh preview | On | Keep the preview current while editing (~150ms after you stop typing; not adjustable). |
+
+> The toolbar's **Heading** button always inserts an **H2** (`##`) — there's no
+> level picker.
 
 ### Printing
 
@@ -501,6 +556,10 @@ button next to a control for a short explanation.
 | Smart copy/paste spacing | Off |
 | Check spelling while typing | Off |
 
+> **Check spelling while typing** has a native counterpart in **Edit ▸ Spelling and
+> Grammar**, which also has **Show Spelling and Grammar** (⌘:) and **Check
+> Document Now** (⌘;) — macOS's standard spell-check panel and commands.
+
 ### Indentation
 
 | Setting | Default | What it does |
@@ -518,7 +577,12 @@ button next to a control for a short explanation.
 | Setting | Default | What it does |
 |---------|---------|--------------|
 | Reopen last session's files at launch | On | Restore the previous session. |
-| On external change | Notify | Notify / Prompt / Auto-reload if clean. |
+| On external change | Notify | Notify / Prompt / Auto-reload if clean (see §15 — Prompt and Auto-reload-if-clean behave the same). |
+
+### Sidebar
+
+| Setting | Default | What it does |
+|---------|---------|--------------|
 | Show sidebar | Off | The file browser. |
 | Sort folders first | On | Folder ordering in the sidebar. |
 | Sort ascending | On | Sidebar sort direction. |
@@ -527,6 +591,9 @@ button next to a control for a short explanation.
 | Confirm before delete | On | Ask before Move to Trash. |
 | Show hidden files | Off | Dotfiles in the sidebar. |
 | Reveal active file in sidebar | On | Track the active tab in the tree. |
+
+> The **Recent** pane's history is capped at the 30 most recent files (not
+> configurable).
 
 <!-- SCREENSHOT: the Settings window, a couple of sections visible with ⓘ help
      buttons. → images/settings.png -->
@@ -539,6 +606,7 @@ button next to a control for a short explanation.
 | Shortcut | Action |
 |----------|--------|
 | ⌘N | New document |
+| ⇧⌘N | New window |
 | ⌘T | New tab |
 | ⌘O | Open… |
 | ⇧⌘O | Open Folder… |
@@ -548,6 +616,7 @@ button next to a control for a short explanation.
 | ⌘F | Find (with regex) |
 | ⌥⌘F | Find & Replace |
 | ⌘G / ⇧⌘G | Find next / previous |
+| ⌘J | Jump to selection |
 | ⇧⌘F | Find in all tabs |
 | ⌘L / ⌃G | Go to Line |
 | ⇧⌘V | Show Markdown preview |
@@ -555,6 +624,8 @@ button next to a control for a short explanation.
 | Esc | Exit column (block) mode |
 | ⌘⌃0 | Toggle sidebar |
 | ⇧⌘L | Toggle line numbers |
+| ⌘: | Show Spelling and Grammar |
+| ⌘; | Check spelling now |
 | ⌘Z / ⇧⌘Z | Undo / Redo |
 | Home / End | Line start / end |
 | Shift+Home / Shift+End | Extend selection to line start / end |
@@ -563,6 +634,11 @@ button next to a control for a short explanation.
 | Shift+Insert / Ctrl+Insert | Paste / Copy |
 | ⌃⌘F | Enter full screen |
 | ⌘, | Settings |
+
+> Many **View menu** toggles (Wrap Lines, Show Status Bar, Show Word Count, Show
+> Invisibles, Rainbow Brackets, Auto-Show Preview for Markdown, Show Markdown
+> Toolbar, Show Hidden Files, Reveal Active File in Sidebar, Show Recent Files in
+> Sidebar) have no keyboard shortcut — use the menu or Settings.
 
 ---
 
@@ -582,6 +658,14 @@ button next to a control for a short explanation.
   bar; press **Esc** (or ⌥⌘B) to exit.
 - **My window keeps coming back the wrong size.** medit restores the last window
   frame; resize/move it and quit normally to update the remembered position.
+- **Opening a very large file (5 MB+) seems to hang, especially alongside another
+  file.** Known limitation: opening applies syntax highlighting synchronously on
+  the main thread, so large files (roughly 1 MB ≈ 7s, 2 MB ≈ 17s) can stall window
+  creation. Open large files one at a time and give them a moment.
+- **A permission-denied file pops up a separate system alert instead of an
+  in-app message.** Known limitation: a failed (permission-denied) open currently
+  surfaces macOS's own LaunchServices modal rather than an in-app error. medit's
+  own window stays healthy — dismiss the system alert and continue.
 
 ---
 

@@ -12,12 +12,12 @@ Mac.
 ![Swift](https://img.shields.io/badge/Swift-AppKit-orange)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
-**Status:** working, **v2.4.1**. A native tabbed editor with syntax highlighting,
+**Status:** working, **v2.8.0**. A native tabbed editor with syntax highlighting,
 regex find/replace, find-in-all-tabs, Go to Line, a status bar with live word
 count, auto-indent, whitespace hygiene, manual language/encoding control,
 reload-on-external-change, PC-style navigation keys, an optional multi-root
-sidebar file browser with a Recent Files pane, **native Markdown preview &
-printing**, sort/case text transforms, and **column (block) editing**.
+sidebar file browser with a Recent Files pane, a **rendered Markdown preview &
+native printing**, sort/case text transforms, and **column (block) editing**.
 
 Targets **macOS 14 (Sonoma)** and later. Universal — Apple Silicon and Intel.
 
@@ -103,16 +103,17 @@ Targets **macOS 14 (Sonoma)** and later. Universal — Apple Silicon and Intel.
 
 ### Markdown
 
-- **Rendered preview** (⇧⌘V) — natively drawn Markdown (no web view): full
-  GitHub-Flavored Markdown with custom-drawn code panels, bordered tables, heading
-  rules, and blockquote bars. **Auto-show for `.md`** and **auto-refresh** are
-  toggles in **Settings**.
+- **Rendered preview** (⇧⌘V) — full GitHub-Flavored Markdown rendered in a
+  WKWebView (HTML + CSS). **Auto-show for `.md`** (on by default) and
+  **auto-refresh** are toggles in **Settings**.
 - **Formatting toolbar** — for Markdown files, a toolbar of one-click Bold / Italic
   / Strikethrough / Code / Link / Heading / lists / Quote / Code-block that
   wrap or prefix your selection (each toggles off on a second click). Toggle in
   **View** / **Settings**.
-- **Printing** — ⌘P prints the **rendered** Markdown; plain text and source files
-  print as monospace with optional line numbers and a filename header.
+- **Printing** — ⌘P prints Markdown documents through a **separate, natively-drawn**
+  path (custom code panels, bordered tables, heading rules) independent of the
+  on-screen web-view preview; plain text and source files print as monospace with
+  optional line numbers and a filename header.
 
 <!-- SCREENSHOT: a Markdown file side-by-side: source on the left, rendered preview
      on the right (or the preview alone), showing a table + code block.
@@ -187,8 +188,11 @@ After the first open it launches normally and appears in Launchpad and Spotlight
 ## Build from source
 
 medit is a local Swift package (`MeditKit` — all the app logic, fully testable)
-plus a thin Xcode app target that wraps it in a `.app` bundle. The only external
-dependency is HighlighterSwift, resolved automatically by Swift Package Manager.
+plus a thin Xcode app target that wraps it in a `.app` bundle. Two external
+dependencies, resolved automatically by Swift Package Manager:
+[HighlighterSwift](https://github.com/smittytone/HighlighterSwift) for syntax
+highlighting, and Apple's [swift-markdown](https://github.com/apple/swift-markdown)
+for CommonMark + GFM parsing.
 
 ### Run the app (Xcode)
 
@@ -196,13 +200,13 @@ dependency is HighlighterSwift, resolved automatically by Swift Package Manager.
 open App/medit.xcodeproj
 ```
 
-Press **Run** (⌘R). Xcode resolves HighlighterSwift on the first build.
+Press **Run** (⌘R). Xcode resolves both dependencies on the first build.
 
 ### Build & test the library (command line)
 
 ```sh
 swift build
-swift test          # 196 tests: pure logic + headless editor smoke tests
+swift test          # 397 tests: pure logic + headless editor smoke tests
 ```
 
 ### Build the app bundle without opening Xcode
@@ -228,6 +232,7 @@ xattr -dr com.apple.quarantine /Applications/medit.app
 | Shortcut | Action |
 |----------|--------|
 | ⌘N | New document |
+| ⇧⌘N | New window |
 | ⌘T | New tab |
 | ⌘O | Open… |
 | ⌘S / ⇧⌘S | Save / Save As… |
@@ -235,6 +240,7 @@ xattr -dr com.apple.quarantine /Applications/medit.app
 | ⌘F | Find (with regex) |
 | ⌥⌘F | Find & Replace |
 | ⌘G / ⇧⌘G | Find next / previous |
+| ⌘J | Jump to selection |
 | ⇧⌘F | Find in all tabs |
 | ⌘L / ⌃G | Go to Line |
 | ⌘P | Print (rendered for Markdown) |
@@ -260,24 +266,31 @@ xattr -dr com.apple.quarantine /Applications/medit.app
 
 ```
 medit/
-├── Package.swift              Local SwiftPM package + HighlighterSwift dependency
+├── Package.swift              Local SwiftPM package + HighlighterSwift + swift-markdown
 ├── Sources/MeditKit/          All app logic (the testable library)
-│   ├── App lifecycle          AppDelegate, MainMenu
+│   ├── App lifecycle          AppDelegate, MainMenu, LaunchReset
 │   ├── Documents / windows    TextDocument (NSDocument), EditorWindowController,
 │   │                          EditorViewController, EditorTextView
 │   ├── Editor pieces          LineNumberRulerView, SyntaxHighlightingController,
 │   │                          FindReplaceBar, StatusBarView, GoToLineSheet,
-│   │                          InvisiblesLayoutManager, EditorColors
-│   ├── Sidebar                SidebarViewController, FileTreeDataSource,
-│   │                          DirectoryWatcher
+│   │                          InvisiblesLayoutManager, EditorColors, CBBColors,
+│   │                          BracketColorizer, BracketDepthScanner, AXIdentifierCell,
+│   │                          ColumnSelection, ReloadBanner
+│   ├── Markdown                MarkdownEditing, MarkdownStyleBar, MarkdownRenderer,
+│   │                          MarkdownHTMLRenderer, MarkdownPreviewLayoutManager,
+│   │                          MarkdownTableRenderer, MarkdownPrinter, PreviewHTMLTemplate
+│   ├── Sidebar / recent files  SidebarViewController, FileTreeDataSource,
+│   │                          DirectoryWatcher, RecentFilesStore, RecentFilesView
+│   ├── Sessions                SessionStore, WindowSession
+│   ├── Settings                Preferences, PreferencesWindowController
 │   ├── Pure logic (tested)    TextEncodingDetector, LanguageMap, TextSearch,
 │   │                          KeyboardNavigator, TextLocator, TextPosition,
-│   │                          Indenter, BracketMatcher, TextHygiene,
-│   │                          LanguageCatalog, ShebangDetector, LineEndings,
-│   │                          EncodingCatalog, ExternalChangeResolver,
-│   │                          FileTreeNode, FileSystemOperations, Preferences
+│   │                          Indenter, BracketMatcher, TextHygiene, TextStatistics,
+│   │                          TextTransforms, LanguageCatalog, ShebangDetector,
+│   │                          LineEndings, EncodingCatalog, ExternalChangeResolver,
+│   │                          FileTreeNode, FileSystemOperations
 │   └── Cross-tab search       FindInTabsCoordinator
-├── Tests/MeditKitTests/       196 tests (logic + headless editor smoke tests)
+├── Tests/MeditKitTests/       397 tests (logic + headless editor smoke tests)
 ├── App/                       Thin Xcode app target
 │   ├── medit.xcodeproj        Depends on the local ../  package
 │   ├── main.swift             Entry point — boots NSApplication
@@ -285,7 +298,8 @@ medit/
 │   ├── medit.entitlements     App Sandbox + user-selected file access
 │   └── Assets.xcassets        App icon
 ├── Tools/IconGen/             Core Graphics icon generator (iconmaker.swift)
-└── docs/                       Design specs (docs/specs/) + plans (docs/plans/)
+├── uitests/                    AutoPilot GUI test plans (declarative JSON)
+└── docs/                       User manual, design specs (docs/specs/) + plans (docs/plans/)
 ```
 
 The design deliberately keeps the GUI-free logic — encoding detection, language
@@ -356,10 +370,13 @@ to use, modify, and redistribute it, including commercially, with attribution.
 
 The bundled syntax-highlighting dependency,
 [HighlighterSwift](https://github.com/smittytone/HighlighterSwift), is MIT-licensed
-and wraps [highlight.js](https://highlightjs.org) (BSD-3-Clause).
+and wraps [highlight.js](https://highlightjs.org) (BSD-3-Clause). The bundled
+Markdown-parsing dependency, Apple's
+[swift-markdown](https://github.com/apple/swift-markdown), is Apache-2.0-licensed.
 
 ## Acknowledgements
 
 - [gedit](https://gedit-technology.github.io/apps/gedit/) — the inspiration.
 - [HighlighterSwift](https://github.com/smittytone/HighlighterSwift) and
   [highlight.js](https://highlightjs.org) — syntax highlighting.
+- [swift-markdown](https://github.com/apple/swift-markdown) — Markdown parsing.
