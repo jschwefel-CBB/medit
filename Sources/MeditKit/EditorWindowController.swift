@@ -506,6 +506,23 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         editor.showPreview(!editor.isPreviewVisible)
     }
 
+    // ⌘C while the Markdown preview is visible. WKWebView responds to copy: but
+    // on macOS its copy goes through WebKit's internal pasteboard path, which can
+    // silently fail to reach NSPasteboard.general. Catch copy: at the window
+    // controller level (it bubbles here when WKWebView doesn't consume it), pull
+    // the selection via JS, and write it to the system pasteboard directly.
+    // When the editor text view is first responder, it handles copy: itself before
+    // the event ever reaches here, so this does not interfere with normal editing.
+    @IBAction public func copy(_ sender: Any?) {
+        guard let editor, editor.isPreviewVisible,
+              let wv = editor.previewWebViewForTesting else { return }
+        wv.evaluateJavaScript("window.getSelection().toString()") { result, _ in
+            guard let text = result as? String, !text.isEmpty else { return }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        }
+    }
+
     @IBAction public func toggleAutoShowMarkdownPreview(_ sender: Any?) {
         prefs.autoShowPreviewForMarkdown.toggle()
     }
