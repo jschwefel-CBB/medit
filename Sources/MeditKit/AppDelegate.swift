@@ -294,6 +294,43 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         !LaunchReset.isRequested(in: CommandLine.arguments)
     }
 
+    // MARK: Select All / Copy
+
+    /// The editor window controller for the frontmost window, if any.
+    private var frontEditor: EditorWindowController? {
+        (NSApp.mainWindow ?? NSApp.keyWindow)?.windowController as? EditorWindowController
+    }
+
+    /// Edit ▸ Select All and Edit ▸ Copy are targeted here rather than left to the
+    /// responder chain, because the chain cannot deliver them into the Markdown
+    /// preview: `WKWebView` is first responder and swallows `selectAll:`/`copy:`,
+    /// handling them against internal state that is not the page's DOM selection.
+    ///
+    /// The window controller decides what "focused area" means and, when the
+    /// preview is hidden, hands the action straight back to the responder chain so
+    /// the editor's native NSTextView behavior is untouched. A window that isn't an
+    /// editor (e.g. Settings) falls back to the chain too, so text fields there
+    /// still select and copy normally.
+    /// Deliberately NOT named `selectAll:`/`copy:`. The fallback below re-dispatches
+    /// the standard selectors through the responder chain, and `AppDelegate` is the
+    /// chain's last resort — sharing a name would make that call re-enter this
+    /// method and spin forever.
+    @IBAction public func selectAllCommand(_ sender: Any?) {
+        if let front = frontEditor {
+            front.selectAllInFocusedArea(sender)
+        } else {
+            NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: sender)
+        }
+    }
+
+    @IBAction public func copyCommand(_ sender: Any?) {
+        if let front = frontEditor {
+            front.copyFromFocusedArea(sender)
+        } else {
+            NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: sender)
+        }
+    }
+
     // MARK: Preferences
 
     @IBAction public func showPreferences(_ sender: Any?) {

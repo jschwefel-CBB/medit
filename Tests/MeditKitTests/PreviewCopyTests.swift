@@ -3,95 +3,133 @@ import AppKit
 import WebKit
 @testable import MeditKit
 
-/// Regression guard for the copy-from-Markdown-preview fix: WKWebView's native
-/// `copy:` does not reliably reach `NSPasteboard.general` on macOS, so
-/// `EditorWindowController.copy(_:)` intercepts it, pulls the current selection
-/// via JS, and writes it to the pasteboard directly. This shipped once (as
-/// "v2.7.4") on a branch that was never merged into main, so the fix silently
-/// never reached a release — this test exists specifically so that can't
-/// happen again undetected.
+/// Regression guard: an **auto-opened** Markdown preview must hold first
+/// responder, or ⌘C copies nothing.
 ///
-/// WKWebView loads + JS round-trips are async with variable timing (especially
-/// headless CI), so this polls rather than using fixed sleeps, and skips when
-/// no window server renders the page (mirrors PreviewScrollKeyTests).
+/// The bug: `showPreview(true)` runs from `viewDidLoad` when
+/// `autoShowPreviewForMarkdown` is on, but `view.window` is nil there — so
+/// `view.window?.makeFirstResponder(webView)` silently no-opped. The preview
+/// rendered, took no focus, and Select All / ⌘C went to whatever else held first
+/// responder. Toggling the preview off and on appeared to "fix" it only because
+/// by then the view was in a window.
+///
+/// **Why every prior check missed it.** The old version of this file called
+/// `windowController.copy(nil)` directly, proving only that the method worked
+/// *if invoked*. The AutoPilot plan `preview-copy-test.json` launches with
+/// `--no-auto-preview` and opens the preview from the View menu. Manual testing
+/// did the same. All three entered through a door the user never uses. These
+/// tests deliberately enter through auto-preview, and assert the *state* the
+/// GUI plan depends on — so a unit pass and a GUI pass cannot both be wrong in
+/// the same direction.
 final class PreviewCopyTests: XCTestCase {
     override func setUp() { super.setUp(); _ = NSApplication.shared }
 
-    private func poll(_ wv: WKWebView, js: String,
-                      until accept: (Any?) -> Bool, timeout: TimeInterval = 20) -> Any? {
-        let deadline = Date().addingTimeInterval(timeout)
-        var last: Any?
-        while Date() < deadline {
-            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
-            let done = expectation(description: "eval js")
-            wv.evaluateJavaScript(js) { r, _ in last = r; done.fulfill() }
-            _ = XCTWaiter().wait(for: [done], timeout: 1)
-            if accept(last) { return last }
-        }
-        return last
+    /// Build a controller the way opening a `.md` file does: auto-preview on, so
+    /// `showPreview(true)` fires from `viewDidLoad` while `view.window` is nil.
+    private func makeAutoPreviewController() -> EditorWindowController {
+        let prefs = Preferences(defaults: UserDefaults(suiteName: "medit.autoprev.\(UUID().uuidString)")!)
+        prefs.autoShowPreviewForMarkdown = true
+
+        let doc = TextDocument()
+        doc.setTextForTesting("# Heading\n\nUNIQUESENTINEL preview body text.")
+        doc.languageOverride = "markdown"
+
+        let wc = EditorWindowController(document: doc, preferences: prefs)
+        _ = wc.window                    // viewDidLoad -> auto-preview, no window yet
+        wc.loadViewIfNeededForTesting()
+        return wc
     }
 
-    func testCopyFromPreviewWritesSelectionToPasteboard() throws {
-        let prefs = Preferences(defaults: UserDefaults(suiteName: "medit.previewcopy.\(UUID().uuidString)")!)
-        let doc = TextDocument()
-        doc.setTextForTesting("# Hello\n\nThis is preview copy test content.")
-        let wc = EditorWindowController(document: doc, preferences: prefs)
-        _ = wc.window
-        wc.loadViewIfNeededForTesting()
+    /// Drive the window through the appearance cycle a real launch performs.
+    private func present(_ wc: EditorWindowController) {
         wc.window?.makeKeyAndOrderFront(nil)
-        let editor = wc.editorForTesting!
-        editor.showPreview(true)
-        guard let wv = editor.previewWebViewForTesting else { return XCTFail("no web view") }
-
-        // Wait for the page to actually render (headless CI has no content
-        // process, so this can time out — skip rather than fail in that case).
-        let loaded = poll(wv, js: "document.body.innerText.length > 0",
-                          until: { ($0 as? Bool) == true })
-        try XCTSkipUnless((loaded as? Bool) == true,
-                          "WKWebView did not render (no window server / headless); skipping copy test")
-
-        // Select all body text via WebKit's own execCommand (app-driven, not
-        // content JS, so it's allowed under allowsContentJavaScript = false).
-        _ = poll(wv, js: "document.execCommand('selectAll'); window.getSelection().toString().length > 0",
-                until: { ($0 as? Bool) == true })
-
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString("sentinel — must be overwritten by copy", forType: .string)
-
-        wc.copy(nil)
-
-        // copy(_:) writes to the pasteboard asynchronously (evaluateJavaScript
-        // completion handler); poll the pasteboard rather than assert immediately.
-        let deadline = Date().addingTimeInterval(5)
-        var pasted: String?
-        while Date() < deadline {
-            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
-            pasted = NSPasteboard.general.string(forType: .string)
-            if let pasted, pasted.contains("Hello") { break }
-        }
-
-        XCTAssertNotNil(pasted)
-        XCTAssertTrue(pasted?.contains("Hello") == true,
-                      "copy(_:) should write the preview's selected text to NSPasteboard.general, got: \(pasted ?? "nil")")
-        XCTAssertTrue(pasted?.contains("preview copy test content") == true)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
     }
 
-    func testCopyDoesNothingWhenPreviewIsNotVisible() {
-        let prefs = Preferences(defaults: UserDefaults(suiteName: "medit.previewcopy.\(UUID().uuidString)")!)
-        let doc = TextDocument()
-        doc.setTextForTesting("plain text, no preview shown")
-        let wc = EditorWindowController(document: doc, preferences: prefs)
-        _ = wc.window
-        wc.loadViewIfNeededForTesting()
+    /// The bug, stated directly. Everything else about preview copy follows from
+    /// this: if the web view isn't first responder, ⌘C never reaches it.
+    func testAutoOpenedPreviewTakesFirstResponder() throws {
+        let wc = makeAutoPreviewController()
+        let editor = try XCTUnwrap(wc.editorForTesting)
+        XCTAssertTrue(editor.isPreviewVisible, "precondition: auto-preview should be showing")
 
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString("untouched", forType: .string)
+        present(wc)
 
-        wc.copy(nil)
+        let wv = try XCTUnwrap(editor.previewWebViewForTesting)
+        XCTAssertTrue(wc.window?.firstResponder === wv,
+                      "an auto-opened preview must hold first responder, else ⌘C does nothing")
+    }
 
-        // No preview visible -> the override must no-op and leave the pasteboard
-        // alone (the editor's own copy: handles plain-text copy in this case,
-        // not this override).
-        XCTAssertEqual(NSPasteboard.general.string(forType: .string), "untouched")
+    /// Guards the mechanism, not just the symptom: a focus request made before the
+    /// view has a window must be deferred and applied, never dropped.
+    func testFocusRequestedBeforeWindowExistsIsApplied() throws {
+        let wc = makeAutoPreviewController()
+        let editor = try XCTUnwrap(wc.editorForTesting)
+        let wv = try XCTUnwrap(editor.previewWebViewForTesting)
+
+        // The request was made in viewDidLoad with no window. It must survive.
+        present(wc)
+
+        XCTAssertTrue(wc.window?.firstResponder === wv,
+                      "the deferred first-responder request was dropped")
+    }
+
+    /// Hiding the preview must hand focus back so typing resumes. This path always
+    /// worked; assert it so the fix can't regress it.
+    func testTogglingPreviewOffRestoresEditorFocus() throws {
+        let wc = makeAutoPreviewController()
+        let editor = try XCTUnwrap(wc.editorForTesting)
+        present(wc)
+
+        editor.showPreview(false)
+        XCTAssertTrue(wc.window?.firstResponder === editor.textView,
+                      "hiding the preview must return focus to the editor")
+    }
+
+    /// Re-showing the preview from the menu (the path that always worked) must
+    /// still focus the web view — the fix must not special-case only the deferred
+    /// path.
+    func testReShowingPreviewFocusesTheWebView() throws {
+        let wc = makeAutoPreviewController()
+        let editor = try XCTUnwrap(wc.editorForTesting)
+        present(wc)
+
+        editor.showPreview(false)
+        editor.showPreview(true)
+
+        let wv = try XCTUnwrap(editor.previewWebViewForTesting)
+        XCTAssertTrue(wc.window?.firstResponder === wv,
+                      "re-showing the preview must focus the web view")
+    }
+
+    /// End-to-end: the auto-opened, focused preview renders selectable text — the
+    /// precondition the AutoPilot plan's Select All + ⌘C relies on.
+    func testAutoOpenedPreviewRendersSelectableText() throws {
+        let wc = makeAutoPreviewController()
+        let editor = try XCTUnwrap(wc.editorForTesting)
+        present(wc)
+        let wv = try XCTUnwrap(editor.previewWebViewForTesting)
+
+        var rendered = false
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline, !rendered {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+            let done = expectation(description: "render")
+            wv.evaluateJavaScript("document.body.innerText.indexOf('UNIQUESENTINEL') >= 0") { r, _ in
+                rendered = (r as? Bool) == true
+                done.fulfill()
+            }
+            _ = XCTWaiter().wait(for: [done], timeout: 1)
+        }
+        try XCTSkipUnless(rendered, "WKWebView did not render (headless / no window server)")
+
+        let selected = expectation(description: "selection")
+        var length = 0
+        wv.evaluateJavaScript("document.execCommand('selectAll'); window.getSelection().toString().length") { r, _ in
+            length = (r as? NSNumber)?.intValue ?? 0
+            selected.fulfill()
+        }
+        wait(for: [selected], timeout: 5)
+        XCTAssertGreaterThan(length, 0, "the rendered preview must have selectable text")
     }
 }
