@@ -301,6 +301,36 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         (NSApp.mainWindow ?? NSApp.keyWindow)?.windowController as? EditorWindowController
     }
 
+    /// Send a standard editing selector down the responder chain, but only if the
+    /// responder that would receive it says it is currently valid.
+    ///
+    /// `NSApp.sendAction(_:to:from:)` **bypasses validation**. For a `target: nil`
+    /// menu item AppKit would first ask the responder chain via
+    /// `validateUserInterfaceItem(_:)` and grey the item out when the answer is no,
+    /// so the action never fires. Re-dispatching by hand skips that step — and
+    /// `NSTextView.copy(_:)` with an empty selection is *not* a no-op: it clears
+    /// the pasteboard. Forcing it destroyed the user's clipboard on a ⌘C that
+    /// should have done nothing at all.
+    ///
+    /// Validating first restores the behavior a plain `target: nil` item had.
+    static func sendValidatedAction(_ selector: Selector, from sender: Any?) {
+        // Find the responder AppKit would dispatch to: the first one, walking up
+        // from the first responder, that implements the selector.
+        var responder = (NSApp.keyWindow ?? NSApp.mainWindow)?.firstResponder
+        while let current = responder, !current.responds(to: selector) {
+            responder = current.nextResponder
+        }
+        guard let handler = responder else { return }
+
+        // Ask that responder whether the action is valid right now, exactly as
+        // AppKit would before enabling a `target: nil` menu item.
+        if let validator = handler as? NSUserInterfaceValidations {
+            let probe = NSMenuItem(title: "", action: selector, keyEquivalent: "")
+            guard validator.validateUserInterfaceItem(probe) else { return }
+        }
+        NSApp.sendAction(selector, to: nil, from: sender)
+    }
+
     /// Edit ▸ Select All and Edit ▸ Copy are targeted here rather than left to the
     /// responder chain, because the chain cannot deliver them into the Markdown
     /// preview: `WKWebView` is first responder and swallows `selectAll:`/`copy:`,
@@ -319,7 +349,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         if let front = frontEditor {
             front.selectAllInFocusedArea(sender)
         } else {
-            NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: sender)
+            AppDelegate.sendValidatedAction(#selector(NSText.selectAll(_:)), from: sender)
         }
     }
 
@@ -327,7 +357,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         if let front = frontEditor {
             front.copyFromFocusedArea(sender)
         } else {
-            NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: sender)
+            AppDelegate.sendValidatedAction(#selector(NSText.copy(_:)), from: sender)
         }
     }
 

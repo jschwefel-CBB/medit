@@ -524,16 +524,21 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         if let editor, editor.isPreviewVisible {
             editor.selectAllInPreview()
         } else {
-            NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: sender)
+            AppDelegate.sendValidatedAction(#selector(NSText.selectAll(_:)), from: sender)
         }
     }
 
     /// Copy the preview's selection, or the editor's selection if the preview is hidden.
+    ///
+    /// The fallback validates before dispatching: `NSTextView.copy(_:)` with an
+    /// empty selection *clears* the pasteboard rather than doing nothing, and a
+    /// hand-rolled `sendAction` would skip the validation that normally keeps
+    /// AppKit from ever calling it.
     @IBAction public func copyFromFocusedArea(_ sender: Any?) {
         if let editor, editor.isPreviewVisible {
             editor.copyPreviewSelection()
         } else {
-            NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: sender)
+            AppDelegate.sendValidatedAction(#selector(NSText.copy(_:)), from: sender)
         }
     }
 
