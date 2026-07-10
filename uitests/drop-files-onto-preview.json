@@ -1,0 +1,208 @@
+{
+  "schemaVersion": "1.1",
+  "name": "drop files onto a RENDERED Markdown preview (not the editor)",
+  "comment": "Regression guard. While the preview is showing it covers the editor and `scrollView.isHidden = true`; a hidden view gets no drag events, so a file dropped on a rendered .md landed on the WKWebView, which had no file-drop handling and silently ignored it. Since auto-preview became the default this is the NORMAL state of every Markdown document, so drops appeared broken outright. CRITICAL: do NOT pass --no-auto-preview and do NOT open the preview from the View menu — either enters through the editor-visible path, which always worked. That is exactly why drop-files-onto-editor.json passed 18/18 while this was broken: it starts on an untitled (non-Markdown) document, so the preview never appears. NOTE ON ORDER: each dropped .txt becomes the active tab, which is NOT Markdown, so the preview disappears. Every drop must therefore happen while the .md tab is still active — the multi-file drop runs FIRST, and the single-file drop re-activates the .md tab before it. Requires the Debug build and staged fixtures.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": [
+      "--reset-state"
+    ],
+    "launchFiles": [
+      "/tmp/medit-ap-copy-test.md"
+    ]
+  },
+  "defaults": {
+    "timeoutMs": 10000,
+    "retryIntervalMs": 150
+  },
+  "steps": [
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "role": "AXWindow"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "preview-is-showing",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "markdownPreviewWebView"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "settle-render",
+      "action": "wait",
+      "level": "happyPath",
+      "args": {
+        "seconds": 2
+      }
+    },
+    {
+      "id": "editor-is-covered",
+      "action": "assert",
+      "level": "happyPath",
+      "comment": "Negative control: the editor must be hidden. If it is visible, this plan is testing the editor path and would pass even with the preview drop broken.",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "assert": {
+        "property": "value",
+        "op": "notExists"
+      }
+    },
+    {
+      "id": "tab-b-absent-before",
+      "action": "assert",
+      "level": "integrationSuite",
+      "comment": "Negative control: prove the tab asserted on below does not already exist.",
+      "target": {
+        "role": "AXRadioButton",
+        "title": "medit-ap-open-b.txt"
+      },
+      "assert": {
+        "property": "value",
+        "op": "notExists"
+      }
+    },
+    {
+      "id": "multi-drop-onto-preview",
+      "action": "drag",
+      "level": "integrationSuite",
+      "comment": "A multi-file Finder drag advertises only the legacy NSFilenamesPboardType, not .fileURL — a distinct code path from the single-file drop.",
+      "target": {
+        "identifier": "markdownPreviewWebView"
+      },
+      "args": {
+        "toFiles": [
+          "/tmp/medit-ap-open-b.txt",
+          "/tmp/medit-ap-open-c.txt"
+        ]
+      }
+    },
+    {
+      "id": "settle-multi",
+      "action": "wait",
+      "level": "integrationSuite",
+      "args": {
+        "seconds": 2
+      }
+    },
+    {
+      "id": "multi-b-opened",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "role": "AXRadioButton",
+        "title": "medit-ap-open-b.txt"
+      },
+      "assert": {
+        "property": "value",
+        "op": "exists"
+      }
+    },
+    {
+      "id": "multi-c-opened",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "role": "AXRadioButton",
+        "title": "medit-ap-open-c.txt"
+      },
+      "assert": {
+        "property": "value",
+        "op": "exists"
+      }
+    },
+    {
+      "id": "back-to-markdown-tab",
+      "action": "click",
+      "level": "happyPath",
+      "comment": "Re-activate the Markdown tab; dropping a .txt made a non-Markdown tab active, hiding the preview.",
+      "target": {
+        "role": "AXRadioButton",
+        "title": "medit-ap-copy-test.md"
+      }
+    },
+    {
+      "id": "settle-tab",
+      "action": "wait",
+      "level": "happyPath",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "preview-showing-again",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "markdownPreviewWebView"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "tab-a-absent-before",
+      "action": "assert",
+      "level": "happyPath",
+      "comment": "Negative control: prove the tab we are about to assert on does not already exist, so a passing assertion below cannot be a false positive.",
+      "target": {
+        "role": "AXRadioButton",
+        "title": "medit-ap-open-a.txt"
+      },
+      "assert": {
+        "property": "value",
+        "op": "notExists"
+      }
+    },
+    {
+      "id": "drop-onto-preview",
+      "action": "drag",
+      "level": "happyPath",
+      "target": {
+        "identifier": "markdownPreviewWebView"
+      },
+      "args": {
+        "toFiles": [
+          "/tmp/medit-ap-open-a.txt"
+        ]
+      }
+    },
+    {
+      "id": "settle-drop",
+      "action": "wait",
+      "level": "happyPath",
+      "args": {
+        "seconds": 2
+      }
+    },
+    {
+      "id": "dropped-file-opened",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "role": "AXRadioButton",
+        "title": "medit-ap-open-a.txt"
+      },
+      "assert": {
+        "property": "value",
+        "op": "exists"
+      }
+    },
+    {
+      "id": "quit",
+      "action": "terminate",
+      "level": "happyPath"
+    }
+  ]
+}

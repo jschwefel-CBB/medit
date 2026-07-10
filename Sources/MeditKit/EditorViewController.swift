@@ -532,10 +532,20 @@ public final class EditorViewController: NSViewController {
         // never run. App-initiated evaluateJavaScript (used to update the body in
         // place) still works — it is not "content JS".
         config.defaultWebpagePreferences.allowsContentJavaScript = false
-        let wv = WKWebView(frame: .zero, configuration: config)
+        // PreviewWebView, not a bare WKWebView: while the preview is showing it
+        // covers the editor, whose text view is hidden and therefore receives no
+        // drag events. Without its own file-drop handling, dropping a file onto a
+        // rendered .md silently did nothing.
+        let wv = PreviewWebView(frame: .zero, configuration: config)
         wv.translatesAutoresizingMaskIntoConstraints = false
         wv.navigationDelegate = self
         wv.setAccessibilityIdentifier("markdownPreviewWebView")
+        // The same handler the editor's text view uses, so a drop behaves
+        // identically whether it lands on the editor or the rendered preview.
+        wv.onOpenFiles = { [weak self] urls in
+            guard let wc = self?.newTabActionTarget as? EditorWindowController else { return }
+            wc.openFiles(at: urls)
+        }
         wv.isHidden = true
         view.addSubview(wv)
         // Occupy the exact band the editor scroll view occupies.
