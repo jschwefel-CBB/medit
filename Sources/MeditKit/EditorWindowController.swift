@@ -340,6 +340,22 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         }
     }
 
+    /// Open a new untitled document as a tab in the frontmost editor window, or —
+    /// if no editor window exists (e.g. the Dock menu with every window closed) —
+    /// as a new window, since there is no tab bar to attach to.
+    ///
+    /// Static for the same reason as `openNewWindow()`: the Dock menu fires with
+    /// no window to route an instance action through.
+    public static func openNewTab() {
+        let front = NSApp.mainWindow?.windowController as? EditorWindowController
+            ?? NSApp.windows.compactMap { $0.windowController as? EditorWindowController }.first
+        if let front, front.window != nil {
+            front.openNewTab()
+        } else {
+            openNewWindow()
+        }
+    }
+
     private func openNewTab() {
         guard let window else { return }
         do {
@@ -360,9 +376,13 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         }
     }
 
-    /// Explicit New Window (⇧⌘N): open a new untitled document in its OWN top-level
+    /// Explicit New Window (⌘N): open a new untitled document in its OWN top-level
     /// window — NOT added to any tab group. Tabs remain the default elsewhere.
-    public func openNewWindow() {
+    ///
+    /// Static because it needs no existing window: the Dock menu can invoke it
+    /// when every window is closed and there is no `EditorWindowController` left
+    /// to route an instance action to.
+    public static func openNewWindow() {
         do {
             let newDoc = try NSDocumentController.shared.openUntitledDocumentAndDisplay(false)
             if newDoc.windowControllers.isEmpty { newDoc.makeWindowControllers() }
@@ -373,8 +393,10 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         }
     }
 
+    public func openNewWindow() { EditorWindowController.openNewWindow() }
+
     /// Menu hook for File ▸ New Window.
-    @IBAction public func newWindowFromMenu(_ sender: Any?) { openNewWindow() }
+    @IBAction public func newWindowFromMenu(_ sender: Any?) { EditorWindowController.openNewWindow() }
 
     // MARK: Session snapshot/restore helpers
 

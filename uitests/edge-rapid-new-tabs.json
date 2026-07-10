@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.1",
-  "name": "edge: rapid repeated File > New (tab stress)",
-  "comment": "Fires File > New many times in quick succession to stress tab creation. tryToBreakIt: medit must stay stable — still exactly one window (⌘N makes tabs, not windows) and a live editor after the burst. Documented primitives only (menu action repeated, assert count / exists). Each new tab is empty, so no save dialog on quit. Requires the Debug build; no fixture.",
+  "name": "edge: rapid repeated File > New Tab (tab stress)",
+  "comment": "Fires File > New Tab many times in quick succession to stress tab creation. tryToBreakIt: medit must stay stable — still exactly one window (New Tab makes tabs, not windows; ⌘N is New Window) and a live editor after the burst. Documented primitives only (menu action repeated, assert count / exists). Each new tab is empty, so no save dialog on quit. Requires the Debug build; no fixture.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
     "launchArgs": ["--reset-state"]
@@ -13,14 +13,14 @@
     { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
       "target": { "identifier": "editorTextView" }, "args": { "present": true } },
 
-    { "id": "new-1", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New"] } },
-    { "id": "new-2", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New"] } },
-    { "id": "new-3", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New"] } },
-    { "id": "new-4", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New"] } },
-    { "id": "new-5", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New"] } },
-    { "id": "new-6", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New"] } },
-    { "id": "new-7", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New"] } },
-    { "id": "new-8", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New"] } },
+    { "id": "new-1", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New Tab"] } },
+    { "id": "new-2", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New Tab"] } },
+    { "id": "new-3", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New Tab"] } },
+    { "id": "new-4", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New Tab"] } },
+    { "id": "new-5", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New Tab"] } },
+    { "id": "new-6", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New Tab"] } },
+    { "id": "new-7", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New Tab"] } },
+    { "id": "new-8", "action": "menu", "level": "tryToBreakIt", "args": { "menuPath": ["File", "New Tab"] } },
     { "id": "settle-burst", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 2 } },
 
     { "id": "still-one-window", "action": "assert", "level": "tryToBreakIt",

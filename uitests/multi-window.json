@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.1",
   "name": "multi-window: New Window makes 2nd window; New Tab stays in same window",
-  "comment": "Verifies the multi-window model: ⇧⌘N (cmd+shift+n) opens a SEPARATE window; ⌘N (cmd+n) adds a tab in the existing window, NOT a new window. Requires Debug build and staged /tmp/medit-ap-mw-a.txt fixture.",
+  "comment": "Verifies the multi-window model: ⌘N (cmd+n) opens a SEPARATE window; ⌘T / File ▸ New Tab adds a tab in the existing window, NOT a new window. Requires Debug build and staged /tmp/medit-ap-mw-a.txt fixture.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
     "launchFiles": ["/tmp/medit-ap-mw-a.txt"]
@@ -16,14 +16,14 @@
       "target": { "identifier": "editorTextView" } },
     { "id": "new-window", "action": "keyPress", "level": "happyPath",
       "target": { "identifier": "editorTextView" },
-      "args": { "keys": "cmd+shift+n" } },
+      "args": { "keys": "cmd+n" } },
     { "id": "settle-window", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
     { "id": "two-windows", "action": "assert", "level": "happyPath",
       "target": { "role": "AXWindow" },
       "assert": { "property": "count", "op": "greaterThan", "expected": "1" } },
 
     { "id": "new-tab", "action": "menu", "level": "integrationSuite",
-      "args": { "menuPath": ["File", "New"] } },
+      "args": { "menuPath": ["File", "New Tab"] } },
     { "id": "settle-tab", "action": "wait", "level": "integrationSuite", "args": { "seconds": 1 } },
     { "id": "still-two-windows", "action": "assert", "level": "integrationSuite",
       "target": { "role": "AXWindow" },
