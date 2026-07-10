@@ -294,6 +294,73 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         !LaunchReset.isRequested(in: CommandLine.arguments)
     }
 
+    // MARK: Select All / Copy
+
+    /// The editor window controller for the frontmost window, if any.
+    private var frontEditor: EditorWindowController? {
+        (NSApp.mainWindow ?? NSApp.keyWindow)?.windowController as? EditorWindowController
+    }
+
+    /// Send a standard editing selector down the responder chain, but only if the
+    /// responder that would receive it says it is currently valid.
+    ///
+    /// `NSApp.sendAction(_:to:from:)` **bypasses validation**. For a `target: nil`
+    /// menu item AppKit would first ask the responder chain via
+    /// `validateUserInterfaceItem(_:)` and grey the item out when the answer is no,
+    /// so the action never fires. Re-dispatching by hand skips that step — and
+    /// `NSTextView.copy(_:)` with an empty selection is *not* a no-op: it clears
+    /// the pasteboard. Forcing it destroyed the user's clipboard on a ⌘C that
+    /// should have done nothing at all.
+    ///
+    /// Validating first restores the behavior a plain `target: nil` item had.
+    static func sendValidatedAction(_ selector: Selector, from sender: Any?) {
+        // Find the responder AppKit would dispatch to: the first one, walking up
+        // from the first responder, that implements the selector.
+        var responder = (NSApp.keyWindow ?? NSApp.mainWindow)?.firstResponder
+        while let current = responder, !current.responds(to: selector) {
+            responder = current.nextResponder
+        }
+        guard let handler = responder else { return }
+
+        // Ask that responder whether the action is valid right now, exactly as
+        // AppKit would before enabling a `target: nil` menu item.
+        if let validator = handler as? NSUserInterfaceValidations {
+            let probe = NSMenuItem(title: "", action: selector, keyEquivalent: "")
+            guard validator.validateUserInterfaceItem(probe) else { return }
+        }
+        NSApp.sendAction(selector, to: nil, from: sender)
+    }
+
+    /// Edit ▸ Select All and Edit ▸ Copy are targeted here rather than left to the
+    /// responder chain, because the chain cannot deliver them into the Markdown
+    /// preview: `WKWebView` is first responder and swallows `selectAll:`/`copy:`,
+    /// handling them against internal state that is not the page's DOM selection.
+    ///
+    /// The window controller decides what "focused area" means and, when the
+    /// preview is hidden, hands the action straight back to the responder chain so
+    /// the editor's native NSTextView behavior is untouched. A window that isn't an
+    /// editor (e.g. Settings) falls back to the chain too, so text fields there
+    /// still select and copy normally.
+    /// Deliberately NOT named `selectAll:`/`copy:`. The fallback below re-dispatches
+    /// the standard selectors through the responder chain, and `AppDelegate` is the
+    /// chain's last resort — sharing a name would make that call re-enter this
+    /// method and spin forever.
+    @IBAction public func selectAllCommand(_ sender: Any?) {
+        if let front = frontEditor {
+            front.selectAllInFocusedArea(sender)
+        } else {
+            AppDelegate.sendValidatedAction(#selector(NSText.selectAll(_:)), from: sender)
+        }
+    }
+
+    @IBAction public func copyCommand(_ sender: Any?) {
+        if let front = frontEditor {
+            front.copyFromFocusedArea(sender)
+        } else {
+            AppDelegate.sendValidatedAction(#selector(NSText.copy(_:)), from: sender)
+        }
+    }
+
     // MARK: Preferences
 
     @IBAction public func showPreferences(_ sender: Any?) {

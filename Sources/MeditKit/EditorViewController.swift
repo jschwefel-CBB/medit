@@ -282,6 +282,14 @@ public final class EditorViewController: NSViewController {
 
     public override func viewDidAppear() {
         super.viewDidAppear()
+        // Apply a focus request made before this view had a window (auto-preview
+        // runs in viewDidLoad, where makeFirstResponder cannot work). Re-assert DOM
+        // focus too: the web view's didFinish may have run before the window
+        // existed, and AppKit first-responder alone leaves the content unfocused.
+        if let pending = pendingFirstResponder {
+            pendingFirstResponder = nil
+            view.window?.makeFirstResponder(pending)
+        }
         // macOS UI state restoration can restore the caret/selection to a spot
         // below the fold (e.g. the end of a long file) AFTER viewDidLoad, without
         // scrolling it into view — so the editor opened showing the top while the
@@ -419,6 +427,58 @@ public final class EditorViewController: NSViewController {
     /// Whether the rendered Markdown preview is currently shown (per-tab state).
     public var isPreviewVisible: Bool { isShowingPreview }
 
+    // MARK: Preview Select All / Copy
+    //
+    // These drive the web view directly instead of relying on the responder chain.
+    //
+    // Routing `selectAll:`/`copy:` through the chain does not work for this view:
+    // `WKWebView` sits at position 0, claims both selectors, and handles them
+    // against internal state that is not the page's DOM selection — Select All
+    // then copies only the first element (or nothing after a click), while the
+    // same commands sent straight to the web view copy the whole document. See
+    // WebKit bug 143482 for the underlying first-responder forwarding problem.
+    //
+    // App-initiated `evaluateJavaScript` is unaffected by
+    // `allowsContentJavaScript = false` (that only blocks scripts *in* the page),
+    // so this path is both reliable and safe.
+
+    /// Select the entire rendered preview. No-op when the preview isn't showing.
+    public func selectAllInPreview() {
+        guard isShowingPreview, let wv = previewWebView else { return }
+        // Build the range explicitly rather than using `execCommand('selectAll')`:
+        // execCommand acts on the *focused* element, and the preview's web content
+        // never takes DOM focus (it is a passive, read-only view), so it selected
+        // only the first block. Selecting the body's contents directly needs no
+        // focus and always covers the whole document.
+        wv.evaluateJavaScript("""
+        (function () {
+          var sel = window.getSelection();
+          if (!sel || !document.body) { return false; }
+          var range = document.createRange();
+          range.selectNodeContents(document.body);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          return true;
+        })();
+        """)
+    }
+
+    /// Copy the preview's current selection to the general pasteboard.
+    ///
+    /// Nothing selected means nothing copied — the pasteboard is left untouched,
+    /// as in any editor. No-op when the preview isn't showing. `completion` reports
+    /// whether anything was written.
+    public func copyPreviewSelection(completion: ((Bool) -> Void)? = nil) {
+        guard isShowingPreview, let wv = previewWebView else { completion?(false); return }
+        wv.evaluateJavaScript("window.getSelection().toString()") { result, _ in
+            let text = (result as? String) ?? ""
+            guard !text.isEmpty else { completion?(false); return }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            completion?(true)
+        }
+    }
+
     /// Show or hide the read-only Markdown preview, swapping it for the editor.
     public func showPreview(_ show: Bool) {
         if show { buildPreviewIfNeeded() }
@@ -428,12 +488,34 @@ public final class EditorViewController: NSViewController {
         if show {
             renderPreview()
             // Give the web view first responder so navigation keys
-            // (Home/End/PageUp/PageDown, arrows) scroll the preview; otherwise focus
-            // stays on the now-hidden editor and the keys do nothing.
-            if let wv = previewWebView { view.window?.makeFirstResponder(wv) }
+            // (Home/End/PageUp/PageDown, arrows) scroll the preview, and so ⌘C
+            // copies the preview's selection rather than going to whatever else
+            // holds focus.
+            if let wv = previewWebView { focusWhenInWindow(wv) }
         } else {
             // Returning to the editor — restore focus so typing/navigation resume.
+            pendingFirstResponder = nil
             view.window?.makeFirstResponder(textView)
+        }
+    }
+
+    /// A focus request made before the view had a window, applied on `viewDidAppear`.
+    private weak var pendingFirstResponder: NSResponder?
+
+    /// Focus `responder` now, or as soon as the view is in a window.
+    ///
+    /// Auto-preview calls `showPreview(true)` from `viewDidLoad`, where
+    /// `view.window` is still nil — so `view.window?.makeFirstResponder(_:)`
+    /// silently did nothing. The preview rendered but never took focus, which is
+    /// why Select All and ⌘C in an auto-opened preview did nothing at all: the
+    /// keystrokes went to whatever else held first responder (a toolbar button).
+    /// Toggling the preview off and on "fixed" it only because by then a window
+    /// existed. Never drop the request on the floor.
+    private func focusWhenInWindow(_ responder: NSResponder) {
+        if let window = view.window {
+            window.makeFirstResponder(responder)
+        } else {
+            pendingFirstResponder = responder
         }
     }
 
@@ -450,10 +532,20 @@ public final class EditorViewController: NSViewController {
         // never run. App-initiated evaluateJavaScript (used to update the body in
         // place) still works — it is not "content JS".
         config.defaultWebpagePreferences.allowsContentJavaScript = false
-        let wv = WKWebView(frame: .zero, configuration: config)
+        // PreviewWebView, not a bare WKWebView: while the preview is showing it
+        // covers the editor, whose text view is hidden and therefore receives no
+        // drag events. Without its own file-drop handling, dropping a file onto a
+        // rendered .md silently did nothing.
+        let wv = PreviewWebView(frame: .zero, configuration: config)
         wv.translatesAutoresizingMaskIntoConstraints = false
         wv.navigationDelegate = self
         wv.setAccessibilityIdentifier("markdownPreviewWebView")
+        // The same handler the editor's text view uses, so a drop behaves
+        // identically whether it lands on the editor or the rendered preview.
+        wv.onOpenFiles = { [weak self] urls in
+            guard let wc = self?.newTabActionTarget as? EditorWindowController else { return }
+            wc.openFiles(at: urls)
+        }
         wv.isHidden = true
         view.addSubview(wv)
         // Occupy the exact band the editor scroll view occupies.
@@ -484,14 +576,26 @@ public final class EditorViewController: NSViewController {
             wv.loadHTMLString(PreviewHTMLTemplate.htmlDocument(body: body, isDark: dark),
                               baseURL: nil)
             previewShellLoadedDark = dark
-        } else {
+            lastRenderedBody = body
+        } else if body != lastRenderedBody {
+            // Only touch the DOM when the content actually changed. Assigning
+            // `innerHTML` destroys the user's selection, and `renderPreview()` is
+            // called for reasons that have nothing to do with the text — notably the
+            // `effectiveAppearance` observer, which fires when the window changes
+            // key/main state. Re-rendering identical HTML there silently wiped a
+            // selection between Select All and Copy, so ⌘C copied a stale fragment.
             let json = String(data: (try? JSONSerialization.data(withJSONObject: [body])) ?? Data(),
                               encoding: .utf8) ?? "[\"\"]"
             // json is a 1-element array literal; index [0] yields a safely-escaped
             // JS string of the body HTML.
             wv.evaluateJavaScript("document.body.innerHTML = \(json)[0];")
+            lastRenderedBody = body
         }
     }
+
+    /// The body HTML currently in the DOM, so an unchanged re-render can skip the
+    /// `innerHTML` write (which would destroy any selection).
+    private var lastRenderedBody: String?
 
     /// Debounced re-render while preview is visible and auto-refresh is on.
     private func schedulePreviewRefresh() {

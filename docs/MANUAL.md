@@ -90,7 +90,7 @@ A medit window has, from top to bottom:
 | New document | **File ▸ New** (⌘N) |
 | New window | **File ▸ New Window** (⇧⌘N) |
 | New tab | **File ▸ New Tab** (⌘T), the **+** button, or the editor's right-click menu |
-| Open a file | **File ▸ Open…** (⌘O), or drag a file from Finder onto the editor |
+| Open a file | **File ▸ Open…** (⌘O), or drag a file from Finder onto the editor or preview |
 | Open a folder in the sidebar | **File ▸ Open Folder…** (⇧⌘O) |
 | Save | **File ▸ Save** (⌘S) |
 | Save as a new file | **File ▸ Save As…** (⇧⌘S) |
@@ -101,7 +101,8 @@ A medit window has, from top to bottom:
 ### Drag and drop to open
 
 Drag **one file or several** from Finder onto the editor area — each opens in its
-own tab. (Dragging text, rather than a file, inserts the text as usual.)
+own tab. This works on the rendered Markdown preview too, not just the editor.
+(Dragging text, rather than a file, inserts the text as usual.)
 
 ### Unsaved changes
 

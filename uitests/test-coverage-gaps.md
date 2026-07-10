@@ -4,6 +4,48 @@ _A working TODO of tests we're **missing**, places existing tests could be **mor
 and **abuse/adversarial** cases not yet exercised. Companion to `coverage-matrix.md` (which
 records what IS covered)._
 
+---
+
+## ⚠ Standing blind spot: the auto-preview path
+
+**Every Markdown document opens into the rendered preview by default**
+(`autoShowPreviewForMarkdown` has defaulted ON since v2.8.0). That is the state users are in
+essentially all the time — and it is the state almost none of our plans test.
+
+Plans that open a `.md` with `--no-auto-preview` enter through the **editor-visible** path, which
+is *not* the user's path. The flag exists for good reason (a plan that drives the editor of a `.md`
+cannot do so with the preview covering it), so this is a deliberate tradeoff, not a bug. But it
+means those plans **cannot catch preview-path regressions**, and they will pass while the app is
+broken.
+
+| Plan | Enters via | Can catch preview-path bugs? |
+|---|---|---|
+| `preview-copy-test.json` | auto-preview | ✅ yes |
+| `drop-files-onto-preview.json` | auto-preview | ✅ yes |
+| `edge-unicode-content.json` | `--no-auto-preview` | ❌ no |
+| `keyboard-scroll-preview.json` | `--no-auto-preview` | ❌ no |
+| `markdown-table-preview.json` | `--no-auto-preview` | ❌ no |
+| `markdown-toolbar-insert.json` | `--no-auto-preview` | ❌ no |
+| `preview-find-scroll.json` | `--no-auto-preview` | ❌ no |
+| `drop-files-onto-editor.json` | untitled (non-`.md`) | ❌ no |
+
+**Two shipped bugs came from exactly this hole**, both invisible to a fully green suite:
+
+- **Copy from the rendered preview** did nothing (v2.8.0 – v2.8.2). The AP plan launched with
+  `--no-auto-preview`, opened the preview from the View menu, and reported **33/33 PASS**. The unit
+  test called `copy(_:)` directly, skipping the responder chain entirely. Both tested the door the
+  user never uses.
+- **Dropping a file onto a rendered `.md`** did nothing (v2.8.0 →). `drop-files-onto-editor.json`
+  passed **18/18** throughout: it starts on an untitled, non-Markdown document, so the preview never
+  appears.
+
+**Rule for new preview behavior:** it needs coverage in a plan that reaches it through
+auto-preview. Adding a step to a `--no-auto-preview` plan does not count. And before calling any
+preview bug fixed, revert the fix and confirm the plan **fails** — see the hard gate in the global
+`CLAUDE.md`.
+
+---
+
 Built from an exhaustive source audit (2026-07-04) of every menu/shortcut, editor/document/
 preference behavior, and the preview/sidebar/status/find surfaces, **cross-referenced against
 the AP plans and ~440 unit tests**. Line refs are to the primary implementation site.
