@@ -1,29 +1,100 @@
 {
   "schemaVersion": "1.1",
   "name": "markdown preview renders table in web view",
-  "comment": "Opens a .md file with an HTML table, toggles the preview on, and captures a screenshot of the rendered WebView. With autoShowPreviewForMarkdown defaulting true (v2.7.4+), the preview shows immediately; the editorTextView may be hidden, so we skip asserting its value and instead wait for the WebView directly. For builds where the default is still false (pre-v2.7.4), the show-preview menu step is a no-op toggle. Requires staged /tmp/table-test.md fixture.",
+  "comment": "Opens a .md file with an HTML table, toggles the preview on, and captures a screenshot of the rendered WebView. With autoShowPreviewForMarkdown defaulting true (v2.7.4+), the preview shows immediately; the editorTextView may be hidden, so we skip asserting its value and instead wait for the WebView directly. For builds where the default is still false (pre-v2.7.4), the show-preview menu step is a no-op toggle. Requires staged /tmp/table-test.md fixture. ⚠ BLIND SPOT: --no-auto-preview enters through the editor-visible path, so this plan cannot catch any bug that only occurs when the preview is auto-opened at launch — the state EVERY Markdown document is in by default. That is a deliberate tradeoff (this plan must drive the editor), not an oversight. The auto-preview path is covered by preview-copy-test.json and drop-files-onto-preview.json; any new preview behavior needs coverage there too, not here.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
-    "launchArgs": ["--reset-state", "--no-auto-preview"],
-    "launchFiles": ["/tmp/table-test.md"]
+    "launchArgs": [
+      "--reset-state",
+      "--no-auto-preview"
+    ],
+    "launchFiles": [
+      "/tmp/table-test.md"
+    ]
   },
-  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "defaults": {
+    "timeoutMs": 8000,
+    "retryIntervalMs": 150
+  },
   "steps": [
-    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
-      "target": { "role": "AXWindow" }, "args": { "present": true } },
-    { "id": "show-preview", "action": "menu", "level": "happyPath",
-      "args": { "menuPath": ["View", "Show Markdown Preview"] } },
-    { "id": "wait-preview", "action": "waitFor", "level": "happyPath",
-      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
-    { "id": "wait-web-area", "action": "waitFor", "level": "happyPath",
-      "target": { "role": "AXWebArea" }, "args": { "present": true } },
-    { "id": "shot-preview", "action": "screenshot", "level": "happyPath",
-      "target": { "identifier": "markdownPreviewWebView" },
-      "args": { "padding": 0 } },
-    { "id": "hide-preview", "action": "menu", "level": "happyPath",
-      "args": { "menuPath": ["View", "Show Markdown Preview"] } },
-    { "id": "settle-hide", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
-
-    { "id": "quit", "action": "terminate", "level": "happyPath" }
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "role": "AXWindow"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "show-preview",
+      "action": "menu",
+      "level": "happyPath",
+      "args": {
+        "menuPath": [
+          "View",
+          "Show Markdown Preview"
+        ]
+      }
+    },
+    {
+      "id": "wait-preview",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "markdownPreviewWebView"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "wait-web-area",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "role": "AXWebArea"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "shot-preview",
+      "action": "screenshot",
+      "level": "happyPath",
+      "target": {
+        "identifier": "markdownPreviewWebView"
+      },
+      "args": {
+        "padding": 0
+      }
+    },
+    {
+      "id": "hide-preview",
+      "action": "menu",
+      "level": "happyPath",
+      "args": {
+        "menuPath": [
+          "View",
+          "Show Markdown Preview"
+        ]
+      }
+    },
+    {
+      "id": "settle-hide",
+      "action": "wait",
+      "level": "happyPath",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "quit",
+      "action": "terminate",
+      "level": "happyPath"
+    }
   ]
 }

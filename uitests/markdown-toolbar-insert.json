@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.1",
   "name": "markdown toolbar: buttons wrap the selection (bold, italic, code)",
-  "comment": "Verifies the Markdown formatting toolbar buttons actually INSERT markdown into the editor (view-toggles only checks the buttons' presence). Opens a .md document with --no-auto-preview so the EDITOR is present at launch (without that flag, autoShowPreviewForMarkdown defaults ON and the .md would auto-open into the WKWebView preview, displacing the editor). The .md language still enables the markdown toolbar. happyPath: select a word, click mdStyle.bold, assert it becomes **word**. integrationSuite: italic -> *word*, and inline code -> `word` (each applied to a fresh selection). The mdStyle.* buttons carry stable AX ids (mdStyle.<action>). MarkdownEditing is unit-tested; this asserts the button->editor wiring. Documented primitives only; requires the Debug build; stage fixtures first.",
+  "comment": "Verifies the Markdown formatting toolbar buttons actually INSERT markdown into the editor (view-toggles only checks the buttons' presence). Opens a .md document with --no-auto-preview so the EDITOR is present at launch (without that flag, autoShowPreviewForMarkdown defaults ON and the .md would auto-open into the WKWebView preview, displacing the editor). The .md language still enables the markdown toolbar. happyPath: select a word, click mdStyle.bold, assert it becomes **word**. integrationSuite: italic -> *word*, and inline code -> `word` (each applied to a fresh selection). The mdStyle.* buttons carry stable AX ids (mdStyle.<action>). MarkdownEditing is unit-tested; this asserts the button->editor wiring. Documented primitives only; requires the Debug build; stage fixtures first. ⚠ BLIND SPOT: --no-auto-preview enters through the editor-visible path, so this plan cannot catch any bug that only occurs when the preview is auto-opened at launch — the state EVERY Markdown document is in by default. That is a deliberate tradeoff (this plan must drive the editor), not an oversight. The auto-preview path is covered by preview-copy-test.json and drop-files-onto-preview.json; any new preview behavior needs coverage there too, not here.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
     "launchArgs": [
@@ -51,7 +51,7 @@
       }
     },
     {
-      "comment": "=== Bold: **word**. Use a single `type` with clear:true (focus-clicks, selects-all, deletes, then types atomically) to set the content to exactly 'word' \u2014 separate keyPress cmd+a/delete steps can race the editor's first responder. Then select-all and click Bold. ===",
+      "comment": "=== Bold: **word**. Use a single `type` with clear:true (focus-clicks, selects-all, deletes, then types atomically) to set the content to exactly 'word' — separate keyPress cmd+a/delete steps can race the editor's first responder. Then select-all and click Bold. ===",
       "id": "b-type",
       "action": "type",
       "level": "happyPath",

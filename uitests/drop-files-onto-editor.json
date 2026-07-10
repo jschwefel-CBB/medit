@@ -1,59 +1,214 @@
 {
   "schemaVersion": "1.1",
   "name": "real file drag-and-drop onto the editor — single + multi-file, per-tab verified",
-  "comment": "Thorough coverage of medit's Finder-drop path using AutoPilot's real cross-process file drop (drag + toFiles). Exercises the feature across level tiers: happyPath proves a multi-file drop opens BOTH files as distinct tabs in ONE window (the exact regression axis of the .fileURL-only multi-file bug, where multi-file drops fired no events unless NSFilenamesPboardType was also registered); integrationSuite switches to each tab and verifies its file's content actually loaded (not merely that the last dropped file shows); tryToBreakIt drops a single file onto an already-populated editor. Tabs are AXRadioButtons titled by filename inside the 'tab bar' AXTabGroup. Requires the Debug build (sandbox OFF), a real display + Accessibility, the AutopilotDragSource.app helper next to the autopilot binary, and staged fixtures (run stage-fixtures.sh).",
+  "comment": "Thorough coverage of medit's Finder-drop path using AutoPilot's real cross-process file drop (drag + toFiles). Exercises the feature across level tiers: happyPath proves a multi-file drop opens BOTH files as distinct tabs in ONE window (the exact regression axis of the .fileURL-only multi-file bug, where multi-file drops fired no events unless NSFilenamesPboardType was also registered); integrationSuite switches to each tab and verifies its file's content actually loaded (not merely that the last dropped file shows); tryToBreakIt drops a single file onto an already-populated editor. Tabs are AXRadioButtons titled by filename inside the 'tab bar' AXTabGroup. Requires the Debug build (sandbox OFF), a real display + Accessibility, the AutopilotDragSource.app helper next to the autopilot binary, and staged fixtures (run stage-fixtures.sh). ⚠ BLIND SPOT: launches on an untitled, non-Markdown document, so the preview never appears and this plan only ever drops onto a VISIBLE editor. It passed 18/18 for the entire time dropping onto a rendered .md was broken. Drops onto the preview are covered by drop-files-onto-preview.json — the two plans are complementary and both must pass.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
-    "launchArgs": ["--reset-state"]
+    "launchArgs": [
+      "--reset-state"
+    ]
   },
-  "defaults": { "timeoutMs": 8000, "retryIntervalMs": 150 },
+  "defaults": {
+    "timeoutMs": 8000,
+    "retryIntervalMs": 150
+  },
   "steps": [
-    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
-      "target": { "role": "AXWindow" }, "args": { "present": true } },
-    { "id": "wait-editor", "action": "waitFor", "level": "happyPath",
-      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
-
-    { "id": "drop-two-files", "action": "drag", "level": "happyPath",
-      "target": { "role": "AXTextArea", "identifier": "editorTextView" },
-      "args": { "toFiles": ["/tmp/medit-ap-open-a.txt", "/tmp/medit-ap-open-b.txt"] } },
-    { "id": "settle-multi", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
-    { "id": "shot-multi", "action": "screenshot", "level": "happyPath",
-      "args": { "path": "/tmp/medit-uitests/drop-multi.png" } },
-
-    { "id": "tab-a-exists", "action": "assert", "level": "happyPath",
-      "target": { "role": "AXRadioButton", "title": "medit-ap-open-a.txt" },
-      "assert": { "property": "value", "op": "exists" } },
-    { "id": "tab-b-exists", "action": "assert", "level": "happyPath",
-      "target": { "role": "AXRadioButton", "title": "medit-ap-open-b.txt" },
-      "assert": { "property": "value", "op": "exists" } },
-    { "id": "one-window", "action": "assert", "level": "happyPath",
-      "target": { "role": "AXWindow" },
-      "assert": { "property": "count", "op": "equals", "expected": "1" } },
-
-    { "id": "switch-tab-a", "action": "click", "level": "integrationSuite",
-      "target": { "role": "AXRadioButton", "title": "medit-ap-open-a.txt" } },
-    { "id": "assert-a-content", "action": "assert", "level": "integrationSuite",
-      "target": { "identifier": "editorTextView" },
-      "assert": { "property": "value", "op": "contains", "expected": "alpha file contents" } },
-    { "id": "switch-tab-b", "action": "click", "level": "integrationSuite",
-      "target": { "role": "AXRadioButton", "title": "medit-ap-open-b.txt" } },
-    { "id": "assert-b-content", "action": "assert", "level": "integrationSuite",
-      "target": { "identifier": "editorTextView" },
-      "assert": { "property": "value", "op": "contains", "expected": "bravo file contents" } },
-
-    { "id": "drop-single-file", "action": "drag", "level": "tryToBreakIt",
-      "target": { "role": "AXTextArea", "identifier": "editorTextView" },
-      "args": { "toFiles": ["/tmp/medit-ap-open-c.txt"] } },
-    { "id": "settle-single", "action": "wait", "level": "tryToBreakIt", "args": { "seconds": 1 } },
-    { "id": "tab-c-exists", "action": "assert", "level": "tryToBreakIt",
-      "target": { "role": "AXRadioButton", "title": "medit-ap-open-c.txt" },
-      "assert": { "property": "value", "op": "exists" } },
-    { "id": "still-one-window", "action": "assert", "level": "tryToBreakIt",
-      "target": { "role": "AXWindow" },
-      "assert": { "property": "count", "op": "equals", "expected": "1" } },
-    { "id": "shot-final", "action": "screenshot", "level": "tryToBreakIt",
-      "args": { "path": "/tmp/medit-uitests/drop-final.png" } },
-
-    { "id": "quit", "action": "terminate", "level": "happyPath" }
+    {
+      "id": "wait-window",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "role": "AXWindow"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "wait-editor",
+      "action": "waitFor",
+      "level": "happyPath",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "present": true
+      }
+    },
+    {
+      "id": "drop-two-files",
+      "action": "drag",
+      "level": "happyPath",
+      "target": {
+        "role": "AXTextArea",
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "toFiles": [
+          "/tmp/medit-ap-open-a.txt",
+          "/tmp/medit-ap-open-b.txt"
+        ]
+      }
+    },
+    {
+      "id": "settle-multi",
+      "action": "wait",
+      "level": "happyPath",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "shot-multi",
+      "action": "screenshot",
+      "level": "happyPath",
+      "args": {
+        "path": "/tmp/medit-uitests/drop-multi.png"
+      }
+    },
+    {
+      "id": "tab-a-exists",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "role": "AXRadioButton",
+        "title": "medit-ap-open-a.txt"
+      },
+      "assert": {
+        "property": "value",
+        "op": "exists"
+      }
+    },
+    {
+      "id": "tab-b-exists",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "role": "AXRadioButton",
+        "title": "medit-ap-open-b.txt"
+      },
+      "assert": {
+        "property": "value",
+        "op": "exists"
+      }
+    },
+    {
+      "id": "one-window",
+      "action": "assert",
+      "level": "happyPath",
+      "target": {
+        "role": "AXWindow"
+      },
+      "assert": {
+        "property": "count",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "switch-tab-a",
+      "action": "click",
+      "level": "integrationSuite",
+      "target": {
+        "role": "AXRadioButton",
+        "title": "medit-ap-open-a.txt"
+      }
+    },
+    {
+      "id": "assert-a-content",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "assert": {
+        "property": "value",
+        "op": "contains",
+        "expected": "alpha file contents"
+      }
+    },
+    {
+      "id": "switch-tab-b",
+      "action": "click",
+      "level": "integrationSuite",
+      "target": {
+        "role": "AXRadioButton",
+        "title": "medit-ap-open-b.txt"
+      }
+    },
+    {
+      "id": "assert-b-content",
+      "action": "assert",
+      "level": "integrationSuite",
+      "target": {
+        "identifier": "editorTextView"
+      },
+      "assert": {
+        "property": "value",
+        "op": "contains",
+        "expected": "bravo file contents"
+      }
+    },
+    {
+      "id": "drop-single-file",
+      "action": "drag",
+      "level": "tryToBreakIt",
+      "target": {
+        "role": "AXTextArea",
+        "identifier": "editorTextView"
+      },
+      "args": {
+        "toFiles": [
+          "/tmp/medit-ap-open-c.txt"
+        ]
+      }
+    },
+    {
+      "id": "settle-single",
+      "action": "wait",
+      "level": "tryToBreakIt",
+      "args": {
+        "seconds": 1
+      }
+    },
+    {
+      "id": "tab-c-exists",
+      "action": "assert",
+      "level": "tryToBreakIt",
+      "target": {
+        "role": "AXRadioButton",
+        "title": "medit-ap-open-c.txt"
+      },
+      "assert": {
+        "property": "value",
+        "op": "exists"
+      }
+    },
+    {
+      "id": "still-one-window",
+      "action": "assert",
+      "level": "tryToBreakIt",
+      "target": {
+        "role": "AXWindow"
+      },
+      "assert": {
+        "property": "count",
+        "op": "equals",
+        "expected": "1"
+      }
+    },
+    {
+      "id": "shot-final",
+      "action": "screenshot",
+      "level": "tryToBreakIt",
+      "args": {
+        "path": "/tmp/medit-uitests/drop-final.png"
+      }
+    },
+    {
+      "id": "quit",
+      "action": "terminate",
+      "level": "happyPath"
+    }
   ]
 }
