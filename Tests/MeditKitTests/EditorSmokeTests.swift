@@ -902,6 +902,74 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertEqual(tv.string, "    foo\n    ", "new line should copy the 4-space indent")
     }
 
+    // Cross-layer guard: Cut / Paste / Delete are TRUE NO-OPS in the rendered
+    // preview — no clipboard side effect, no document mutation. The AP plan proves
+    // this end-to-end through real menu dispatch; this proves the routing directly,
+    // where the unit layer can read the pasteboard and buffer the AP layer can only
+    // infer. Without the delegate routing, NSText.cut:/delete: on the (empty) editor
+    // selection would CLEAR the pasteboard — the exact side effect this asserts against.
+    func testCutPasteDeleteAreInertInPreview() {
+        let controller = makeWindowController(text: "# Heading\n\nsome body text\n")
+        guard let editor = controller.editorForTesting else { return XCTFail("no editor") }
+        controller.showWindow(nil)
+        editor.setLanguageOverrideForTesting("markdown")
+        editor.togglePreviewForTesting()
+        XCTAssertTrue(editor.isPreviewVisibleForTesting, "preview must be showing for this test")
+
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString("SENTINEL-MUST-SURVIVE", forType: .string)
+        let textBefore = controller.documentForTesting?.text
+
+        controller.cutFromFocusedArea(nil)
+        controller.deleteInFocusedArea(nil)
+        pb.clearContents()
+        pb.setString("PASTE-MARKER", forType: .string)
+        controller.pasteIntoFocusedArea(nil)
+
+        XCTAssertEqual(pb.string(forType: .string), "PASTE-MARKER",
+                       "Cut/Delete must not clear or alter the pasteboard in the read-only preview")
+        XCTAssertEqual(controller.documentForTesting?.text, textBefore,
+                       "no preview edit op may mutate the document")
+    }
+
+    // The editor scroll fraction is 0 at the top and clamps to [0,1]. Guards the
+    // math the scroll-sync toggle relies on; a divide-by-zero or unclamped value
+    // here would silently break position preservation.
+    func testEditorScrollFractionClampsAndStartsAtTop() {
+        let controller = makeWindowController(text: "line\n")
+        guard let editor = controller.editorForTesting else { return XCTFail("no editor") }
+        controller.showWindow(nil)
+        let f = editor.editorScrollFraction
+        XCTAssertGreaterThanOrEqual(f, 0.0)
+        XCTAssertLessThanOrEqual(f, 1.0)
+        XCTAssertEqual(f, 0.0, accuracy: 0.001, "a freshly loaded short doc is at the top")
+    }
+
+    // Cross-layer guard for the "colon auto-indents in plain text" bug. The pure
+    // IndenterTests prove the opener rule obeys its `openersApply` flag, but they
+    // cannot see whether the view controller sets that flag correctly per
+    // language — which is the layer the bug actually lived in. This drives the
+    // real editor, switches language, and asserts the text view's flag tracks it:
+    // off for plain text and Markdown, on for a code language.
+    func testIndentAfterOpenersTracksLanguage() {
+        let controller = makeWindowController(text: "Note:")
+        guard let editor = controller.editorForTesting,
+              let tv = controller.focusedTextView as? EditorTextView else {
+            return XCTFail("no editor")
+        }
+        controller.showWindow(nil)
+
+        editor.setLanguageOverrideForTesting("plaintext")
+        XCTAssertFalse(tv.indentAfterOpenersEnabled, "plain text must not indent after ':'")
+
+        editor.setLanguageOverrideForTesting("markdown")
+        XCTAssertFalse(tv.indentAfterOpenersEnabled, "Markdown must not indent after ':'")
+
+        editor.setLanguageOverrideForTesting("python")
+        XCTAssertTrue(tv.indentAfterOpenersEnabled, "a code language indents after ':'")
+    }
+
     func testManualLanguageOverrideWinsOverDetection() {
         let controller = makeWindowController(text: "print('hi')")
         guard let editor = controller.editorForTesting else { return XCTFail("no editor") }

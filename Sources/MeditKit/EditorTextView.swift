@@ -16,6 +16,12 @@ public final class EditorTextView: NSTextView {
     /// Auto-insert closing brackets and skip over them; brackets only (no quotes).
     public var autoCloseBracketsEnabled: Bool = true
 
+    /// Whether a line ending in `{` or `:` adds an indent level on Return. A
+    /// code-language behaviour: off for plain text and Markdown, where a colon
+    /// (`Note:`) or brace is prose, not a block opener. Set by the editor from the
+    /// document's language.
+    public var indentAfterOpenersEnabled: Bool = false
+
     /// Tab width and spaces-vs-tab for auto-indent (set by the editor from prefs).
     public var indentTabWidth: Int = 4
     public var indentUseSpaces: Bool = true
@@ -195,7 +201,8 @@ public final class EditorTextView: NSTextView {
             }
         }
 
-        let indent = Indenter.indent(forNewLineAfter: lineText, tabWidth: indentTabWidth, useSpaces: indentUseSpaces)
+        let indent = Indenter.indent(forNewLineAfter: lineText, tabWidth: indentTabWidth,
+                                     useSpaces: indentUseSpaces, openersApply: indentAfterOpenersEnabled)
         let insertion = "\n" + indent
         let sel = selectedRange()
         if shouldChangeText(in: sel, replacementString: insertion) {

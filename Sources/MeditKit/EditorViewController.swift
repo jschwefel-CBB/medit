@@ -268,6 +268,7 @@ public final class EditorViewController: NSViewController {
         updateStatusBar()
         observePreferences()
         observeResize()
+        installScrollFractionHooksIfRequested()
         // Auto-open the preview for Markdown documents when the user opted in.
         // The `--no-auto-preview` launch flag (GUI-test hook) suppresses this so a
         // test that drives the editor of a .md file starts from a deterministic
@@ -330,6 +331,7 @@ public final class EditorViewController: NSViewController {
     func reloadFromDocument() {
         loadDocumentText()
         highlighter?.setLanguage(document?.highlightLanguage)
+        applyIndentLanguagePolicy()
         configureRuler(visible: prefs.showLineNumbers)
         bracketColorizer?.refresh()
         ruler?.needsDisplay = true
@@ -343,6 +345,16 @@ public final class EditorViewController: NSViewController {
     // MARK: Markdown style bar
 
     private var isMarkdownDocument: Bool { document?.highlightLanguage == "markdown" }
+
+    /// Whether the current language treats `{`/`:` at end of line as block
+    /// openers that add an indent level on Return. True for real code languages;
+    /// false for plain text (nil / "plaintext") and Markdown, where they are prose.
+    private var languageUsesBlockOpeners: Bool {
+        switch document?.highlightLanguage {
+        case nil, .some("plaintext"), .some("markdown"): return false
+        default: return true
+        }
+    }
 
     /// Show the formatting toolbar for Markdown documents when the pref is on.
     func applyStyleBarVisibility() {
@@ -479,21 +491,115 @@ public final class EditorViewController: NSViewController {
         }
     }
 
+    // MARK: Preview scrolling
+    //
+    // The rendered preview is a WKWebView, so all scrolling is done in JS. When the
+    // preview covers the editor, Find/Go-to-Line/Jump must move the PREVIEW to the
+    // match — moving the hidden editor's NSTextView (as the code originally did) has
+    // no visible effect. Position is expressed as a fraction 0…1 of the scrollable
+    // range so it maps cleanly between the editor and the preview across a toggle.
+
+    /// Scroll the preview to `fraction` (0 = top, 1 = bottom). No-op when hidden.
+    public func scrollPreview(toFraction fraction: Double) {
+        guard isShowingPreview, let wv = previewWebView else { return }
+        let clamped = max(0, min(1, fraction))
+        wv.evaluateJavaScript("""
+        (function () {
+          var max = document.documentElement.scrollHeight - window.innerHeight;
+          window.scrollTo(0, Math.max(0, max) * \(clamped));
+          return true;
+        })();
+        """) { [weak self] _, _ in self?.updatePreviewScrollFractionLabel() }
+    }
+
+    /// Scroll the preview so the content at source `line` (1-based) is in view,
+    /// mapping line position proportionally onto the rendered document. Exact
+    /// line→element anchoring isn't available (the renderer emits no source map),
+    /// so this is proportional — good enough to bring a Find/Go-to-Line target on
+    /// screen. No-op when the preview isn't showing.
+    public func scrollPreviewToSourceLine(_ line: Int) {
+        let total = max(1, currentText.reduce(into: 1) { n, c in if c == "\n" { n += 1 } })
+        scrollPreview(toFraction: Double(line - 1) / Double(max(1, total - 1)))
+    }
+
+    /// Scroll the preview to the source `range`'s start line. Used by Find so a
+    /// match below the fold brings the preview to it. No-op when hidden.
+    public func scrollPreviewToSourceRange(_ range: NSRange) {
+        let prefix = (currentText as NSString).substring(to: min(range.location, (currentText as NSString).length))
+        let line = prefix.reduce(into: 1) { n, c in if c == "\n" { n += 1 } }
+        scrollPreviewToSourceLine(line)
+    }
+
+    /// Read the preview's current scroll fraction (0…1) asynchronously. Used to
+    /// carry position back to the editor on toggle-off, and by the test hook.
+    public func readPreviewScrollFraction(_ completion: @escaping (Double) -> Void) {
+        guard isShowingPreview, let wv = previewWebView else { completion(0); return }
+        wv.evaluateJavaScript("""
+        (function () {
+          var max = document.documentElement.scrollHeight - window.innerHeight;
+          return max > 0 ? (window.pageYOffset / max) : 0;
+        })();
+        """) { result, _ in completion((result as? Double) ?? 0) }
+    }
+
+    /// The editor's current vertical scroll fraction (0 = top, 1 = bottom).
+    var editorScrollFraction: Double {
+        guard let clip = textView.enclosingScrollView?.contentView else { return 0 }
+        let docHeight = textView.bounds.height
+        let visible = clip.bounds.height
+        let maxScroll = max(0, docHeight - visible)
+        guard maxScroll > 0 else { return 0 }
+        return max(0, min(1, Double(clip.bounds.origin.y / maxScroll)))
+    }
+
+    /// Scroll the editor to `fraction` (0…1). Used to carry the preview's position
+    /// back on toggle-off.
+    func scrollEditor(toFraction fraction: Double) {
+        guard let scroll = textView.enclosingScrollView else { return }
+        let clamped = max(0, min(1, fraction))
+        let docHeight = textView.bounds.height
+        let visible = scroll.contentView.bounds.height
+        let y = max(0, docHeight - visible) * CGFloat(clamped)
+        textView.scroll(NSPoint(x: 0, y: y))
+    }
+
     /// Show or hide the read-only Markdown preview, swapping it for the editor.
+    ///
+    /// Scroll position is preserved across the swap (proportional by fraction), so
+    /// toggling editor↔preview lands you at the same relative place instead of
+    /// jumping to the top. The two views are never visible at once; "sync" here
+    /// means the outgoing view's fraction is applied to the incoming one.
     public func showPreview(_ show: Bool) {
         if show { buildPreviewIfNeeded() }
-        isShowingPreview = show
-        previewWebView?.isHidden = !show
-        scrollView.isHidden = show
+
         if show {
+            // Capture where the editor was before hiding it, to apply to the preview.
+            let editorFraction = editorScrollFraction
+            isShowingPreview = show
+            previewWebView?.isHidden = !show
+            scrollView.isHidden = show
             renderPreview()
+            // Apply after render so the scrollable height is up to date. A short
+            // async hop lets WebKit lay out the freshly-set body first.
+            let target = editorFraction
+            DispatchQueue.main.async { [weak self] in self?.scrollPreview(toFraction: target) }
             // Give the web view first responder so navigation keys
             // (Home/End/PageUp/PageDown, arrows) scroll the preview, and so ⌘C
             // copies the preview's selection rather than going to whatever else
             // holds focus.
             if let wv = previewWebView { focusWhenInWindow(wv) }
         } else {
-            // Returning to the editor — restore focus so typing/navigation resume.
+            // Read the preview's fraction BEFORE swapping (the web view must still be
+            // live to answer). The read is async; the swap and focus happen
+            // synchronously so `isPreviewVisible`, menu state, and the toggle's
+            // direction check all see the new value immediately — only the editor
+            // scroll is applied when the async read returns.
+            readPreviewScrollFraction { [weak self] fraction in
+                self?.scrollEditor(toFraction: fraction)
+            }
+            isShowingPreview = false
+            previewWebView?.isHidden = true
+            scrollView.isHidden = false
             pendingFirstResponder = nil
             view.window?.makeFirstResponder(textView)
         }
@@ -676,6 +782,54 @@ public final class EditorViewController: NSViewController {
     @objc private func scrollViewContentDidResize(_ note: Notification) {
         syncWrapWidth()
         ruler?.needsDisplay = true
+        updateEditorScrollFractionLabel()
+    }
+
+    // MARK: Scroll-fraction AX test hooks
+    //
+    // Created only under `--expose-scroll-fraction`. AutoPilot's AX layer cannot read
+    // a WKWebView's rendered scroll position (or the editor's, reliably), so these
+    // hidden labels surface the fractions as AX values a plan can assert. Never
+    // created in a normal launch, so they add no production surface.
+
+    private var scrollFractionExposed: Bool {
+        LaunchReset.isScrollFractionExposed(in: CommandLine.arguments)
+    }
+    private var editorScrollFractionLabel: NSTextField?
+    private var previewScrollFractionLabel: NSTextField?
+
+    private func makeFractionLabel(_ identifier: String) -> NSTextField {
+        let label = NSTextField(labelWithString: "0.000")
+        label.setAccessibilityIdentifier(identifier)
+        label.isHidden = true
+        label.frame = .zero
+        view.addSubview(label)
+        return label
+    }
+
+    /// Create the labels if the flag is set. Idempotent.
+    func installScrollFractionHooksIfRequested() {
+        guard scrollFractionExposed else { return }
+        if editorScrollFractionLabel == nil {
+            editorScrollFractionLabel = makeFractionLabel("editorScrollFractionLabel")
+        }
+        if previewScrollFractionLabel == nil {
+            previewScrollFractionLabel = makeFractionLabel("previewScrollFractionLabel")
+        }
+        updateEditorScrollFractionLabel()
+    }
+
+    private func updateEditorScrollFractionLabel() {
+        guard let label = editorScrollFractionLabel else { return }
+        label.stringValue = String(format: "%.3f", editorScrollFraction)
+    }
+
+    /// Push the preview's current fraction into its AX label. Async (JS read).
+    func updatePreviewScrollFractionLabel() {
+        guard let label = previewScrollFractionLabel else { return }
+        readPreviewScrollFraction { fraction in
+            label.stringValue = String(format: "%.3f", fraction)
+        }
     }
 
     // MARK: Ruler
@@ -765,6 +919,7 @@ public final class EditorViewController: NSViewController {
             editorTextView.autoCloseBracketsEnabled = prefs.autoCloseBrackets
             editorTextView.indentTabWidth = prefs.tabWidth
             editorTextView.indentUseSpaces = prefs.insertSpacesForTab
+            editorTextView.indentAfterOpenersEnabled = languageUsesBlockOpeners
         }
         // Smart behaviors + editor padding (live).
         textView.isAutomaticQuoteSubstitutionEnabled = prefs.smartQuotes
@@ -805,9 +960,14 @@ public final class EditorViewController: NSViewController {
             }
             let range = NSRange(location: offset, length: 0)
             self.textView.setSelectedRange(range)
-            self.textView.scrollRangeToVisible(range)
-            self.textView.showFindIndicator(for: range)
-            self.view.window?.makeFirstResponder(self.textView)
+            if self.isShowingPreview {
+                // Editor is hidden behind the preview — scroll the preview to the line.
+                self.scrollPreviewToSourceLine(line)
+            } else {
+                self.textView.scrollRangeToVisible(range)
+                self.textView.showFindIndicator(for: range)
+                self.view.window?.makeFirstResponder(self.textView)
+            }
             return true
         }
     }
@@ -849,8 +1009,16 @@ public final class EditorViewController: NSViewController {
     func setLanguageOverride(_ id: String?) {
         document?.languageOverride = id
         highlighter?.setLanguage(document?.highlightLanguage)
+        applyIndentLanguagePolicy()
         updateStatusBar()
         applyStyleBarVisibility()
+    }
+
+    /// Push the language-dependent indent policy (openers on/off) onto the text
+    /// view. Called whenever the effective language changes, so a mid-session
+    /// language switch takes effect without reopening the document.
+    private func applyIndentLanguagePolicy() {
+        (textView as? EditorTextView)?.indentAfterOpenersEnabled = languageUsesBlockOpeners
     }
 
     func setLanguageOverrideForTesting(_ id: String?) { setLanguageOverride(id) }
@@ -955,8 +1123,15 @@ public final class EditorViewController: NSViewController {
             target = matches.last(where: { NSMaxRange($0) <= selection.location }) ?? matches[matches.count - 1]
         }
         textView.setSelectedRange(target)
-        textView.scrollRangeToVisible(target)
-        textView.showFindIndicator(for: target)
+        if isShowingPreview {
+            // The editor is hidden behind the preview; scrolling it does nothing the
+            // user can see. Move the PREVIEW to the match instead. (Selection is still
+            // set on the editor so toggling back lands there.)
+            scrollPreviewToSourceRange(target)
+        } else {
+            textView.scrollRangeToVisible(target)
+            textView.showFindIndicator(for: target)
+        }
         updateMatchStatus(for: query)
         return true
     }
