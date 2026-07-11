@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.1",
+  "name": "scroll position is preserved across the editor<->preview toggle",
+  "comment": "Toggling between the rendered preview and the plain-text editor must land you at the SAME relative position, not jump to the top. Sync = the outgoing view's scroll fraction is applied to the incoming one (proportional; the two views are never on screen together). AutoPilot's AX layer cannot read a WKWebView's rendered scroll offset, so the app is launched with --expose-scroll-fraction, which surfaces the editor's and preview's fraction (0.000-1.000) as AX-readable labels editorScrollFractionLabel / previewScrollFractionLabel. This plan: open a long .md (auto-preview ON), scroll the preview to the bottom, read its fraction, toggle to the editor, assert the editor fraction matches, toggle back, assert the preview fraction matches. NEGATIVE CONTROL: at the very start (never scrolled) the preview fraction must be ~0 — so a later 'matches' assertion can't be a false pass from everything sitting at the top. Requires staged /tmp/medit-ap-long.md and the Debug build launched with --expose-scroll-fraction.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state", "--expose-scroll-fraction"],
+    "launchFiles": ["/tmp/medit-ap-long.md"]
+  },
+  "defaults": { "timeoutMs": 10000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+
+    { "id": "wait-auto-preview", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+
+    { "id": "hooks-present", "action": "waitFor", "level": "happyPath",
+      "comment": "Confirm the test-hook labels exist; if not, the flag didn't take and the rest is meaningless.",
+      "target": { "identifier": "previewScrollFractionLabel" }, "args": { "present": true } },
+
+    { "id": "preview-starts-at-top", "action": "assert", "level": "happyPath",
+      "comment": "NEGATIVE CONTROL: a freshly opened doc's preview is at the top. Establishes that a later non-zero fraction is a real scroll, not a default.",
+      "target": { "identifier": "previewScrollFractionLabel" },
+      "assert": { "property": "value", "op": "equals", "expected": "0.000" } },
+
+    { "id": "scroll-preview-down", "action": "scroll", "level": "happyPath",
+      "comment": "Scroll the preview well down. deltaY large enough to reach the bottom of a 242-line doc.",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "args": { "deltaY": -4000 } },
+
+    { "id": "preview-moved", "action": "assert", "level": "happyPath",
+      "comment": "Preview is no longer at the top — proves the scroll registered before we test that the toggle preserves it.",
+      "target": { "identifier": "previewScrollFractionLabel" },
+      "assert": { "property": "value", "op": "notEquals", "expected": "0.000" } },
+
+    { "id": "toggle-to-editor", "action": "menu", "level": "happyPath",
+      "args": { "menuPath": ["View", "Show Markdown Preview"] } },
+
+    { "id": "editor-visible", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "editorTextView" }, "args": { "present": true } },
+
+    { "id": "editor-not-at-top", "action": "assert", "level": "happyPath",
+      "comment": "The core assertion: after toggling off the preview, the editor is scrolled to roughly where the preview was — NOT reset to the top. A regression (no sync) would show 0.000 here.",
+      "target": { "identifier": "editorScrollFractionLabel" },
+      "assert": { "property": "value", "op": "notEquals", "expected": "0.000" } },
+
+    { "id": "toggle-back-to-preview", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["View", "Show Markdown Preview"] } },
+
+    { "id": "preview-visible-again", "action": "waitFor", "level": "integrationSuite",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+
+    { "id": "preview-restored-not-top", "action": "assert", "level": "integrationSuite",
+      "comment": "Round-trip: toggling back to the preview restores its scrolled position too, not the top.",
+      "target": { "identifier": "previewScrollFractionLabel" },
+      "assert": { "property": "value", "op": "notEquals", "expected": "0.000" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}
