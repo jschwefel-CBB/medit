@@ -120,15 +120,15 @@ public enum MainMenu {
         menu.addItem(redo)
         menu.addItem(.separator())
 
-        menu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-
-        // Copy and Select All are targeted AT THE APP DELEGATE, not left to the
-        // responder chain. The Markdown preview's WKWebView is first responder and
-        // claims `copy:`/`selectAll:`, but handles them against internal state that
-        // is not the page's DOM selection: Select All then copies only the first
-        // element, and copying after a click copies nothing at all. An explicit
-        // target bypasses the chain entirely; the delegate routes the command to the
-        // preview (via app-initiated JavaScript) or back to the editor's text view.
+        // Cut, Copy, Paste, Delete, and Select All are ALL targeted AT THE APP
+        // DELEGATE, not left to the responder chain. The Markdown preview's WKWebView
+        // is first responder and claims these selectors, but handles them against
+        // internal state that is not the page's DOM selection: Select All then copies
+        // only the first element, copying after a click copies nothing, and Cut/Delete
+        // on an empty target *clear the pasteboard*. The preview is read-only, so
+        // Cut/Paste/Delete there must be true no-ops with no side effects. An explicit
+        // target bypasses the chain; the delegate routes each command to the preview
+        // path (no-op / app-initiated JavaScript) or back to the editor's text view.
         //
         // The target must be set explicitly — a nil target would still walk the
         // chain and be swallowed by the web view before reaching the delegate.
@@ -136,15 +136,27 @@ public enum MainMenu {
         // the delegate. If that ever changes, a nil target would silently fall back
         // to chain-walking and reintroduce the bug, so require it.
         let commandTarget = NSApp.delegate
-        assert(commandTarget != nil, "MainMenu.build needs NSApp.delegate for Copy/Select All")
+        assert(commandTarget != nil, "MainMenu.build needs NSApp.delegate for Edit commands")
+
+        let cutItem = NSMenuItem(title: "Cut",
+                                 action: #selector(AppDelegate.cutCommand(_:)), keyEquivalent: "x")
+        cutItem.target = commandTarget
+        menu.addItem(cutItem)
 
         let copyItem = NSMenuItem(title: "Copy",
                                   action: #selector(AppDelegate.copyCommand(_:)), keyEquivalent: "c")
         copyItem.target = commandTarget
         menu.addItem(copyItem)
 
-        menu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        menu.addItem(withTitle: "Delete", action: #selector(NSText.delete(_:)), keyEquivalent: "")
+        let pasteItem = NSMenuItem(title: "Paste",
+                                   action: #selector(AppDelegate.pasteCommand(_:)), keyEquivalent: "v")
+        pasteItem.target = commandTarget
+        menu.addItem(pasteItem)
+
+        let deleteItem = NSMenuItem(title: "Delete",
+                                    action: #selector(AppDelegate.deleteCommand(_:)), keyEquivalent: "")
+        deleteItem.target = commandTarget
+        menu.addItem(deleteItem)
 
         let selectAllItem = NSMenuItem(title: "Select All",
                                        action: #selector(AppDelegate.selectAllCommand(_:)), keyEquivalent: "a")

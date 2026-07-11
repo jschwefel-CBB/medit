@@ -121,9 +121,12 @@ final class MainMenuTests: XCTestCase {
     /// selection. `MainMenu.build` asserts the delegate exists, but `assert` is
     /// compiled out of release builds, so only this test stops a nil target from
     /// shipping.
-    func testCopyAndSelectAllTargetTheDelegateExplicitly() {
+    func testEditCommandsTargetTheDelegateExplicitly() {
         let edit = submenu("Edit")
-        for title in ["Copy", "Select All"] {
+        // Cut/Paste/Delete join Copy/Select All: all five must bypass the responder
+        // chain so the preview's WKWebView can't swallow them (or, for Cut/Delete on
+        // an empty target, clear the pasteboard).
+        for title in ["Cut", "Copy", "Paste", "Delete", "Select All"] {
             guard let found = item(title, in: edit) else {
                 XCTFail("Edit ▸ \(title) missing")
                 continue
@@ -137,10 +140,12 @@ final class MainMenuTests: XCTestCase {
     /// Targeting the delegate only helps if the item invokes the delegate's own
     /// command, not `NSText`'s — the latter would be sent to the delegate, go
     /// unhandled, and disable the item.
-    func testCopyAndSelectAllInvokeTheDelegateCommands() {
+    func testEditCommandsInvokeTheDelegateCommands() {
         let edit = submenu("Edit")
-        XCTAssertEqual(item("Copy", in: edit)?.action,
-                       #selector(AppDelegate.copyCommand(_:)))
+        XCTAssertEqual(item("Cut", in: edit)?.action, #selector(AppDelegate.cutCommand(_:)))
+        XCTAssertEqual(item("Copy", in: edit)?.action, #selector(AppDelegate.copyCommand(_:)))
+        XCTAssertEqual(item("Paste", in: edit)?.action, #selector(AppDelegate.pasteCommand(_:)))
+        XCTAssertEqual(item("Delete", in: edit)?.action, #selector(AppDelegate.deleteCommand(_:)))
         XCTAssertEqual(item("Select All", in: edit)?.action,
                        #selector(AppDelegate.selectAllCommand(_:)))
     }

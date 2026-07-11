@@ -393,6 +393,36 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // Cut / Paste / Delete are targeted at the delegate for the same reason Copy is:
+    // in the Markdown preview the WKWebView is first responder and would otherwise
+    // handle (or clear the pasteboard on) commands the read-only preview must ignore.
+    // With no editor front window, fall back to the validated responder chain so
+    // text fields elsewhere (Settings) behave natively.
+
+    @IBAction public func cutCommand(_ sender: Any?) {
+        if let front = frontEditor {
+            front.cutFromFocusedArea(sender)
+        } else {
+            AppDelegate.sendValidatedAction(#selector(NSText.cut(_:)), from: sender)
+        }
+    }
+
+    @IBAction public func pasteCommand(_ sender: Any?) {
+        if let front = frontEditor {
+            front.pasteIntoFocusedArea(sender)
+        } else {
+            AppDelegate.sendValidatedAction(#selector(NSText.paste(_:)), from: sender)
+        }
+    }
+
+    @IBAction public func deleteCommand(_ sender: Any?) {
+        if let front = frontEditor {
+            front.deleteInFocusedArea(sender)
+        } else {
+            AppDelegate.sendValidatedAction(#selector(NSText.delete(_:)), from: sender)
+        }
+    }
+
     // MARK: Preferences
 
     @IBAction public func showPreferences(_ sender: Any?) {

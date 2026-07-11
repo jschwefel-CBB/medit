@@ -564,6 +564,32 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         }
     }
 
+    // Cut / Paste / Delete in the rendered preview are TRUE NO-OPS: the preview is
+    // read-only, so these must do nothing AND cause no side effects. Left to the
+    // responder chain they reach the WKWebView, and — worse — the editor-targeted
+    // `NSText.cut:`/`delete:` on an empty target *clear the pasteboard*, the same
+    // class of side effect that made empty-selection Copy destroy the clipboard.
+    // Routing through the delegate lets the preview branch swallow them cleanly and
+    // the editor branch keep native, validated behavior unchanged.
+
+    /// Cut the editor's selection, or nothing at all when the preview is showing.
+    @IBAction public func cutFromFocusedArea(_ sender: Any?) {
+        if let editor, editor.isPreviewVisible { return }   // read-only preview: no-op
+        AppDelegate.sendValidatedAction(#selector(NSText.cut(_:)), from: sender)
+    }
+
+    /// Paste into the editor, or nothing at all when the preview is showing.
+    @IBAction public func pasteIntoFocusedArea(_ sender: Any?) {
+        if let editor, editor.isPreviewVisible { return }   // read-only preview: no-op
+        AppDelegate.sendValidatedAction(#selector(NSText.paste(_:)), from: sender)
+    }
+
+    /// Delete the editor's selection, or nothing at all when the preview is showing.
+    @IBAction public func deleteInFocusedArea(_ sender: Any?) {
+        if let editor, editor.isPreviewVisible { return }   // read-only preview: no-op
+        AppDelegate.sendValidatedAction(#selector(NSText.delete(_:)), from: sender)
+    }
+
     @IBAction public func toggleAutoShowMarkdownPreview(_ sender: Any?) {
         prefs.autoShowPreviewForMarkdown.toggle()
     }
