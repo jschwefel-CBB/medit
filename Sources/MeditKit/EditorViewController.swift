@@ -251,12 +251,13 @@ public final class EditorViewController: NSViewController {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        PerfLog.measure("tab.viewDidLoad.total") {
         configureFont()
         loadDocumentText()
         applyWrapMode(prefs.wrapLines)
-        configureRuler(visible: prefs.showLineNumbers)
+        PerfLog.measure("tab.configureRuler") { configureRuler(visible: prefs.showLineNumbers) }
         configureHighlighter()
-        configureBracketColorizer()
+        PerfLog.measure("tab.bracketColorizer") { configureBracketColorizer() }
         (textView as? EditorTextView)?.onOverwriteModeChange = { [weak self] _ in self?.updateStatusBar() }
         (textView as? EditorTextView)?.onColumnModeChange = { [weak self] active in self?.statusBar?.setColumnMode(active) }
         // Dragged files open (in tabs, preserving order) instead of pasting paths.
@@ -279,6 +280,7 @@ public final class EditorViewController: NSViewController {
             showPreview(true)
         }
         applyStyleBarVisibility()
+        }   // PerfLog.measure("tab.viewDidLoad.total")
     }
 
     public override func viewDidAppear() {
@@ -873,13 +875,15 @@ public final class EditorViewController: NSViewController {
         guard let storage = textView.textStorage else { return }
         let isDark = view.effectiveAppearance.isDark
         let theme = prefs.highlightThemeName(forDarkMode: isDark)
-        highlighter = SyntaxHighlightingController(
-            textStorage: storage,
-            language: document?.highlightLanguage,
-            fontName: prefs.fontName,
-            fontSize: prefs.fontSize,
-            themeName: theme
-        )
+        highlighter = PerfLog.measure("tab.highlighterInit", "theme=\(theme)") {
+            SyntaxHighlightingController(
+                textStorage: storage,
+                language: document?.highlightLanguage,
+                fontName: prefs.fontName,
+                fontSize: prefs.fontSize,
+                themeName: theme
+            )
+        }
         highlighter?.highlightNow()
 
         // Re-theme highlighting when the effective appearance flips (system
