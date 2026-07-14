@@ -78,6 +78,16 @@ public enum LaunchReset {
         arguments.contains(exposeScrollFractionFlag)
     }
 
+    /// Launch flag that enables performance profiling: hot paths (syntax highlight,
+    /// file read, preview render) log wall-clock durations to stderr. Diagnostic
+    /// only — off by default, no overhead in a normal launch. Usage: `--profile`.
+    public static let profileFlag = "--profile"
+
+    /// Whether the given process arguments request performance profiling.
+    public static func isProfiling(in arguments: [String]) -> Bool {
+        arguments.contains(profileFlag)
+    }
+
     /// Wipe every persisted preference for the app, including the sidebar root
     /// bookmarks, from the given defaults. Clearing the whole domain *and* the
     /// individual keys is deliberate belt-and-suspenders: `removePersistentDomain`

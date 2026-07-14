@@ -678,7 +678,8 @@ public final class EditorViewController: NSViewController {
         // gives correctly-themed controls (pinning to aqua broke dark checkboxes).
         wv.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
 
-        let body = MarkdownHTMLRenderer.renderBody(currentText)
+        let body = PerfLog.measure("preview.renderBody", "chars=\(currentText.count)",
+                                   { MarkdownHTMLRenderer.renderBody(currentText) })
         // First load (or after a theme flip) needs the full shell + CSS. Subsequent
         // edits replace only the body via JS, preserving scroll position and avoiding
         // a full page reparse/flash.

@@ -85,12 +85,14 @@ public final class SyntaxHighlightingController {
 
         let styled: NSAttributedString
         if isEnabled, let language, let highlighter,
-           let result = highlighter.highlight(code, as: language) {
+           let result = PerfLog.measure("highlight.tokenize", "lang=\(language) chars=\(fullRange.length)",
+                                        { highlighter.highlight(code, as: language) }) {
             styled = result
         } else {
             styled = plainAttributedString(code)
         }
 
+        PerfLog.measure("highlight.applyAttrs", "chars=\(fullRange.length)") {
         isApplying = true
         textStorage.beginEditing()
         // Reset to a known-visible base (font + system text color) rather than
@@ -110,6 +112,7 @@ public final class SyntaxHighlightingController {
         }
         textStorage.endEditing()
         isApplying = false
+        }   // PerfLog.measure("highlight.applyAttrs")
     }
 
     private func plainAttributedString(_ code: String) -> NSAttributedString {
