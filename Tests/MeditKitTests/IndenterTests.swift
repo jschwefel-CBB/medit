@@ -75,7 +75,10 @@ final class IndenterTests: XCTestCase {
     }
 
     func testBraceDoesNotIndentWhenOpenersOff() {
-        XCTAssertEqual(indent("see {this}", openersApply: false), "")
+        // Line must END in `{` (the opener position), or openers-on/off makes no
+        // difference and the test proves nothing. A trailing `}` is never an opener.
+        XCTAssertEqual(indent("a block {", openersApply: false), "",
+                       "a trailing brace in plain text is prose, not a block opener")
     }
 
     // Openers-off still copies a real line's own indentation forward — only the

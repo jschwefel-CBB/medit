@@ -908,27 +908,37 @@ final class EditorSmokeTests: XCTestCase {
     // where the unit layer can read the pasteboard and buffer the AP layer can only
     // infer. Without the delegate routing, NSText.cut:/delete: on the (empty) editor
     // selection would CLEAR the pasteboard — the exact side effect this asserts against.
+    // SCOPE: this asserts the preview-visible branch is INERT at the point it is
+    // directly callable — the guard returns before dispatching, so the pasteboard
+    // and document are untouched. It deliberately does NOT try to prove "and the
+    // editor path WOULD have mutated," because the editor path runs through the
+    // responder chain (`sendValidatedAction` → keyWindow.firstResponder), which does
+    // not resolve to the text view in this headless harness — a positive control
+    // here fails for harness reasons, not a real bug. End-to-end proof that the
+    // commands are inert through REAL menu dispatch (where the chain is live) is the
+    // job of preview-edit-ops-noop.json. See that plan's side-effect negative controls.
     func testCutPasteDeleteAreInertInPreview() {
         let controller = makeWindowController(text: "# Heading\n\nsome body text\n")
         guard let editor = controller.editorForTesting else { return XCTFail("no editor") }
         controller.showWindow(nil)
         editor.setLanguageOverrideForTesting("markdown")
         editor.togglePreviewForTesting()
-        XCTAssertTrue(editor.isPreviewVisibleForTesting, "preview must be showing for this test")
+        XCTAssertTrue(editor.isPreviewVisibleForTesting, "preview must be showing")
 
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString("SENTINEL-MUST-SURVIVE", forType: .string)
         let textBefore = controller.documentForTesting?.text
 
+        controller.selectAllInFocusedArea(nil)
         controller.cutFromFocusedArea(nil)
         controller.deleteInFocusedArea(nil)
+        XCTAssertEqual(pb.string(forType: .string), "SENTINEL-MUST-SURVIVE",
+                       "Cut/Delete must not touch the pasteboard in the read-only preview")
+
         pb.clearContents()
         pb.setString("PASTE-MARKER", forType: .string)
         controller.pasteIntoFocusedArea(nil)
-
-        XCTAssertEqual(pb.string(forType: .string), "PASTE-MARKER",
-                       "Cut/Delete must not clear or alter the pasteboard in the read-only preview")
         XCTAssertEqual(controller.documentForTesting?.text, textBefore,
                        "no preview edit op may mutate the document")
     }
@@ -1005,6 +1015,11 @@ final class EditorSmokeTests: XCTestCase {
         tv.autoIndentEnabled = true
         tv.indentUseSpaces = true
         tv.indentTabWidth = 4
+        // The opener rule (`{`/`:` adds a level) is a CODE-language behavior — off for
+        // plaintext/markdown. This test drives that behavior directly, so simulate a
+        // code language by enabling the flag the view controller would set. (Language
+        // policy itself is covered by testIndentAfterOpenersTracksLanguage.)
+        tv.indentAfterOpenersEnabled = true
         tv.setSelectedRange(NSRange(location: 6, length: 0))  // end of "if x {"
         tv.insertNewline(nil)
         XCTAssertEqual(tv.string, "if x {\n    ", "new line after { should add one indent level")
