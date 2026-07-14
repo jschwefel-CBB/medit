@@ -125,8 +125,15 @@ final class EditorSmokeTests: XCTestCase {
               let lm = tv.layoutManager else { return XCTFail("no editor") }
 
         editor.refreshBracketColorizerForTesting()
-        // The '(' at offset 1 should carry a temporary foreground (depth) color.
-        let attr = lm.temporaryAttribute(.foregroundColor, atCharacterIndex: 1, effectiveRange: nil)
+        // The scan runs on a background queue and its colors are applied back on
+        // main, so POLL (bounded, per the headless-CI doctrine — no fixed sleeps)
+        // for the '(' at offset 1 to carry a temporary foreground (depth) color.
+        let deadline = Date(timeIntervalSinceNow: 2)
+        var attr: Any?
+        while attr == nil && Date() < deadline {
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.02))
+            attr = lm.temporaryAttribute(.foregroundColor, atCharacterIndex: 1, effectiveRange: nil)
+        }
         XCTAssertNotNil(attr, "bracket should have a depth color overlay")
 
         // Disabling clears the overlay.

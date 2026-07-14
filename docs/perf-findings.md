@@ -39,15 +39,40 @@ same probes). Unit suite 430/430 green; `preview-edit-ops-noop.json` 20/20 after
 - `highlight.applyAttrs` (95–116 ms, main thread) still lands as one hitch when
   colors arrive on very large files. Chunking it is a possible follow-up.
 
-## 🆕 NEW finding surfaced by the fix (was masked by the tokenize freeze)
+## ✅ Bracket-colorizer finding — FIXED (follow-up pass, same day)
 
-**`tab.bracketColorizer` = 365 ms (470 KB Swift) / 247 ms (366 KB MD), main thread,
-at open.** The table below calls it negligible (0.03 ms) — that was measured on an
-EMPTY tab; on large documents it was always costing hundreds of ms, hidden under the
-synchronous tokenize. With tokenize off the main thread it is now the dominant
-remaining open-time stall (bulk of the 580 ms / 1077 ms `viewDidLoad.total` on large
-files, alongside ~200–700 ms of not-yet-attributed work, likely initial text layout).
-**Not fixed — outside this pass's scope; next candidate, pending a decision.**
+**Was:** `tab.bracketColorizer` = 365 ms (470 KB Swift) main thread at open (the
+table below's "negligible 0.03 ms" was measured on an EMPTY tab — the synchronous
+tokenize had been masking the large-file cost), **plus** ~135 ms on EVERY caret
+move (`updateCaretEmphasis` substring'd/`Array(text)`-materialized the document up
+to three times per move), **plus** the scan re-ran 3× at open.
+
+**Now (measured, same file/probes):**
+| Metric | Before | After |
+|---|---|---|
+| `tab.bracketColorizer` at open (main thread) | 365 ms | **0.04 ms** (scan on background queue) |
+| `bracket.caretEmphasis` per caret move | ~135 ms | **0–2.7 ms** (computed from cached hits) |
+| Depth scans at open | 3 × 75–123 ms | **1 × ~72 ms**, background (in-flight coalescing) |
+| Conversion map (`bracket.utf16map`) | 94 ms per refresh | **deleted** (scanner emits UTF-16 offsets in its single pass) |
+| `tab.viewDidLoad.total`, 470 KB Swift | 580 ms | **210 ms** (residual ≈ initial text layout, unattributed) |
+
+**How** (`BracketDepthScanner.swift`, `BracketMatcher.swift`, `BracketColorizer.swift`):
+- Scanner emits `utf16Offset` alongside the character offset in the same pass — the
+  colorizer paints NSRanges directly, no O(n) map, no per-character String allocs.
+- Scan memoized on an owned source copy AND moved to a serial background queue with
+  the highlighter's snapshot/generation/equality pattern; duplicate in-flight scans
+  for the same text coalesce. Cache-hit repaints (appearance flip) stay synchronous.
+- Caret emphasis computed from the cached hit list (binary search + sparse hit walk)
+  instead of walking the text — provably equivalent to `BracketMatcher` (it only
+  ever inspects bracket characters; pinned by an every-caret-position equivalence
+  test, `testColorizerHitWalkAgreesWithMatcherAtEveryCaret`). Stale cache (edit
+  debounce window) → emphasis skips for ≤150 ms rather than painting wrong offsets.
+- `BracketMatcher.enclosingPair` rewritten to a lazy `String.Index` walk (no
+  `Array(text)`), with new multibyte coverage the old tests never had.
+
+Unit suite 433/433; `preview-edit-ops-noop.json` 20/20. Remaining open-time cost on
+huge files: ~200 ms unattributed (likely initial text layout) + the async color
+arrival documented above — candidates for a future pass, not currently offenders.
 
 ## Test files
 - `470 KB` Swift (5000 lines) — highlighter path

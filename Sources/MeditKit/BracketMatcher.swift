@@ -26,47 +26,55 @@ public enum BracketMatcher {
         return nil
     }
 
-    /// The innermost bracket pair that strictly encloses `offset` (a caret
-    /// position between characters). Returns the opener/closer character offsets,
-    /// or nil if the caret is not inside any balanced pair. Shared across families.
-    public static func enclosingPair(in text: String, at offset: Int) -> (open: Int, close: Int)? {
-        let chars = Array(text)
-        guard offset >= 0, offset <= chars.count else { return nil }
-
-        let openSet: Set<Character> = ["(", "[", "{"]
-        let closeSet: Set<Character> = [")", "]", "}"]
+    /// The innermost bracket pair that strictly encloses `caret` (a position
+    /// between characters). Returns the opener's and closer's single-Character
+    /// ranges — directly convertible to NSRange via `NSRange(_:in:)` — or nil if
+    /// the caret is not inside any balanced pair. Shared across families.
+    ///
+    /// Walks the string lazily from the caret in both directions, so the cost
+    /// scales with the distance to the enclosing pair, not the document size.
+    /// The old character-offset version materialized `Array(text)` — an O(n)
+    /// allocation of grapheme Characters on EVERY caret move, the bulk of a
+    /// ~135 ms per-keystroke stall on a 470 KB file.
+    public static func enclosingPair(in text: String, at caret: String.Index)
+        -> (open: Range<String.Index>, close: Range<String.Index>)? {
+        guard caret >= text.startIndex, caret <= text.endIndex else { return nil }
 
         // Scan left: the first opener not cancelled by a closer we've stepped over
         // is the enclosing opener (any family cancels, so this finds the innermost).
         var pendingClose = 0
-        var openIndex = -1
+        var openIdx: String.Index?
         var openKind: Character = "("
-        var i = offset - 1
-        while i >= 0 {
-            let c = chars[i]
-            if closeSet.contains(c) {
+        var i = caret
+        scanLeft: while i > text.startIndex {
+            i = text.index(before: i)
+            switch text[i] {
+            case ")", "]", "}":
                 pendingClose += 1
-            } else if openSet.contains(c) {
-                if pendingClose == 0 { openIndex = i; openKind = c; break }
+            case "(", "[", "{":
+                if pendingClose == 0 { openIdx = i; openKind = text[i]; break scanLeft }
                 pendingClose -= 1
+            default:
+                break
             }
-            i -= 1
         }
-        guard openIndex >= 0 else { return nil }
+        guard let open = openIdx else { return nil }
 
         // Scan right for the matching closer of openKind, honoring nesting.
         let wantClose: Character = openers[openKind] ?? ")"
         var depth = 0
-        var j = offset
-        while j < chars.count {
-            let c = chars[j]
+        var j = caret
+        while j < text.endIndex {
+            let c = text[j]
             if c == openKind {
                 depth += 1
             } else if c == wantClose {
-                if depth == 0 { return (openIndex, j) }
+                if depth == 0 {
+                    return (open..<text.index(after: open), j..<text.index(after: j))
+                }
                 depth -= 1
             }
-            j += 1
+            j = text.index(after: j)
         }
         return nil
     }

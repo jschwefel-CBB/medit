@@ -55,6 +55,16 @@ final class BracketDepthScannerTests: XCTestCase {
         let hits = BracketDepthScanner.scan("😀(x)")
         XCTAssertEqual(hits.map(\.offset), [1, 3])
         XCTAssertEqual(hits.map(\.kind), ["(", ")"])
+        // utf16Offset diverges from offset past the surrogate pair: 😀 is 2 UTF-16
+        // units, so '(' sits at 2 and ')' at 4. This is the value the colorizer
+        // paints NSRanges with — if it drifted, rainbow colors would land on the
+        // wrong characters in any document containing emoji/CJK.
+        XCTAssertEqual(hits.map(\.utf16Offset), [2, 4])
+    }
+
+    func testUTF16OffsetsMatchCharacterOffsetsForASCII() {
+        let hits = BracketDepthScanner.scan("a(b)c")
+        XCTAssertEqual(hits.map(\.utf16Offset), hits.map(\.offset))
     }
 
     func testKindAndIsOpenRecorded() {
