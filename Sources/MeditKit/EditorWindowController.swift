@@ -340,6 +340,22 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         }
     }
 
+    /// Open a new untitled document as a tab in the frontmost editor window, or —
+    /// if no editor window exists (e.g. the Dock menu with every window closed) —
+    /// as a new window, since there is no tab bar to attach to.
+    ///
+    /// Static for the same reason as `openNewWindow()`: the Dock menu fires with
+    /// no window to route an instance action through.
+    public static func openNewTab() {
+        let front = NSApp.mainWindow?.windowController as? EditorWindowController
+            ?? NSApp.windows.compactMap { $0.windowController as? EditorWindowController }.first
+        if let front, front.window != nil {
+            front.openNewTab()
+        } else {
+            openNewWindow()
+        }
+    }
+
     private func openNewTab() {
         guard let window else { return }
         do {
@@ -360,9 +376,13 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         }
     }
 
-    /// Explicit New Window (⇧⌘N): open a new untitled document in its OWN top-level
+    /// Explicit New Window (⌘N): open a new untitled document in its OWN top-level
     /// window — NOT added to any tab group. Tabs remain the default elsewhere.
-    public func openNewWindow() {
+    ///
+    /// Static because it needs no existing window: the Dock menu can invoke it
+    /// when every window is closed and there is no `EditorWindowController` left
+    /// to route an instance action to.
+    public static func openNewWindow() {
         do {
             let newDoc = try NSDocumentController.shared.openUntitledDocumentAndDisplay(false)
             if newDoc.windowControllers.isEmpty { newDoc.makeWindowControllers() }
@@ -373,8 +393,10 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         }
     }
 
+    public func openNewWindow() { EditorWindowController.openNewWindow() }
+
     /// Menu hook for File ▸ New Window.
-    @IBAction public func newWindowFromMenu(_ sender: Any?) { openNewWindow() }
+    @IBAction public func newWindowFromMenu(_ sender: Any?) { EditorWindowController.openNewWindow() }
 
     // MARK: Session snapshot/restore helpers
 
@@ -540,6 +562,32 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         } else {
             AppDelegate.sendValidatedAction(#selector(NSText.copy(_:)), from: sender)
         }
+    }
+
+    // Cut / Paste / Delete in the rendered preview are TRUE NO-OPS: the preview is
+    // read-only, so these must do nothing AND cause no side effects. Left to the
+    // responder chain they reach the WKWebView, and — worse — the editor-targeted
+    // `NSText.cut:`/`delete:` on an empty target *clear the pasteboard*, the same
+    // class of side effect that made empty-selection Copy destroy the clipboard.
+    // Routing through the delegate lets the preview branch swallow them cleanly and
+    // the editor branch keep native, validated behavior unchanged.
+
+    /// Cut the editor's selection, or nothing at all when the preview is showing.
+    @IBAction public func cutFromFocusedArea(_ sender: Any?) {
+        if let editor, editor.isPreviewVisible { return }   // read-only preview: no-op
+        AppDelegate.sendValidatedAction(#selector(NSText.cut(_:)), from: sender)
+    }
+
+    /// Paste into the editor, or nothing at all when the preview is showing.
+    @IBAction public func pasteIntoFocusedArea(_ sender: Any?) {
+        if let editor, editor.isPreviewVisible { return }   // read-only preview: no-op
+        AppDelegate.sendValidatedAction(#selector(NSText.paste(_:)), from: sender)
+    }
+
+    /// Delete the editor's selection, or nothing at all when the preview is showing.
+    @IBAction public func deleteInFocusedArea(_ sender: Any?) {
+        if let editor, editor.isPreviewVisible { return }   // read-only preview: no-op
+        AppDelegate.sendValidatedAction(#selector(NSText.delete(_:)), from: sender)
     }
 
     @IBAction public func toggleAutoShowMarkdownPreview(_ sender: Any?) {

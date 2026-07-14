@@ -1,181 +1,56 @@
 {
   "schemaVersion": "1.1",
-  "name": "KNOWN-FAILING: preview find bar scrolls to match (regression guard)",
-  "comment": "KNOWN BUG — do not fix yet (as of v2.7.4). The find bar in the rendered Markdown preview finds matches (the match count increments) but never scrolls the preview WebView to make the match visible. This plan is a regression guard: it opens a long .md file, shows the preview, opens Find, searches for a term that appears near the bottom, then captures a screenshot of the preview. The screenshot should show the matched term in view — but currently it shows the top of the document (the scroll never fires). When the bug is fixed, this plan will start passing and the comment can be updated. Level is tryToBreakIt throughout since this is an adversarial check that the find-then-scroll path works end to end. Requires staged /tmp/medit-ap-long.md fixture. ⚠ BLIND SPOT: --no-auto-preview enters through the editor-visible path, so this plan cannot catch any bug that only occurs when the preview is auto-opened at launch — the state EVERY Markdown document is in by default. That is a deliberate tradeoff (this plan must drive the editor), not an oversight. The auto-preview path is covered by preview-copy-test.json and drop-files-onto-preview.json; any new preview behavior needs coverage there too, not here.",
+  "name": "find scrolls the RENDERED preview to a match (auto-preview path)",
+  "comment": "Regression guard for the find-scroll bug: Find found matches (the count incremented) but never scrolled the preview WebView, so a match below the fold stayed off screen — because selectMatch scrolled the hidden editor's NSTextView, not the preview. FIXED by scrolling the preview to the match's source line when the preview is showing. This plan replaces the old KNOWN-FAILING version, which encoded the bug as acceptable (expected red) and entered via --no-auto-preview + View menu — the door users never take. It now enters via AUTO-PREVIEW and asserts the preview actually moved, using the --expose-scroll-fraction test hook (AX can't read a WKWebView's scroll offset). NEGATIVE CONTROL: assert the preview is at the top before searching, so 'it scrolled' can't be a false pass. Requires staged /tmp/medit-ap-long.md and the Debug build launched with --expose-scroll-fraction.",
   "target": {
     "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
-    "launchArgs": [
-      "--reset-state",
-      "--no-auto-preview"
-    ],
-    "launchFiles": [
-      "/tmp/medit-ap-long.md"
-    ]
+    "launchArgs": ["--reset-state", "--expose-scroll-fraction"],
+    "launchFiles": ["/tmp/medit-ap-long.md"]
   },
-  "defaults": {
-    "timeoutMs": 10000,
-    "retryIntervalMs": 150
-  },
+  "defaults": { "timeoutMs": 10000, "retryIntervalMs": 150 },
   "steps": [
-    {
-      "id": "wait-window",
-      "action": "waitFor",
-      "level": "tryToBreakIt",
-      "target": {
-        "role": "AXWindow"
-      },
-      "args": {
-        "present": true
-      }
-    },
-    {
-      "id": "focus-editor",
-      "action": "click",
-      "level": "tryToBreakIt",
-      "target": {
-        "identifier": "editorTextView"
-      }
-    },
-    {
-      "id": "show-preview",
-      "action": "menu",
-      "level": "tryToBreakIt",
-      "args": {
-        "menuPath": [
-          "View",
-          "Show Markdown Preview"
-        ]
-      }
-    },
-    {
-      "id": "wait-preview",
-      "action": "waitFor",
-      "level": "tryToBreakIt",
-      "target": {
-        "identifier": "markdownPreviewWebView"
-      },
-      "args": {
-        "present": true
-      }
-    },
-    {
-      "id": "settle-render",
-      "action": "wait",
-      "level": "tryToBreakIt",
-      "args": {
-        "seconds": 1
-      }
-    },
-    {
-      "id": "shot-before-find",
-      "action": "screenshot",
-      "level": "tryToBreakIt",
-      "target": {
-        "identifier": "markdownPreviewWebView"
-      },
-      "args": {
-        "padding": 0
-      }
-    },
-    {
-      "id": "open-find",
-      "action": "keyPress",
-      "level": "tryToBreakIt",
-      "target": {
-        "identifier": "markdownPreviewWebView"
-      },
-      "args": {
-        "keys": "cmd+f"
-      }
-    },
-    {
-      "id": "wait-find-field",
-      "action": "waitFor",
-      "level": "tryToBreakIt",
-      "target": {
-        "identifier": "findField"
-      },
-      "args": {
-        "present": true
-      }
-    },
-    {
-      "id": "type-bottom-term",
-      "action": "type",
-      "level": "tryToBreakIt",
-      "target": {
-        "identifier": "findField"
-      },
-      "args": {
-        "text": "Line 120",
-        "focus": false
-      }
-    },
-    {
-      "id": "settle-find",
-      "action": "wait",
-      "level": "tryToBreakIt",
-      "args": {
-        "seconds": 1
-      }
-    },
-    {
-      "id": "find-status-shows-match",
-      "action": "assert",
-      "level": "tryToBreakIt",
-      "target": {
-        "identifier": "findStatusLabel"
-      },
-      "assert": {
-        "property": "value",
-        "op": "exists"
-      }
-    },
-    {
-      "id": "shot-after-find",
-      "action": "screenshot",
-      "level": "tryToBreakIt",
-      "target": {
-        "identifier": "markdownPreviewWebView"
-      },
-      "args": {
-        "padding": 0
-      }
-    },
-    {
-      "id": "escape-find",
-      "action": "keyPress",
-      "level": "tryToBreakIt",
-      "target": {
-        "identifier": "findField"
-      },
-      "args": {
-        "keys": "escape"
-      }
-    },
-    {
-      "id": "hide-preview",
-      "action": "menu",
-      "level": "tryToBreakIt",
-      "args": {
-        "menuPath": [
-          "View",
-          "Show Markdown Preview"
-        ]
-      }
-    },
-    {
-      "id": "settle-hide",
-      "action": "wait",
-      "level": "tryToBreakIt",
-      "args": {
-        "seconds": 1
-      }
-    },
-    {
-      "id": "quit",
-      "action": "terminate",
-      "level": "tryToBreakIt"
-    }
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+
+    { "id": "wait-auto-preview", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+
+    { "id": "preview-is-front", "action": "assert", "level": "happyPath",
+      "comment": "Door check: preview web view present (auto-preview engaged). A hidden NSTextView still exposes its AX element, so assert the preview IS up rather than the editor absent.",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "preview-starts-at-top", "action": "assert", "level": "happyPath",
+      "comment": "NEGATIVE CONTROL: preview begins at the top, so a post-find non-zero fraction proves the FIND caused the scroll.",
+      "target": { "identifier": "previewScrollFractionLabel" },
+      "assert": { "property": "value", "op": "equals", "expected": "0.000" } },
+
+    { "id": "open-find", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "keys": "cmd+f" } },
+
+    { "id": "wait-find-field", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "findField" }, "args": { "present": true } },
+
+    { "id": "type-bottom-term", "action": "type", "level": "happyPath",
+      "comment": "'Paragraph 120' is the last paragraph of long.md — a match near the very bottom, so a working scroll produces a large fraction.",
+      "target": { "identifier": "findField" }, "args": { "text": "Paragraph 120", "focus": false } },
+
+    { "id": "find-status-shows-match", "action": "assert", "level": "happyPath",
+      "target": { "identifier": "findStatusLabel" },
+      "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "trigger-find-next", "action": "keyPress", "level": "happyPath",
+      "comment": "Commit the search / go to the match.",
+      "target": { "identifier": "findField" }, "args": { "keys": "return" } },
+
+    { "id": "preview-scrolled-to-match", "action": "assert", "level": "happyPath",
+      "comment": "THE ASSERTION: the preview scrolled toward the bottom to reveal the match. A regression (scrolling the hidden editor) leaves this at 0.000.",
+      "target": { "identifier": "previewScrollFractionLabel" },
+      "assert": { "property": "value", "op": "notEquals", "expected": "0.000" } },
+
+    { "id": "escape-find", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "findField" }, "args": { "keys": "escape" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
   ]
 }

@@ -46,6 +46,78 @@ preview bug fixed, revert the fix and confirm the plan **fails** — see the har
 
 ---
 
+## ⚠⚠ THE PREVIEW COMMAND SURFACE IS BROKEN AS A CLASS (2026-07-10)
+
+Copy in the rendered preview was fixed in v2.8.x, but the fix was scoped to that one command.
+**Every other editor/navigation command that has an editor path and a preview path is still
+wired only to the editor's `NSTextView`**, which is hidden behind the `WKWebView` while the
+preview shows. Because auto-preview is ON by default, this is the state every Markdown document
+is in the moment it opens — so for Markdown the preview is, in the user's words, "practically
+useless." This is ONE bug (an action blind to which view is on screen), not several. It was found
+because the user reported find-not-scrolling; enumerating the class surfaced the rest.
+
+Full matrix — action × behavior when the rendered preview covers the editor:
+
+| Action | Menu path | Site | Preview behavior now | Intended | Plan |
+|---|---|---|---|---|---|
+| Copy | Edit ▸ Copy | `AppDelegate.copyCommand` | ✅ copies DOM selection | (fixed) | `preview-copy-test.json` |
+| Select All | Edit ▸ Select All | `AppDelegate.selectAllCommand` | ✅ selects body | (fixed) | `preview-copy-test.json` |
+| **Cut** | Edit ▸ Cut | `NSText.cut:` target nil | ❌ swallowed by web view | **true no-op, no side effects** | `preview-edit-ops-noop.json` |
+| **Paste** | Edit ▸ Paste | `NSText.paste:` target nil | ❌ swallowed | **true no-op, no side effects** | `preview-edit-ops-noop.json` |
+| **Delete** | Edit ▸ Delete | `NSText.delete:` target nil | ❌ swallowed | **true no-op, no side effects** | `preview-edit-ops-noop.json` |
+| **Find Next/Prev scroll** | Find ▸ Find Next | `EditorViewController.selectMatch` (`EditorViewController.swift:962`) | ❌ scrolls hidden editor; preview never moves | scroll preview to match | `preview-find-scroll.json` (rewrite) |
+| **Jump to Selection** | Find ▸ Jump to Selection | `centerSelectionInVisibleArea:` | ❌ acts on hidden editor | scroll preview to selection | *(to write)* |
+| **Go to Line** | Edit ▸ Go to Line | `EditorViewController.goToLine` (`:810`) | ❌ scrolls hidden editor | scroll preview to line | *(to write)* |
+| **Scroll position across toggle** | View ▸ Show Markdown Preview | `EditorViewController.showPreview` (`:494`) | ❌ no preservation — jumps to top | **preserve scroll FRACTION across the swap** (editor↔preview) | `preview-scroll-sync.json` *(to write)* |
+| Undo / Redo | Edit ▸ Undo | `undo:`/`redo:` | mutates doc; preview re-renders — visible outcome unverified | re-render preview | *(to write)* |
+| Sort / Case | Edit ▸ Text ▸ … | `EditorWindowController.sortLines…` | acts on stale editor selection | **design call — enable in preview at all?** | *(decide)* |
+
+**"True no-op" must be PROVEN, not assumed.** A read-only command that silently mutates state
+is worse than one that errors — nothing tells the user. Every no-op assertion carries a NEGATIVE
+CONTROL on the side effect: seed a clipboard sentinel + snapshot the document, fire the command,
+assert the sentinel survived (Cut/Delete must NOT clear the pasteboard — `NSText.cut:` on an
+empty target clears it, exactly the class that made empty-selection Copy destroy the clipboard)
+and the document is byte-for-byte unchanged.
+
+**Scroll sync = position preserved across the toggle**, proportional by scroll fraction (NOT
+side-by-side live panes; NOT line-accurate DOM mapping — those were considered and rejected for
+now). Test: scroll editor to a known fraction → toggle → assert preview `scrollY/scrollHeight`
+≈ fraction; scroll preview elsewhere → toggle back → assert editor visible rect ≈ that fraction.
+Negative control: a never-scrolled fresh doc must still be at top after a toggle, so "happened to
+be at the top anyway" cannot false-pass.
+
+### Required app-side test hooks (the find-scroll / scroll-sync plans depend on these) [FIX]
+
+AutoPilot's own authoring guide is explicit: **AX assertions cannot confirm what is visually
+rendered** — "AX says the button is named Save; only pixels can confirm it's visible." There is
+no JS-evaluate action and no scroll-position assertion property in AP 3.5. Screenshot/`assertPixel`
+diffs are the visual fallback but are fragile in headless CI. So preview-scroll behavior must be
+made drivable by **surfacing the preview's scroll fraction as an AX-readable `value`** — the same
+`[FIX candidate]` pattern used elsewhere in this doc (e.g. the proposed `--save-to` hook). Needed:
+
+- **`previewScrollFractionLabel`** — a hidden AX element (or an AX `value` on the web-view element)
+  reporting the preview's `scrollY / (scrollHeight - clientHeight)` as a 0.000–1.000 string,
+  updated on scroll. Lets a plan assert "preview is at ~0.60" numerically.
+- **`editorScrollFractionLabel`** — the same for the editor's scroll view (`documentVisibleRect`
+  fraction), so the toggle-back direction is assertable.
+- These are test-only surfaces (like the existing `--reset-state`, `modeLabel`, `findStatusLabel`
+  hooks). Without them the plans below can only screenshot-and-eyeball, which is not a gate.
+
+**Status (2026-07-10):** the hooks are IMPLEMENTED — `--expose-scroll-fraction`
+(`LaunchReset.exposeScrollFractionFlag`) creates the two hidden AX labels, updated on editor and
+preview scroll. The plans below are written against them and lint clean; they are NOT marked
+KNOWN-FAILING (that pattern hid the find-scroll bug by expecting red). What remains is *running*
+them against a freshly built Debug app — the hard-gate step (revert each fix, watch the plan fail,
+restore) is pending because it requires executing the suite.
+
+Plans now covering this surface:
+- `preview-edit-ops-noop.json` — Cut/Paste/Delete inert, side-effect negative controls.
+- `preview-find-scroll.json` — rewritten from KNOWN-FAILING; find scrolls the preview (fraction hook).
+- `preview-goto-line-scroll.json` — Go to Line scrolls the preview.
+- `preview-scroll-sync.json` — scroll position preserved across the editor↔preview toggle.
+
+---
+
 Built from an exhaustive source audit (2026-07-04) of every menu/shortcut, editor/document/
 preference behavior, and the preview/sidebar/status/find surfaces, **cross-referenced against
 the AP plans and ~440 unit tests**. Line refs are to the primary implementation site.

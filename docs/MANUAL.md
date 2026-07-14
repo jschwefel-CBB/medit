@@ -87,9 +87,8 @@ A medit window has, from top to bottom:
 
 | Action | How |
 |--------|-----|
-| New document | **File ▸ New** (⌘N) |
-| New window | **File ▸ New Window** (⇧⌘N) |
-| New tab | **File ▸ New Tab** (⌘T), the **+** button, or the editor's right-click menu |
+| New window | **File ▸ New Window** (⌘N), or right-click the Dock icon |
+| New tab (a new untitled document) | **File ▸ New Tab** (⌘T), the **+** button, the editor's right-click menu, or right-click the Dock icon |
 | Open a file | **File ▸ Open…** (⌘O), or drag a file from Finder onto the editor or preview |
 | Open a folder in the sidebar | **File ▸ Open Folder…** (⇧⌘O) |
 | Save | **File ▸ Save** (⌘S) |
@@ -116,7 +115,9 @@ the standard macOS sheet.
 medit uses **native macOS window tabs**. The tab bar is always visible (even with a
 single tab) so the **+** button is always at hand.
 
-- **New tab:** ⌘T, the **+**, **File ▸ New Tab**, or the editor's right-click menu.
+- **New tab:** ⌘T, the **+**, **File ▸ New Tab**, the editor's right-click menu, or
+  right-click medit's **Dock icon**.
+- **New window:** ⌘N, **File ▸ New Window**, or right-click medit's **Dock icon**.
 - **Switch tabs:** click a tab, or use the standard macOS tab shortcuts (⌃Tab /
   ⇧⌃Tab, and ⌘1…⌘9 where supported).
 - **Reorder:** drag tabs.
@@ -606,9 +607,8 @@ Sidebar**, and **Show Recent Files in Sidebar**.
 
 | Shortcut | Action |
 |----------|--------|
-| ⌘N | New document |
-| ⇧⌘N | New window |
-| ⌘T | New tab |
+| ⌘N | New window |
+| ⌘T | New tab (a new untitled document) |
 | ⌘O | Open… |
 | ⇧⌘O | Open Folder… |
 | ⌘S / ⇧⌘S | Save / Save As… |

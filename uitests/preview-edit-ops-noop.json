@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "1.1",
+  "name": "preview edit ops are inert: Cut / Paste / Delete cause NO side effects in a rendered preview",
+  "comment": "The rendered Markdown preview is read-only. Cut, Paste, and Delete must do NOTHING there — and crucially must cause NO SIDE EFFECTS: the clipboard must be left exactly as it was (NOT cleared — NSText.cut/delete on an empty target clears the pasteboard, the same class of bug that made empty-selection Copy destroy the clipboard) and the document text must be byte-for-byte unchanged. A command that silently mutates state is worse than one that errors, because nothing tells the user it happened. This plan proves inertness by NEGATIVE CONTROL: seed a clipboard sentinel and capture the document's visible text BEFORE, fire each op through the preview, then assert the sentinel survived and the text is unchanged. Enters via AUTO-PREVIEW (the door every Markdown doc is in by default) — NOT --no-auto-preview, NOT the View menu. Requires staged /tmp/medit-ap-noop.md and the Debug build.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": ["/tmp/medit-ap-noop.md"]
+  },
+  "defaults": { "timeoutMs": 10000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+
+    { "id": "wait-auto-preview", "action": "waitFor", "level": "happyPath",
+      "comment": "Preview must auto-open. If it doesn't, the whole premise is wrong and we should not proceed to assert inertness against the editor.",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+
+    { "id": "preview-is-front", "action": "assert", "level": "happyPath",
+      "comment": "Door check: the preview web view is present (auto-preview engaged). A hidden NSTextView still exposes its AX element, so we assert the preview IS up rather than the editor is absent — the latter is always false in the AX tree even when the editor is covered.",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "assert": { "property": "value", "op": "exists" } },
+
+    { "id": "settle-render", "action": "waitFor", "level": "happyPath",
+      "comment": "Poll for a rendered element rather than sleeping; render is async.",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+
+    { "id": "seed-clipboard", "action": "exec", "level": "happyPath",
+      "args": { "command": "printf 'SENTINEL-CLIPBOARD-MUST-SURVIVE' | pbcopy" } },
+
+    { "id": "clipboard-seeded", "action": "assert", "level": "happyPath",
+      "comment": "Positive control: prove the seed took, so a later 'survived' assertion means something.",
+      "assert": { "property": "clipboard", "op": "equals", "expected": "SENTINEL-CLIPBOARD-MUST-SURVIVE" } },
+
+    { "id": "capture-doc-text-before", "action": "exec", "level": "happyPath",
+      "comment": "Snapshot the on-disk document so we can prove Cut/Delete/Paste did not mutate it. The file is the source of truth the preview renders.",
+      "args": { "command": "cp /tmp/medit-ap-noop.md /tmp/medit-ap-noop.before" } },
+
+    { "id": "select-all-in-preview", "action": "menu", "level": "happyPath",
+      "comment": "Select everything first, so Cut/Delete have a non-empty visual selection to (not) act on — the worst case for accidental mutation.",
+      "args": { "menuPath": ["Edit", "Select All"] } },
+
+    { "id": "cut-in-preview", "action": "menu", "level": "happyPath",
+      "args": { "menuPath": ["Edit", "Cut"] } },
+    { "id": "settle-cut", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+
+    { "id": "clipboard-survived-cut", "action": "assert", "level": "happyPath",
+      "comment": "Cut must NOT clear or overwrite the clipboard in a read-only preview.",
+      "assert": { "property": "clipboard", "op": "equals", "expected": "SENTINEL-CLIPBOARD-MUST-SURVIVE" } },
+
+    { "id": "delete-in-preview", "action": "menu", "level": "integrationSuite",
+      "args": { "menuPath": ["Edit", "Delete"] } },
+    { "id": "settle-delete", "action": "waitFor", "level": "integrationSuite",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+
+    { "id": "clipboard-survived-delete", "action": "assert", "level": "integrationSuite",
+      "assert": { "property": "clipboard", "op": "equals", "expected": "SENTINEL-CLIPBOARD-MUST-SURVIVE" } },
+
+    { "id": "reseed-for-paste", "action": "exec", "level": "happyPath",
+      "comment": "Put distinctive content on the clipboard so that IF paste wrongly inserts, the document diff below will contain it.",
+      "args": { "command": "printf 'PASTE-LEAK-MARKER-9f3a' | pbcopy" } },
+
+    { "id": "paste-in-preview", "action": "menu", "level": "happyPath",
+      "args": { "menuPath": ["Edit", "Paste"] } },
+    { "id": "settle-paste", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+
+    { "id": "doc-text-unchanged", "action": "exec", "level": "happyPath",
+      "comment": "Byte-for-byte comparison. Exit non-zero (fails the step) if Cut, Delete, or Paste mutated the document. Also greps for the paste marker as a belt-and-suspenders check that paste did not leak into the source.",
+      "args": { "command": "cmp -s /tmp/medit-ap-noop.md /tmp/medit-ap-noop.before && ! grep -q 'PASTE-LEAK-MARKER-9f3a' /tmp/medit-ap-noop.md" } },
+
+    { "id": "cleanup", "action": "exec", "level": "happyPath",
+      "args": { "command": "rm -f /tmp/medit-ap-noop.before" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

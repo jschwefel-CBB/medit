@@ -195,6 +195,38 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     /// returning false here is safe for both launch and reopen.
     public func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
 
+    // MARK: Dock menu
+
+    /// Right-click (or Control-click) the Dock icon: offer the same two "make
+    /// something new" commands the File menu does. These target the app delegate
+    /// rather than the first responder because the Dock menu is shown even when
+    /// the app is inactive and has no key window to route a responder action to.
+    public func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+        let newWindow = NSMenuItem(title: "New Window",
+                                   action: #selector(dockNewWindow(_:)), keyEquivalent: "")
+        newWindow.target = self
+        menu.addItem(newWindow)
+
+        let newTab = NSMenuItem(title: "New Tab",
+                                action: #selector(dockNewTab(_:)), keyEquivalent: "")
+        newTab.target = self
+        menu.addItem(newTab)
+        return menu
+    }
+
+    /// Dock menu items fire while the app may be inactive, so activate first —
+    /// otherwise the new window opens behind whatever app the user was in.
+    @objc private func dockNewWindow(_ sender: Any?) {
+        NSApp.activate(ignoringOtherApps: true)
+        EditorWindowController.openNewWindow()
+    }
+
+    @objc private func dockNewTab(_ sender: Any?) {
+        NSApp.activate(ignoringOtherApps: true)
+        EditorWindowController.openNewTab()
+    }
+
     /// Intercept open requests for directories: AppKit/`NSDocumentController` would
     /// otherwise try to open a folder as a document and fail ("cannot open files
     /// in the folder format"). Route directories to the sidebar instead and hand
@@ -358,6 +390,36 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             front.copyFromFocusedArea(sender)
         } else {
             AppDelegate.sendValidatedAction(#selector(NSText.copy(_:)), from: sender)
+        }
+    }
+
+    // Cut / Paste / Delete are targeted at the delegate for the same reason Copy is:
+    // in the Markdown preview the WKWebView is first responder and would otherwise
+    // handle (or clear the pasteboard on) commands the read-only preview must ignore.
+    // With no editor front window, fall back to the validated responder chain so
+    // text fields elsewhere (Settings) behave natively.
+
+    @IBAction public func cutCommand(_ sender: Any?) {
+        if let front = frontEditor {
+            front.cutFromFocusedArea(sender)
+        } else {
+            AppDelegate.sendValidatedAction(#selector(NSText.cut(_:)), from: sender)
+        }
+    }
+
+    @IBAction public func pasteCommand(_ sender: Any?) {
+        if let front = frontEditor {
+            front.pasteIntoFocusedArea(sender)
+        } else {
+            AppDelegate.sendValidatedAction(#selector(NSText.paste(_:)), from: sender)
+        }
+    }
+
+    @IBAction public func deleteCommand(_ sender: Any?) {
+        if let front = frontEditor {
+            front.deleteInFocusedArea(sender)
+        } else {
+            AppDelegate.sendValidatedAction(#selector(NSText.delete(_:)), from: sender)
         }
     }
 

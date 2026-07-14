@@ -231,9 +231,8 @@ xattr -dr com.apple.quarantine /Applications/medit.app
 
 | Shortcut | Action |
 |----------|--------|
-| ⌘N | New document |
-| ⇧⌘N | New window |
-| ⌘T | New tab |
+| ⌘N | New window |
+| ⌘T | New tab (a new untitled document) |
 | ⌘O | Open… |
 | ⌘S / ⇧⌘S | Save / Save As… |
 | ⌘W | Close |

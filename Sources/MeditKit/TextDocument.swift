@@ -81,14 +81,16 @@ public final class TextDocument: NSDocument {
     // MARK: Reading
 
     public override func read(from data: Data, ofType typeName: String) throws {
-        guard let decoded = TextEncodingDetector.decode(data) else {
+        guard let decoded = PerfLog.measure("file.decode", "bytes=\(data.count)",
+                                            { TextEncodingDetector.decode(data) }) else {
             throw NSError(domain: NSCocoaErrorDomain, code: NSFileReadInapplicableStringEncodingError)
         }
         self.text = decoded.string
         self.fileEncoding = decoded.encoding
         self.writesBOM = decoded.hadBOM
         self.originalData = data
-        self.lineEnding = LineEndings.detect(self.text)
+        self.lineEnding = PerfLog.measure("file.detectLineEndings", "chars=\(decoded.string.count)",
+                                          { LineEndings.detect(decoded.string) })
         captureModificationDate()
         // If the window already exists (revert), refresh its editor.
         editorWindowController?.documentTextDidReload()

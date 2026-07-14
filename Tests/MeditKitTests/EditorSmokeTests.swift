@@ -125,8 +125,15 @@ final class EditorSmokeTests: XCTestCase {
               let lm = tv.layoutManager else { return XCTFail("no editor") }
 
         editor.refreshBracketColorizerForTesting()
-        // The '(' at offset 1 should carry a temporary foreground (depth) color.
-        let attr = lm.temporaryAttribute(.foregroundColor, atCharacterIndex: 1, effectiveRange: nil)
+        // The scan runs on a background queue and its colors are applied back on
+        // main, so POLL (bounded, per the headless-CI doctrine — no fixed sleeps)
+        // for the '(' at offset 1 to carry a temporary foreground (depth) color.
+        let deadline = Date(timeIntervalSinceNow: 2)
+        var attr: Any?
+        while attr == nil && Date() < deadline {
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.02))
+            attr = lm.temporaryAttribute(.foregroundColor, atCharacterIndex: 1, effectiveRange: nil)
+        }
         XCTAssertNotNil(attr, "bracket should have a depth color overlay")
 
         // Disabling clears the overlay.
@@ -902,6 +909,84 @@ final class EditorSmokeTests: XCTestCase {
         XCTAssertEqual(tv.string, "    foo\n    ", "new line should copy the 4-space indent")
     }
 
+    // Cross-layer guard: Cut / Paste / Delete are TRUE NO-OPS in the rendered
+    // preview — no clipboard side effect, no document mutation. The AP plan proves
+    // this end-to-end through real menu dispatch; this proves the routing directly,
+    // where the unit layer can read the pasteboard and buffer the AP layer can only
+    // infer. Without the delegate routing, NSText.cut:/delete: on the (empty) editor
+    // selection would CLEAR the pasteboard — the exact side effect this asserts against.
+    // SCOPE: this asserts the preview-visible branch is INERT at the point it is
+    // directly callable — the guard returns before dispatching, so the pasteboard
+    // and document are untouched. It deliberately does NOT try to prove "and the
+    // editor path WOULD have mutated," because the editor path runs through the
+    // responder chain (`sendValidatedAction` → keyWindow.firstResponder), which does
+    // not resolve to the text view in this headless harness — a positive control
+    // here fails for harness reasons, not a real bug. End-to-end proof that the
+    // commands are inert through REAL menu dispatch (where the chain is live) is the
+    // job of preview-edit-ops-noop.json. See that plan's side-effect negative controls.
+    func testCutPasteDeleteAreInertInPreview() {
+        let controller = makeWindowController(text: "# Heading\n\nsome body text\n")
+        guard let editor = controller.editorForTesting else { return XCTFail("no editor") }
+        controller.showWindow(nil)
+        editor.setLanguageOverrideForTesting("markdown")
+        editor.togglePreviewForTesting()
+        XCTAssertTrue(editor.isPreviewVisibleForTesting, "preview must be showing")
+
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString("SENTINEL-MUST-SURVIVE", forType: .string)
+        let textBefore = controller.documentForTesting?.text
+
+        controller.selectAllInFocusedArea(nil)
+        controller.cutFromFocusedArea(nil)
+        controller.deleteInFocusedArea(nil)
+        XCTAssertEqual(pb.string(forType: .string), "SENTINEL-MUST-SURVIVE",
+                       "Cut/Delete must not touch the pasteboard in the read-only preview")
+
+        pb.clearContents()
+        pb.setString("PASTE-MARKER", forType: .string)
+        controller.pasteIntoFocusedArea(nil)
+        XCTAssertEqual(controller.documentForTesting?.text, textBefore,
+                       "no preview edit op may mutate the document")
+    }
+
+    // The editor scroll fraction is 0 at the top and clamps to [0,1]. Guards the
+    // math the scroll-sync toggle relies on; a divide-by-zero or unclamped value
+    // here would silently break position preservation.
+    func testEditorScrollFractionClampsAndStartsAtTop() {
+        let controller = makeWindowController(text: "line\n")
+        guard let editor = controller.editorForTesting else { return XCTFail("no editor") }
+        controller.showWindow(nil)
+        let f = editor.editorScrollFraction
+        XCTAssertGreaterThanOrEqual(f, 0.0)
+        XCTAssertLessThanOrEqual(f, 1.0)
+        XCTAssertEqual(f, 0.0, accuracy: 0.001, "a freshly loaded short doc is at the top")
+    }
+
+    // Cross-layer guard for the "colon auto-indents in plain text" bug. The pure
+    // IndenterTests prove the opener rule obeys its `openersApply` flag, but they
+    // cannot see whether the view controller sets that flag correctly per
+    // language — which is the layer the bug actually lived in. This drives the
+    // real editor, switches language, and asserts the text view's flag tracks it:
+    // off for plain text and Markdown, on for a code language.
+    func testIndentAfterOpenersTracksLanguage() {
+        let controller = makeWindowController(text: "Note:")
+        guard let editor = controller.editorForTesting,
+              let tv = controller.focusedTextView as? EditorTextView else {
+            return XCTFail("no editor")
+        }
+        controller.showWindow(nil)
+
+        editor.setLanguageOverrideForTesting("plaintext")
+        XCTAssertFalse(tv.indentAfterOpenersEnabled, "plain text must not indent after ':'")
+
+        editor.setLanguageOverrideForTesting("markdown")
+        XCTAssertFalse(tv.indentAfterOpenersEnabled, "Markdown must not indent after ':'")
+
+        editor.setLanguageOverrideForTesting("python")
+        XCTAssertTrue(tv.indentAfterOpenersEnabled, "a code language indents after ':'")
+    }
+
     func testManualLanguageOverrideWinsOverDetection() {
         let controller = makeWindowController(text: "print('hi')")
         guard let editor = controller.editorForTesting else { return XCTFail("no editor") }
@@ -937,6 +1022,11 @@ final class EditorSmokeTests: XCTestCase {
         tv.autoIndentEnabled = true
         tv.indentUseSpaces = true
         tv.indentTabWidth = 4
+        // The opener rule (`{`/`:` adds a level) is a CODE-language behavior — off for
+        // plaintext/markdown. This test drives that behavior directly, so simulate a
+        // code language by enabling the flag the view controller would set. (Language
+        // policy itself is covered by testIndentAfterOpenersTracksLanguage.)
+        tv.indentAfterOpenersEnabled = true
         tv.setSelectedRange(NSRange(location: 6, length: 0))  // end of "if x {"
         tv.insertNewline(nil)
         XCTAssertEqual(tv.string, "if x {\n    ", "new line after { should add one indent level")

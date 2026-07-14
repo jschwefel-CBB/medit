@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.1",
+  "name": "Go to Line scrolls the RENDERED preview (auto-preview path)",
+  "comment": "Same bug class as find-scroll: Edit > Go to Line moved the hidden editor's NSTextView, so while the preview covered it the jump was invisible. FIXED by scrolling the preview proportionally to the target source line when the preview is showing. Enters via AUTO-PREVIEW and asserts the preview moved, via the --expose-scroll-fraction hook. NEGATIVE CONTROL: preview is at the top before the jump, so a non-zero fraction after proves Go-to-Line caused it. Go to Line uses a sheet (GoToLineSheet) prompting for a number; the plan types a high line number and confirms. Requires staged /tmp/medit-ap-long.md and the Debug build with --expose-scroll-fraction.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state", "--expose-scroll-fraction"],
+    "launchFiles": ["/tmp/medit-ap-long.md"]
+  },
+  "defaults": { "timeoutMs": 10000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+
+    { "id": "wait-auto-preview", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+
+    { "id": "preview-starts-at-top", "action": "assert", "level": "happyPath",
+      "comment": "NEGATIVE CONTROL.",
+      "target": { "identifier": "previewScrollFractionLabel" },
+      "assert": { "property": "value", "op": "equals", "expected": "0.000" } },
+
+    { "id": "open-goto", "action": "menu", "level": "happyPath",
+      "args": { "menuPath": ["Edit", "Go to Line…"] } },
+
+    { "id": "wait-goto-sheet", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "goToLineField" }, "args": { "present": true } },
+
+    { "id": "type-line", "action": "type", "level": "happyPath",
+      "comment": "Line 230 is near the bottom of the 242-line fixture.",
+      "target": { "identifier": "goToLineField" }, "args": { "text": "230", "commit": true } },
+
+    { "id": "preview-scrolled-to-line", "action": "assert", "level": "happyPath",
+      "comment": "THE ASSERTION: the preview scrolled toward line 230. A regression (scrolling the hidden editor) leaves this 0.000.",
+      "target": { "identifier": "previewScrollFractionLabel" },
+      "assert": { "property": "value", "op": "notEquals", "expected": "0.000" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

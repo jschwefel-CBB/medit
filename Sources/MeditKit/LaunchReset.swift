@@ -65,6 +65,29 @@ public enum LaunchReset {
         arguments.contains(noAutoPreviewFlag)
     }
 
+    /// Launch flag that exposes the editor's and preview's vertical scroll fraction
+    /// (0…1) as AX-readable labels (`editorScrollFractionLabel`,
+    /// `previewScrollFractionLabel`). GUI-test hook only: AutoPilot's AX layer cannot
+    /// read a WKWebView's rendered scroll position, so scroll-to-match and
+    /// scroll-sync behavior is otherwise unassertable. Off by default — the labels
+    /// are hidden and never created in a normal launch. Usage: `--expose-scroll-fraction`.
+    public static let exposeScrollFractionFlag = "--expose-scroll-fraction"
+
+    /// Whether the given process arguments request the scroll-fraction test labels.
+    public static func isScrollFractionExposed(in arguments: [String]) -> Bool {
+        arguments.contains(exposeScrollFractionFlag)
+    }
+
+    /// Launch flag that enables performance profiling: hot paths (syntax highlight,
+    /// file read, preview render) log wall-clock durations to stderr. Diagnostic
+    /// only — off by default, no overhead in a normal launch. Usage: `--profile`.
+    public static let profileFlag = "--profile"
+
+    /// Whether the given process arguments request performance profiling.
+    public static func isProfiling(in arguments: [String]) -> Bool {
+        arguments.contains(profileFlag)
+    }
+
     /// Wipe every persisted preference for the app, including the sidebar root
     /// bookmarks, from the given defaults. Clearing the whole domain *and* the
     /// individual keys is deliberate belt-and-suspenders: `removePersistentDomain`
