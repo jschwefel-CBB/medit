@@ -680,8 +680,24 @@ public final class EditorViewController: NSViewController {
         // gives correctly-themed controls (pinning to aqua broke dark checkboxes).
         wv.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
 
-        let body = PerfLog.measure("preview.renderBody", "chars=\(currentText.count)",
-                                   { MarkdownHTMLRenderer.renderBody(currentText) })
+        // Memoize the Markdown render on its source text. `renderBody` is a pure
+        // function of the text (theme/padding/dark all live in the shell), and
+        // `renderPreview()` fires several times with identical text at open —
+        // the appearance observer, settings applies, the show itself — which cost
+        // a full re-render (~77 ms on a large document) each time. Same text →
+        // reuse the HTML; the shell/DOM logic below is unchanged either way.
+        let source = textView.string as NSString
+        let body: String
+        if let cachedBody = lastRenderedBody, let cachedSource = lastRenderedSource,
+           cachedSource.isEqual(to: source as String) {
+            body = cachedBody
+        } else {
+            body = PerfLog.measure("preview.renderBody", "chars=\(source.length)",
+                                   { MarkdownHTMLRenderer.renderBody(source as String) })
+            // Explicit copy: the text view's backing store is mutable, and a
+            // bridged string that shares it would mutate under the cache key.
+            lastRenderedSource = source.substring(with: NSRange(location: 0, length: source.length)) as NSString
+        }
         // First load (or after a theme flip) needs the full shell + CSS. Subsequent
         // edits replace only the body via JS, preserving scroll position and avoiding
         // a full page reparse/flash.
@@ -709,6 +725,10 @@ public final class EditorViewController: NSViewController {
     /// The body HTML currently in the DOM, so an unchanged re-render can skip the
     /// `innerHTML` write (which would destroy any selection).
     private var lastRenderedBody: String?
+
+    /// The source text `lastRenderedBody` was rendered from (an owned copy), so a
+    /// re-render with unchanged text can skip the Markdown render entirely.
+    private var lastRenderedSource: NSString?
 
     /// Debounced re-render while preview is visible and auto-refresh is on.
     private func schedulePreviewRefresh() {

@@ -4,6 +4,51 @@ Profiling pass to locate the slow code, for the speed-up pass. Measured on this
 machine, **arm64 Release build**, via the `--profile` launch flag (`PerfLog`, dormant
 otherwise). Timings are wall-clock, main thread.
 
+## ✅ Speed-up pass results (same day, causes 1–3 fixed)
+
+All three root causes below were fixed and re-measured (same machine, same files,
+same probes). Unit suite 430/430 green; `preview-edit-ops-noop.json` 20/20 after.
+
+| Metric | Before | After |
+|---|---|---|
+| Empty new tab: `tab.highlighterInit` | 30–73 ms | **0.01 ms** (shared engine) |
+| Empty new tab: `tab.viewDidLoad.total` | 38–97 ms | **10.8 ms** |
+| Open: main-thread block from tokenize | 478–1613 ms (froze the window) | **0 ms** (tokenize on background queue) |
+| Open large MD: `preview.renderBody` calls | 3 × ~77 ms | **1 ×** (~94 ms; memoized on source text) |
+| Open large Swift: `tab.viewDidLoad.total` | n/a (window frozen ~1.7 s) | 580 ms (see new finding below) |
+
+**How each was fixed** (`SyntaxHighlightingController.swift`, `EditorViewController.swift`):
+1. One process-wide `HighlightEngine` (highlight.js JSContext) on a serial background
+   queue; tokenize runs there with a generation guard + snapshot-equality check, and
+   only attribute application (95–116 ms) touches the main thread. Stale results are
+   dropped; the plain fallback stays synchronous so unhighlighted docs are unchanged.
+2. Tabs no longer construct an engine — `SyntaxHighlightingController.init` just
+   records config; the shared engine is themed lazily per tokenize (no-op when the
+   global theme is unchanged).
+3. `renderBody` memoized on an owned copy of its source text (`lastRenderedSource`);
+   it is a pure function of the text, so the appearance-observer / settings /
+   show-time calls with identical text now hit the cache.
+
+**Honest trade-offs / caveats:**
+- Colors now *arrive* after the window opens (e.g. ~2.3 s on the 470 KB Swift file)
+  instead of the window freezing for 1.7 s. Standard editor behavior, but visible.
+- Tokenize wall-time measured *higher* on the background queue (1613→2309 ms Swift,
+  478→658 ms MD) — likely efficiency-core scheduling at `.userInitiated`, possibly
+  run variance. It no longer blocks anything, but a follow-up could test
+  `.userInteractive` QoS if colors feel late.
+- `highlight.applyAttrs` (95–116 ms, main thread) still lands as one hitch when
+  colors arrive on very large files. Chunking it is a possible follow-up.
+
+## 🆕 NEW finding surfaced by the fix (was masked by the tokenize freeze)
+
+**`tab.bracketColorizer` = 365 ms (470 KB Swift) / 247 ms (366 KB MD), main thread,
+at open.** The table below calls it negligible (0.03 ms) — that was measured on an
+EMPTY tab; on large documents it was always costing hundreds of ms, hidden under the
+synchronous tokenize. With tokenize off the main thread it is now the dominant
+remaining open-time stall (bulk of the 580 ms / 1077 ms `viewDidLoad.total` on large
+files, alongside ~200–700 ms of not-yet-attributed work, likely initial text layout).
+**Not fixed — outside this pass's scope; next candidate, pending a decision.**
+
 ## Test files
 - `470 KB` Swift (5000 lines) — highlighter path
 - `366 KB` Markdown (21000 lines) — preview + highlighter path
