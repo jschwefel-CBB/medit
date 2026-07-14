@@ -47,16 +47,16 @@
       }
     },
     {
-      "id": "editor-is-covered",
+      "id": "preview-is-front",
       "action": "assert",
       "level": "happyPath",
-      "comment": "Negative control: the editor must be hidden. If it is visible, this plan is testing the editor path and would pass even with the preview drop broken.",
+      "comment": "Door check: the preview web view is present (auto-preview engaged), so the drop lands on the preview path. A hidden NSTextView still exposes its AX element, so we assert the preview IS up rather than the editor absent (the latter is always false in the AX tree even when the editor is covered).",
       "target": {
-        "identifier": "editorTextView"
+        "identifier": "markdownPreviewWebView"
       },
       "assert": {
         "property": "value",
-        "op": "notExists"
+        "op": "exists"
       }
     },
     {

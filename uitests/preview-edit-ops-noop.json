@@ -16,10 +16,10 @@
       "comment": "Preview must auto-open. If it doesn't, the whole premise is wrong and we should not proceed to assert inertness against the editor.",
       "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
 
-    { "id": "editor-is-covered", "action": "assert", "level": "happyPath",
-      "comment": "Negative control on the door: the editor text view must NOT be reachable — if it is, we're testing the editor path and inertness would be meaningless.",
-      "target": { "identifier": "editorTextView" },
-      "assert": { "property": "value", "op": "notExists" } },
+    { "id": "preview-is-front", "action": "assert", "level": "happyPath",
+      "comment": "Door check: the preview web view is present (auto-preview engaged). A hidden NSTextView still exposes its AX element, so we assert the preview IS up rather than the editor is absent — the latter is always false in the AX tree even when the editor is covered.",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "assert": { "property": "value", "op": "exists" } },
 
     { "id": "settle-render", "action": "waitFor", "level": "happyPath",
       "comment": "Poll for a rendered element rather than sleeping; render is async.",

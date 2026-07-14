@@ -283,6 +283,10 @@ public final class EditorViewController: NSViewController {
 
     public override func viewDidAppear() {
         super.viewDidAppear()
+        // Install the scroll-fraction test labels now the view is in a window — a
+        // label added in viewDidLoad (no window) isn't reliably registered in the
+        // AX tree. Idempotent; only does anything under --expose-scroll-fraction.
+        installScrollFractionHooksIfRequested()
         // Apply a focus request made before this view had a window (auto-preview
         // runs in viewDidLoad, where makeFirstResponder cannot work). Re-assert DOM
         // focus too: the web view's didFinish may have run before the window
@@ -801,8 +805,17 @@ public final class EditorViewController: NSViewController {
     private func makeFractionLabel(_ identifier: String) -> NSTextField {
         let label = NSTextField(labelWithString: "0.000")
         label.setAccessibilityIdentifier(identifier)
-        label.isHidden = true
-        label.frame = .zero
+        // Must stay in the AX tree for AutoPilot to read it: a hidden view is pruned
+        // from accessibility entirely. So keep it un-hidden but visually imperceptible
+        // — a 1×1 point in the corner, and explicitly marked an AX element so its
+        // string value is exposed. Only ever created under --expose-scroll-fraction.
+        label.isHidden = false
+        label.isBezeled = false
+        label.drawsBackground = false
+        label.textColor = .clear
+        label.frame = NSRect(x: 0, y: 0, width: 1, height: 1)
+        label.setAccessibilityElement(true)
+        label.setAccessibilityRole(.staticText)
         view.addSubview(label)
         return label
     }

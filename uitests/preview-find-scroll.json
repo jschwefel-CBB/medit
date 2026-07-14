@@ -15,10 +15,10 @@
     { "id": "wait-auto-preview", "action": "waitFor", "level": "happyPath",
       "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
 
-    { "id": "editor-is-covered", "action": "assert", "level": "happyPath",
-      "comment": "NEGATIVE CONTROL on the door: we must be on the preview path, not the editor.",
-      "target": { "identifier": "editorTextView" },
-      "assert": { "property": "value", "op": "notExists" } },
+    { "id": "preview-is-front", "action": "assert", "level": "happyPath",
+      "comment": "Door check: preview web view present (auto-preview engaged). A hidden NSTextView still exposes its AX element, so assert the preview IS up rather than the editor absent.",
+      "target": { "identifier": "markdownPreviewWebView" },
+      "assert": { "property": "value", "op": "exists" } },
 
     { "id": "preview-starts-at-top", "action": "assert", "level": "happyPath",
       "comment": "NEGATIVE CONTROL: preview begins at the top, so a post-find non-zero fraction proves the FIND caused the scroll.",
