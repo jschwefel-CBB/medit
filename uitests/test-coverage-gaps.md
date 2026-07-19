@@ -22,6 +22,7 @@ broken.
 |---|---|---|
 | `preview-copy-test.json` | auto-preview | ✅ yes |
 | `drop-files-onto-preview.json` | auto-preview | ✅ yes |
+| `preview-autolink-urls.json` | auto-preview | ✅ yes |
 | `edge-unicode-content.json` | `--no-auto-preview` | ❌ no |
 | `keyboard-scroll-preview.json` | `--no-auto-preview` | ❌ no |
 | `markdown-table-preview.json` | `--no-auto-preview` | ❌ no |

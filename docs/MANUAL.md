@@ -323,6 +323,10 @@ When block mode is active, a blue **BLK** pill appears in the status bar (next t
   selection, copy, and scrolling in the preview behave like a browser, and only
   `http(s)://` and `mailto:` links open externally (in-page anchors are handled
   internally). The body uses a proportional font; code uses monospace.
+- **URLs are always highlighted** — a web address or email typed as plain text
+  (e.g. `https://example.com` or `you@example.com`) is shown as a highlighted,
+  clickable link, exactly like a `[label](url)` link. `http(s)://` and `mailto:`
+  links open in your browser or mail client.
 - **Auto-Show Preview for Markdown** (Settings, **on by default**) — open `.md`
   files straight into the preview instead of the editor.
 - **Auto-refresh preview** (Settings) — keep the preview current as you edit or as
