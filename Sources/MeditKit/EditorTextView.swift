@@ -82,6 +82,17 @@ public final class EditorTextView: NSTextView {
     /// keyCode is the reliable signal across keyboards.
     private static let insertKeyCode: UInt16 = 114
 
+    /// ⌥+scroll changes the text size. The controller owns the zoom, so the event
+    /// (carrying its scroll delta) rides up the responder chain; everything else
+    /// scrolls normally.
+    public override func scrollWheel(with event: NSEvent) {
+        if event.modifierFlags.contains(.option), event.scrollingDeltaY != 0 {
+            NSApp.sendAction(Selector(("zoomScrollFromEvent:")), to: nil, from: event)
+            return
+        }
+        super.scrollWheel(with: event)
+    }
+
     public override func keyDown(with event: NSEvent) {
         // Column-edit mode handles Escape (exit) and arrows (move/extend the block)
         // before anything else.
@@ -103,6 +114,15 @@ public final class EditorTextView: NSTextView {
         if event.modifierFlags.contains(.control),
            event.charactersIgnoringModifiers?.lowercased() == "g" {
             NSApp.sendAction(Selector(("goToLine:")), to: nil, from: self)
+            return
+        }
+
+        // ⌘= -> zoom in. This is the +/= key WITHOUT Shift, the ergonomic partner of
+        // the menu's ⌘+ (which is ⌘⇧=); ⌘- and ⌘0 come from the View menu. Routed up
+        // the responder chain to the controller, which owns the text-size zoom.
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+           event.charactersIgnoringModifiers == "=" {
+            NSApp.sendAction(Selector(("zoomIn:")), to: nil, from: self)
             return
         }
 

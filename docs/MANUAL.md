@@ -135,6 +135,20 @@ blank tab instead of leaving it behind.
 
 ## 5. Editing
 
+### Text size (zoom)
+
+Change the on-screen text size at any time, in either the editor or the rendered
+Markdown preview:
+
+- **Zoom In** — ⌘+ (also ⌘=), or **View ▸ Zoom In**
+- **Zoom Out** — ⌘−, or **View ▸ Zoom Out**
+- **Actual Size** — ⌘0, or **View ▸ Actual Size**
+- **⌥ + scroll** (hold Option and scroll up/down) — zoom in / out continuously
+
+Zoom is a temporary, per-window adjustment layered on top of your base font — it
+resets to Actual Size on a new window and is not saved. To change the *permanent*
+font and size, use **Settings ▸ Editor**.
+
 ### Auto-indent & bracket assist
 
 - **Auto-indent** — pressing Return keeps the previous line's indentation, and adds
@@ -625,6 +639,9 @@ Sidebar**, and **Show Recent Files in Sidebar**.
 | ⇧⌘F | Find in all tabs |
 | ⌘L / ⌃G | Go to Line |
 | ⇧⌘V | Show Markdown preview |
+| ⌘+ (or ⌘=) | Zoom in (text size) |
+| ⌘− | Zoom out (text size) |
+| ⌘0 | Actual size (reset zoom) — also ⌥+scroll to zoom |
 | ⌥⌘B | Column (block) selection mode |
 | Esc | Exit column (block) mode |
 | ⌘⌃0 | Toggle sidebar |

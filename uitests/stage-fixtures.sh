@@ -26,7 +26,7 @@ fi
 # 1. Committed text fixtures.
 for f in long.txt long.md mw-a.txt mw-b.txt open-a.txt open-b.txt open-c.txt \
          table-test.md copy-test.md unicode-content.md invalid-utf8.txt \
-         regex-metachars.txt noext noop.md autolink.md; do
+         regex-metachars.txt noext noop.md autolink.md tab-a.md tab-b.md; do
   cp "$SRC/$f" "/tmp/medit-ap-$f"
 done
 # table-test.md also needs a bare /tmp/table-test.md path (used by markdown-table-preview.json)

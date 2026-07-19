@@ -29,6 +29,30 @@ public final class EditorViewController: NSViewController {
     private var previewWebView: WKWebView?
     private var previewRefreshWorkItem: DispatchWorkItem?
 
+    // MARK: Text-size zoom
+    //
+    // A live, per-window text-size multiplier applied on top of the base font
+    // (`prefs.fontSize`). It is intentionally NOT persisted — the base font size is
+    // the durable Preferences setting; zoom is a transient adjustment that resets
+    // to 100% on a fresh window, matching how editors and browsers behave. One
+    // scale drives BOTH the editor font and the preview (CSS `zoom`), so toggling
+    // between them stays consistent. Driven by ⌘+/⌘-/⌘0 and ⌥+scroll.
+    private var zoomScale: CGFloat = 1.0
+    private let minZoom: CGFloat = 0.5
+    private let maxZoom: CGFloat = 3.0
+    private let zoomStep: CGFloat = 1.1
+    /// ⌥+scroll accumulates delta and steps once per threshold crossing, so the
+    /// editor re-highlights a bounded number of times instead of once per event.
+    private var scrollZoomAccumulator: CGFloat = 0
+    private let scrollZoomThreshold: CGFloat = 3
+
+    /// The base font size scaled by the current zoom, clamped to a sane range.
+    /// Every editor-font consumer (text view, ruler, highlighter) reads this, so
+    /// zoom survives re-config (a preferences change, an appearance flip).
+    private var effectiveFontSize: CGFloat {
+        min(96, max(6, prefs.fontSize * zoomScale))
+    }
+
     /// The window controller that handles "New Tab" from our context menu.
     weak var newTabActionTarget: AnyObject?
 
@@ -439,6 +463,11 @@ public final class EditorViewController: NSViewController {
     /// Test hooks.
     public func sortSelectedLinesForTesting(ascending: Bool) { sortSelectedLines(ascending: ascending) }
     public func changeCaseForTesting(_ mode: TextTransforms.Case) { changeCaseOfSelection(to: mode) }
+    /// Zoom test hooks: the raw scale, the resulting editor point size, and the
+    /// live text-view point size (the user-visible result these must agree with).
+    public var zoomScaleForTesting: CGFloat { zoomScale }
+    public var effectiveFontSizeForTesting: CGFloat { effectiveFontSize }
+    public var textViewPointSizeForTesting: CGFloat { textView.font?.pointSize ?? 0 }
 
     // MARK: Markdown preview
 
@@ -742,8 +771,9 @@ public final class EditorViewController: NSViewController {
     // MARK: Font
 
     private func configureFont() {
-        let font = NSFont(name: prefs.fontName, size: prefs.fontSize)
-            ?? NSFont.monospacedSystemFont(ofSize: prefs.fontSize, weight: .regular)
+        let size = effectiveFontSize
+        let font = NSFont(name: prefs.fontName, size: size)
+            ?? NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
         textView.font = font
         // Tab width in terms of spaces of the current font.
         applyTabWidth(font: font)
@@ -761,6 +791,62 @@ public final class EditorViewController: NSViewController {
         // Always carry a foreground so the caret and freshly typed/pasted text
         // are visible even before the highlighter runs.
         textView.typingAttributes[.foregroundColor] = EditorColors.foreground
+    }
+
+    // MARK: Text-size zoom
+
+    /// Menu / key-equivalent entry points. `@objc` + responder-chain reachable so
+    /// they fire whether the editor text view or the preview web view is first
+    /// responder (the preview forwards the chord to avoid WebKit swallowing it).
+    @objc public func zoomIn(_ sender: Any?)     { setZoom(zoomScale * zoomStep) }
+    @objc public func zoomOut(_ sender: Any?)    { setZoom(zoomScale / zoomStep) }
+    @objc public func actualSize(_ sender: Any?) { setZoom(1.0) }
+
+    /// ⌥+scroll entry point for the editor and preview views. The sender is the
+    /// NSEvent so its scroll delta rides up the responder chain to here.
+    @objc public func zoomScrollFromEvent(_ sender: Any?) {
+        if let event = sender as? NSEvent { zoomByScroll(event.scrollingDeltaY) }
+    }
+
+    /// ⌥+scroll: accumulate the wheel delta and step once per threshold crossing.
+    public func zoomByScroll(_ deltaY: CGFloat) {
+        guard deltaY != 0 else { return }
+        scrollZoomAccumulator += deltaY
+        while scrollZoomAccumulator >= scrollZoomThreshold {
+            scrollZoomAccumulator -= scrollZoomThreshold
+            setZoom(zoomScale * zoomStep)
+        }
+        while scrollZoomAccumulator <= -scrollZoomThreshold {
+            scrollZoomAccumulator += scrollZoomThreshold
+            setZoom(zoomScale / zoomStep)
+        }
+    }
+
+    /// Clamp, store, and apply a new zoom scale to both the editor and the preview.
+    func setZoom(_ scale: CGFloat) {
+        let clamped = min(maxZoom, max(minZoom, scale))
+        guard abs(clamped - zoomScale) > 0.0001 else { return }
+        zoomScale = clamped
+        applyZoom()
+    }
+
+    private func applyZoom() {
+        // Editor: rebuild the font at the scaled size and re-point every consumer.
+        configureFont()
+        ruler?.updateFont(matching: textView.font)
+        highlighter?.setFont(name: prefs.fontName, size: effectiveFontSize)
+        // Preview: CSS `zoom` scales the rendered page. Setting it on the persistent
+        // <body> element survives `innerHTML` re-renders; a full shell reload
+        // recreates <body>, so `didFinish` re-applies it too.
+        applyPreviewZoom()
+    }
+
+    /// Push the current zoom to the preview's <body>. No-op unless the preview
+    /// exists; safe to call before it has finished loading (the value simply
+    /// re-applies on `didFinish`).
+    private func applyPreviewZoom() {
+        guard let wv = previewWebView else { return }
+        wv.evaluateJavaScript("if (document.body) { document.body.style.zoom = '\(zoomScale)'; }")
     }
 
     // MARK: Wrap
@@ -900,7 +986,7 @@ public final class EditorViewController: NSViewController {
                 textStorage: storage,
                 language: document?.highlightLanguage,
                 fontName: prefs.fontName,
-                fontSize: prefs.fontSize,
+                fontSize: effectiveFontSize,
                 themeName: theme
             )
         }
@@ -947,7 +1033,7 @@ public final class EditorViewController: NSViewController {
         configureRuler(visible: prefs.showLineNumbers)
         ruler?.updateFont(matching: textView.font)
         let isDark = view.effectiveAppearance.isDark
-        highlighter?.setFont(name: prefs.fontName, size: prefs.fontSize)
+        highlighter?.setFont(name: prefs.fontName, size: effectiveFontSize)
         highlighter?.setTheme(prefs.highlightThemeName(forDarkMode: isDark))
         if let editorTextView = textView as? EditorTextView {
             editorTextView.pcStyleNavigationKeys = prefs.pcStyleNavigationKeys
@@ -1256,6 +1342,9 @@ extension EditorViewController: WKNavigationDelegate {
     /// preview on their own — this app-injected handler restores that behavior.
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         webView.evaluateJavaScript(PreviewHTMLTemplate.scrollKeyHandlerJS)
+        // A full shell load recreates <body>, dropping any prior CSS zoom — restore
+        // the current text-size zoom so it persists across re-renders and reloads.
+        applyPreviewZoom()
     }
 
     /// Allow only the in-app HTML load; open clicked web/mail links in the default
