@@ -841,12 +841,17 @@ public final class EditorViewController: NSViewController {
         applyPreviewZoom()
     }
 
-    /// Push the current zoom to the preview's <body>. No-op unless the preview
-    /// exists; safe to call before it has finished loading (the value simply
-    /// re-applies on `didFinish`).
+    /// Push the current zoom to the preview. Applied to the **document element**
+    /// (`<html>`), NOT `<body>`: CSS `zoom` on `<body>` makes body its own scroll
+    /// container, which collapses `document.documentElement.scrollHeight` to the
+    /// viewport height and breaks the preview's programmatic scrolling (Find /
+    /// Go-to-Line / scroll-sync, which read that height and call `window.scrollTo`).
+    /// Zooming `<html>` scales the content the same way while keeping it the
+    /// scroller. No-op unless the preview exists; safe before load (re-applied on
+    /// `didFinish`).
     private func applyPreviewZoom() {
         guard let wv = previewWebView else { return }
-        wv.evaluateJavaScript("if (document.body) { document.body.style.zoom = '\(zoomScale)'; }")
+        wv.evaluateJavaScript("document.documentElement.style.zoom = '\(zoomScale)';")
     }
 
     // MARK: Wrap
