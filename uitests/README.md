@@ -1,6 +1,6 @@
 # medit GUI tests (AutoPilot)
 
-These are declarative GUI test plans executed by [AutoPilot](https://github.com/jschwefel-CBB/autopilot-macos) —
+These are declarative GUI test plans executed by [AutoPilot](https://github.com/TestingAutoPilot/autopilot-macos) —
 the `autopilot` CLI (`/opt/homebrew/bin/autopilot`). They drive the built medit app via the
 macOS Accessibility API.
 
