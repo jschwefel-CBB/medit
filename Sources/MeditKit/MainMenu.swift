@@ -271,6 +271,26 @@ public enum MainMenu {
         menu.addItem(recentPane)
         menu.addItem(.separator())
 
+        // Text size (zoom). ⌘+ (⌘⇧=), ⌘-, ⌘0; ⌘= and ⌥+scroll also change the size
+        // and are handled in the editor / preview views. Targeted at the responder
+        // chain (EditorViewController) so they work whether the editor text view or
+        // the preview web view is first responder.
+        let zoomIn = NSMenuItem(title: "Zoom In",
+                                action: #selector(EditorViewController.zoomIn(_:)), keyEquivalent: "+")
+        zoomIn.keyEquivalentModifierMask = [.command]
+        menu.addItem(zoomIn)
+
+        let zoomOut = NSMenuItem(title: "Zoom Out",
+                                 action: #selector(EditorViewController.zoomOut(_:)), keyEquivalent: "-")
+        zoomOut.keyEquivalentModifierMask = [.command]
+        menu.addItem(zoomOut)
+
+        let actualSize = NSMenuItem(title: "Actual Size",
+                                    action: #selector(EditorViewController.actualSize(_:)), keyEquivalent: "0")
+        actualSize.keyEquivalentModifierMask = [.command]
+        menu.addItem(actualSize)
+        menu.addItem(.separator())
+
         let lineNumbers = NSMenuItem(title: "Show Line Numbers",
                                      action: #selector(EditorWindowController.toggleLineNumbers(_:)), keyEquivalent: "l")
         lineNumbers.keyEquivalentModifierMask = [.command, .shift]

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.1",
+  "name": "preview autolink: a bare URL in an AUTO-OPENED Markdown preview renders as a link",
+  "comment": "Regression guard for bare-URL autolinking. swift-markdown does not attach the GFM autolink extension, so a URL typed as plain prose ('Visit https://example.com') is a Text node and rendered in body colour — NOT a link — while [label](url) and <url> are. This plan opens a .md whose ONLY possible link is a bare URL and asserts the user-visible outcome: an AXLink appears in the rendered web content. That is the fail-without-fix design — with autolinking removed the fixture yields ZERO AXLink, so this plan goes red. CRITICAL: like preview-copy-test.json this must NOT pass --no-auto-preview and must NOT open the preview from the View menu; both enter through the editor-visible door the user never uses and would hide any auto-preview-only defect. Cross-check: MarkdownHTMLRendererTests asserts the emitted <a href> HTML (and the negative cases — code/nested links get NO anchor); this plan asserts the rendered AXLink the user actually sees. Requires staged /tmp/medit-ap-autolink.md (uitests/stage-fixtures.sh) and the Debug build.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": ["/tmp/medit-ap-autolink.md"]
+  },
+  "defaults": { "timeoutMs": 10000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+
+    { "id": "wait-auto-preview", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+    { "id": "wait-web-area", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWebArea" }, "args": { "present": true } },
+    { "id": "settle-render", "action": "wait", "level": "happyPath", "args": { "seconds": 3 } },
+
+    { "id": "bare-url-is-a-link", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXLink" }, "args": { "present": true } },
+
+    { "id": "shot-preview", "action": "screenshot", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "padding": 0 } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

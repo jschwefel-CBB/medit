@@ -1236,4 +1236,30 @@ What to add, beyond the items already called out above:
 | `setValue` then `Return` doesn't rename file | `setValue` fires no action | assert "entered rename," not the commit |
 | Restored doc/JWT content appears on every launch | macOS state restoration + autosave, outside prefs domain | strengthen the app's `--reset-state` |
 
+## Session 2026-07-19 (2.9.2: text-size zoom + ⌃⇥ fix)
+
+- **`run` attaches to an ALREADY-RUNNING same-bundle-id app instead of spawning a
+  fresh one** (NEW, significant). macOS LaunchServices routes a launch of
+  `target.path` to any running app with that bundle id, so AP drives *that*
+  instance and the plan's `launchArgs` (`--reset-state`, `launchFiles`) are silently
+  ignored. Running the suite while a normal `com.jschwefel.medit` build was open
+  drove the user's live session (opened the plan's fixtures into it, `one-window`
+  saw `actual=2`). Workaround that fully isolates: copy the Debug build, change
+  `CFBundleIdentifier` (`com.jschwefel.medit.aptest`), re-sign, point plans there —
+  a distinct bundle id can't collide, so `--reset-state` applies. **AP could fix
+  this by force-spawning a new instance (it already passes launch args, which imply
+  a fresh launch).**
+- **Saved-state contamination recurred** (the last appendix row): back-to-back
+  plans inherited the prior plan's restored document (`editor-behaviors` asserted
+  `alpha file contents`). Clearing `~/Library/Saved Application State/<bid>.savedState`
+  before each plan makes it pass clean (22/22). `--reset-state` should also clear
+  macOS saved application state, not just the app's own session.
+- **Open / not yet root-caused** (proven NOT caused by the 2.9.2 code — fail
+  identically on pristine `main`): `preview-find-scroll`, `preview-goto-line-scroll`,
+  `preview-scroll-sync` (programmatic `scrollPreview` read the fraction as `0.000`
+  under the isolated harness while keyboard scrolling passed), and the two
+  real-Finder-drag plans (`drop-files-onto-editor/preview`, plausibly two-window
+  drag-coordinate targeting). Needs a canonical single-instance run (real bundle id,
+  no other medit open) to decide AP-vs-plan-vs-setup.
+
 — end of report

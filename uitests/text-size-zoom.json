@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.1",
+  "name": "text-size zoom: View menu Zoom In / Zoom Out / Actual Size drive the preview without crashing",
+  "comment": "End-to-end smoke for the text-size feature. Opens a .md into auto-preview and drives the View ▸ Zoom In / Zoom Out / Actual Size menu items, screenshotting so the size change is visible. AP cannot read a font's point size, so the NUMERIC behaviour (steps, clamps, reset, ⌥+scroll accumulation, ⌘-chord mapping) is covered by TextZoomTests; this plan proves the menu → controller wiring works end-to-end and the preview stays alive (web area still present) after zooming. The ⌘+/⌘-/⌘0 key equivalents and ⌥+scroll share the same controller entry points these menu items hit. Requires staged fixtures + the Debug build.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": ["/tmp/medit-ap-autolink.md"]
+  },
+  "defaults": { "timeoutMs": 10000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "wait-auto-preview", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+    { "id": "wait-web-area", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWebArea" }, "args": { "present": true } },
+    { "id": "settle-render", "action": "wait", "level": "happyPath", "args": { "seconds": 3 } },
+
+    { "id": "shot-actual", "action": "screenshot", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "padding": 0 } },
+
+    { "id": "zoom-in-1", "action": "menu", "level": "happyPath", "args": { "menuPath": ["View", "Zoom In"] } },
+    { "id": "zoom-in-2", "action": "menu", "level": "happyPath", "args": { "menuPath": ["View", "Zoom In"] } },
+    { "id": "zoom-in-3", "action": "menu", "level": "happyPath", "args": { "menuPath": ["View", "Zoom In"] } },
+    { "id": "settle-in", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "shot-zoomed-in", "action": "screenshot", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "padding": 0 } },
+
+    { "id": "preview-alive-after-zoom", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWebArea" }, "args": { "present": true } },
+
+    { "id": "zoom-out-1", "action": "menu", "level": "integrationSuite", "args": { "menuPath": ["View", "Zoom Out"] } },
+    { "id": "zoom-out-2", "action": "menu", "level": "integrationSuite", "args": { "menuPath": ["View", "Zoom Out"] } },
+    { "id": "actual-size", "action": "menu", "level": "happyPath", "args": { "menuPath": ["View", "Actual Size"] } },
+    { "id": "settle-reset", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+    { "id": "shot-reset", "action": "screenshot", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "padding": 0 } },
+
+    { "id": "preview-alive-after-reset", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWebArea" }, "args": { "present": true } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}

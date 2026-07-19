@@ -6,6 +6,24 @@ records what IS covered)._
 
 ---
 
+## ⚠ Running AP while a medit instance is already open
+
+`autopilot run` launches `target.path`, but macOS LaunchServices routes a launch to any
+**already-running app with the same bundle id** — so AP **attaches to that instance instead of
+spawning a fresh one**, and the plan's `launchArgs` (e.g. `--reset-state`) are silently ignored.
+If a normal `com.jschwefel.medit` build is open, the suite drives **it** (opening the plan's
+fixtures into the user's session, sending its keystrokes there). Verified: a run with a user
+instance up failed `one-window` with `actual=2` and left the fixtures open in the user's app.
+
+To run AP without touching a live instance, point the plans at a copy of the Debug build whose
+`CFBundleIdentifier` has been changed (e.g. `com.jschwefel.medit.aptest`) and re-signed
+(`codesign --force --deep --sign -`); a distinct bundle id can't collide, so AP gets its own
+isolated process. `--reset-state` then applies and default prefs (auto-preview on) hold. Reap
+only the test process between plans (`pkill -f "medit-aptest.app/Contents/MacOS/medit"`) — never
+a bare `pkill medit`, which would also kill the user's instance.
+
+---
+
 ## ⚠ Standing blind spot: the auto-preview path
 
 **Every Markdown document opens into the rendered preview by default**
@@ -22,6 +40,9 @@ broken.
 |---|---|---|
 | `preview-copy-test.json` | auto-preview | ✅ yes |
 | `drop-files-onto-preview.json` | auto-preview | ✅ yes |
+| `preview-autolink-urls.json` | auto-preview | ✅ yes |
+| `ctrl-tab-switches-tab-in-preview.json` | auto-preview | ✅ yes |
+| `text-size-zoom.json` | auto-preview | ✅ yes |
 | `edge-unicode-content.json` | `--no-auto-preview` | ❌ no |
 | `keyboard-scroll-preview.json` | `--no-auto-preview` | ❌ no |
 | `markdown-table-preview.json` | `--no-auto-preview` | ❌ no |

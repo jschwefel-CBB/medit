@@ -135,6 +135,20 @@ blank tab instead of leaving it behind.
 
 ## 5. Editing
 
+### Text size (zoom)
+
+Change the on-screen text size at any time, in either the editor or the rendered
+Markdown preview:
+
+- **Zoom In** — ⌘+ (also ⌘=), or **View ▸ Zoom In**
+- **Zoom Out** — ⌘−, or **View ▸ Zoom Out**
+- **Actual Size** — ⌘0, or **View ▸ Actual Size**
+- **⌥ + scroll** (hold Option and scroll up/down) — zoom in / out continuously
+
+Zoom is a temporary, per-window adjustment layered on top of your base font — it
+resets to Actual Size on a new window and is not saved. To change the *permanent*
+font and size, use **Settings ▸ Editor**.
+
 ### Auto-indent & bracket assist
 
 - **Auto-indent** — pressing Return keeps the previous line's indentation, and adds
@@ -323,6 +337,10 @@ When block mode is active, a blue **BLK** pill appears in the status bar (next t
   selection, copy, and scrolling in the preview behave like a browser, and only
   `http(s)://` and `mailto:` links open externally (in-page anchors are handled
   internally). The body uses a proportional font; code uses monospace.
+- **URLs are always highlighted** — a web address or email typed as plain text
+  (e.g. `https://example.com` or `you@example.com`) is shown as a highlighted,
+  clickable link, exactly like a `[label](url)` link. `http(s)://` and `mailto:`
+  links open in your browser or mail client.
 - **Auto-Show Preview for Markdown** (Settings, **on by default**) — open `.md`
   files straight into the preview instead of the editor.
 - **Auto-refresh preview** (Settings) — keep the preview current as you edit or as
@@ -621,6 +639,9 @@ Sidebar**, and **Show Recent Files in Sidebar**.
 | ⇧⌘F | Find in all tabs |
 | ⌘L / ⌃G | Go to Line |
 | ⇧⌘V | Show Markdown preview |
+| ⌘+ (or ⌘=) | Zoom in (text size) |
+| ⌘− | Zoom out (text size) |
+| ⌘0 | Actual size (reset zoom) — also ⌥+scroll to zoom |
 | ⌥⌘B | Column (block) selection mode |
 | Esc | Exit column (block) mode |
 | ⌘⌃0 | Toggle sidebar |

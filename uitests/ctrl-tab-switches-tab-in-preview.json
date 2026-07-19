@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.1",
+  "name": "Ctrl+Tab switches tabs on the FIRST press while a rendered preview is focused",
+  "comment": "End-to-end guard for the 'twice on the rendered page, once in text' bug. Two .md files open as tabs (one window); auto-preview is on, so the front tab's WKWebView is first responder. WebKit swallowed the first Ctrl+Tab, so the tab didn't switch until the second press. This presses ⌃⇥ exactly ONCE and asserts the front tab changed. FAIL-WITHOUT-FIX: with the PreviewWebView interception removed, one press does nothing and the front-tab title stays put, so this goes red. Cross-check: PreviewTabSwitchTests unit-tests the pure decision (tabSwitchIntent); this asserts the user-visible switch the unit test cannot (selectNextTab only moves the selection on-screen). NOTE on initial tab: opening [tab-a, tab-b] leaves the LAST-opened file (tab-b) active; if that assumption is ever wrong the first assert flags it. Requires staged fixtures + the Debug build.",
+  "target": {
+    "path": "/Volumes/Scratch/Xcode/DerivedData/Debug/medit.app",
+    "launchArgs": ["--reset-state"],
+    "launchFiles": ["/tmp/medit-ap-tab-a.md", "/tmp/medit-ap-tab-b.md"]
+  },
+  "defaults": { "timeoutMs": 10000, "retryIntervalMs": 150 },
+  "steps": [
+    { "id": "wait-window", "action": "waitFor", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "args": { "present": true } },
+    { "id": "one-window", "action": "assert", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "assert": { "property": "count", "op": "equals", "expected": "1" } },
+
+    { "id": "wait-auto-preview", "action": "waitFor", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "present": true } },
+    { "id": "settle-render", "action": "wait", "level": "happyPath", "args": { "seconds": 3 } },
+
+    { "id": "front-tab-is-b", "action": "assert", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "assert": { "property": "title", "op": "contains", "expected": "tab-b" } },
+
+    { "id": "shot-before", "action": "screenshot", "level": "happyPath",
+      "args": { "path": "/tmp/medit-uitests/ctrltab-before.png" } },
+
+    { "id": "ctrl-tab-once", "action": "keyPress", "level": "happyPath",
+      "target": { "identifier": "markdownPreviewWebView" }, "args": { "keys": "ctrl+tab" } },
+    { "id": "settle-switch", "action": "wait", "level": "happyPath", "args": { "seconds": 1 } },
+
+    { "id": "front-tab-switched-to-a", "action": "assert", "level": "happyPath",
+      "target": { "role": "AXWindow" }, "assert": { "property": "title", "op": "contains", "expected": "tab-a" } },
+
+    { "id": "shot-after", "action": "screenshot", "level": "happyPath",
+      "args": { "path": "/tmp/medit-uitests/ctrltab-after.png" } },
+
+    { "id": "quit", "action": "terminate", "level": "happyPath" }
+  ]
+}
