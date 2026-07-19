@@ -1,7 +1,7 @@
 # medit 1.5 — Autopilot GUI Test Plan
 
 Executable GUI test plans for **medit 1.5.0**, authored to the
-[autopilot Test Plan Authoring Guide](https://github.com/jschwefel-CBB/autopilot/blob/main/docs/AUTHORING.md)
+[autopilot Test Plan Authoring Guide](https://github.com/TestingAutoPilot/autopilot/blob/main/docs/AUTHORING.md)
 (schema version `1.0`). Each `.json` file is a deterministic, LLM-free plan: the
 same plan against the same app build produces the same result every run.
 
